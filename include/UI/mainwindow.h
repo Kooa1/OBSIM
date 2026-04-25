@@ -11,8 +11,9 @@
 #include <QHBoxLayout>
 
 #include "UI/sdlwindow.h"
+#include "UI/controlbar.h"
 
-class MainWindow : public QWidget {
+class MainWindow final : public QWidget {
     Q_OBJECT
 
 public:
@@ -23,7 +24,18 @@ public:
     bool init_UI();
 
 public slots:
-    // void update_window_size();
+
+private:
+    void init_layout();
+
+    void center_on_primary_screen(QWidget *window);
+
+    void adjust_window_screen(QWidget *window = nullptr,
+                              double target_aspect_ratio = 16.0 / 9.0,
+                              double screen_occupancy_ratio = 0.78);
+
+protected:
+    void showEvent(QShowEvent *event) override;
 
 private:
     QVBoxLayout *main_layout = nullptr;
@@ -32,40 +44,7 @@ private:
 
     SDLWindow *sdl_window = nullptr;
 
-    // TitleBar *main_title_bar = nullptr;
-
-    // ToolsBar *main_tools_bar = nullptr;
-
-private:
-    QPoint drag_position;
-
-    QPoint mouse_press_pos;
-
-    QRect original_geometry;
-
-    int resize_edge = 0;
-
-private:
-    void init_layout();
-
-    // void init_conn();
-
-    // void init_CSS();
-
-    // void handle_resize(const QPoint &global_mouse_pos);
-
-    // void update_cursor_shape(const QPoint &pos);
-
-protected:
-    // void resizeEvent(QResizeEvent *event) override;
-
-    // void mousePressEvent(QMouseEvent *event) override;
-
-    // void mouseMoveEvent(QMouseEvent *event) override;
-
-    // void mouseReleaseEvent(QMouseEvent *event) override;
-
-    // void paintEvent(QPaintEvent *event) override;
+    ControlBar *control_bar = nullptr;
 };
 
 #endif //MAINWINDOW_H

@@ -62,6 +62,29 @@ public slots:
     void restore_volume();
 
 private:
+    bool init_SDL();
+
+    bool init_SDL_desired(std::tuple<int, uint16_t, int, SDL_AudioFormat>);
+
+    void init_content_policy();
+
+    // void init_conn();
+
+    void clean_player_core();
+
+    void destroy();
+
+    void sdl_change_size(int w, int h);
+
+    void create_sdl_texture(int video_wid, int video_hei);
+
+    static SDL_Rect resize_sdl_texture(int frame_w, int frame_h, int window_w, int window_h);
+
+    // static void audio_callback(void *userdata, Uint8 *stream, int len);
+
+    void calculate_diff(double audio_clock);
+
+private:
     std::string file_path;
 
     SDL_Window *sdl_window = nullptr;
@@ -88,29 +111,6 @@ private:
     // std::unique_ptr<PlayerCore> player_core;
 
     // SynWrapper *syn_wrapper;
-
-private:
-    bool init_SDL();
-
-    bool init_SDL_desired(std::tuple<int, uint16_t, int, SDL_AudioFormat>);
-
-    void init_content_policy();
-
-    // void init_conn();
-
-    void clean_player_core();
-
-    void destroy();
-
-    void sdl_change_size(int w, int h);
-
-    void create_sdl_texture(int video_wid, int video_hei);
-
-    static SDL_Rect resize_sdl_texture(int frame_w, int frame_h, int window_w, int window_h);
-
-    // static void audio_callback(void *userdata, Uint8 *stream, int len);
-
-    void calculate_diff(double audio_clock);
 
 signals:
     void size_hint_change();

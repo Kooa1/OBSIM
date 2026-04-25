@@ -5,8 +5,6 @@
 #include "UI/mainwindow.h"
 
 MainWindow::MainWindow() : QWidget(nullptr) {
-    // this->setWindowFlags(Qt::FramelessWindowHint);
-    //    this->setMinimumSize(640, 480);
     setMouseTracking(true);
 
     init_UI();
@@ -18,308 +16,82 @@ MainWindow::~MainWindow() = default;
 
 bool MainWindow::init_UI() {
     main_layout = new QVBoxLayout(this);
-    main_splitter = new QSplitter(Qt::Horizontal, this);
+    main_splitter = new QSplitter(Qt::Vertical, this);
     sdl_window = new SDLWindow(this);
-    // main_title_bar = new TitleBar(this);
-    // main_tools_bar = new ToolsBar(this);
+    control_bar = new ControlBar(this);
 
     init_layout();
 
     return true;
 }
 
-// void MainWindow::update_window_size() {
-//     // 保存当前窗口中心点
-//     QRect oldGeometry = this->geometry();
-//     QPoint center = oldGeometry.center();
-//
-//     // 调整窗口大小
-//     this->adjustSize();
-//
-//     // 计算新位置（保持原中心点）
-//     int x = center.x() - this->width() / 2;
-//     int y = center.y() - this->height() / 2;
-//
-//     // 确保窗口在屏幕可见区域内
-//     QScreen *screen = QGuiApplication::screenAt(center);
-//     if (!screen) {
-//         screen = QGuiApplication::primaryScreen();
-//     }
-//     QRect screenGeometry = screen->availableGeometry();
-//
-//     x = qMax(screenGeometry.x(), qMin(x, screenGeometry.x() + screenGeometry.width() - this->width()));
-//     y = qMax(screenGeometry.y(), qMin(y, screenGeometry.y() + screenGeometry.height() - this->height()));
-//
-//     // 移动窗口到新位置
-//     this->move(x, y);
-// }
-
 void MainWindow::init_layout() {
-    //test
     main_splitter->addWidget(sdl_window);
-
-    // main_layout->addWidget(main_title_bar);
+    main_splitter->addWidget(control_bar);
     main_layout->addWidget(main_splitter);
-    // main_layout->addWidget(main_tools_bar);
 
-    // init_conn();
-
+    adjust_window_screen(this);
     this->show();
 }
 
-// void MainWindow::init_conn() {
-//     connect(main_tools_bar->start_obj(), &QToolButton::clicked, this, [this]() {
-//         if (sdl_window->get_sdl_initialized_symbol()) {
-//             if (!sdl_window->get_rendering_symbol()) {
-//                 if (sdl_window->open_file()) {
-//                     sdl_window->start_rendering();
-//                     main_tools_bar->set_play_icon(true);
-//                     main_tools_bar->set_duration_disable(false);
-//                 }
-//             } else {
-//                 if (!sdl_window->get_rendering_pause_symbol()) {
-//                     sdl_window->set_rendering_pause_symbol(true);
-//                     main_tools_bar->set_play_icon(false);
-//                     main_tools_bar->set_duration_disable(true);
-//                 } else {
-//                     sdl_window->set_rendering_pause_symbol(false);
-//                     main_tools_bar->set_play_icon(true);
-//                     main_tools_bar->set_duration_disable(false);
-//                 }
-//             }
-//         }
-//     }, Qt::QueuedConnection);
-//
-//     connect(main_tools_bar->stop_obj(), &QToolButton::clicked, this, [this]() {
-//         if (sdl_window->get_rendering_symbol()) {
-//             SDL_PauseAudio(-1);
-//             sdl_window->stop_stream_line();
-//             main_tools_bar->set_play_icon(false);
-//             main_tools_bar->clean_duration();
-//             sdl_window->stop_rendering();
-//             sdl_window->shutdown_audio_device();
-//             main_tools_bar->set_duration_disable(true);
-//         }
-//     }, Qt::DirectConnection);
-//
-//     connect(main_tools_bar->open_file_obj(), &QToolButton::clicked, this, [this]() {
-//         if (sdl_window->get_rendering_symbol()) {
-//             SDL_PauseAudio(-1);
-//             sdl_window->stop_stream_line();
-//             main_tools_bar->set_play_icon(false);
-//             main_tools_bar->clean_duration();
-//             sdl_window->stop_rendering();
-//             sdl_window->shutdown_audio_device();
-//             main_tools_bar->set_duration_disable(true);
-//
-//             const auto file_name = sdl_window->open_file_dialog();
-//             sdl_window->open_file(file_name);
-//             main_tools_bar->set_duration_disable(false);
-//         } else {
-//             if (sdl_window->open_file()) {
-//                 sdl_window->start_rendering();
-//                 main_tools_bar->set_play_icon(true);
-//                 main_tools_bar->set_duration_disable(false);
-//             }
-//         }
-//     }, Qt::DirectConnection);
-//
-//     connect(sdl_window, &SDLWindow::size_hint_change, this, &MainWindow::update_window_size,
-//             Qt::QueuedConnection);
-//
-//     connect(sdl_window, &SDLWindow::whole_video_duration, main_tools_bar, &ToolsBar::change_tools_bar_duration,
-//             Qt::DirectConnection);
-//
-//     connect(sdl_window, &SDLWindow::play_over, this, [this]() {
-//         cout << "play over\n";
-//         SDL_PauseAudio(-1);
-//         sdl_window->stop_stream_line();
-//         sdl_window->stop_rendering();
-//         main_tools_bar->set_play_icon(false);
-//         main_tools_bar->set_duration_disable(true);
-//         main_tools_bar->clean_duration();
-//         sdl_window->shutdown_audio_device();
-//     });
-//
-//     connect(sdl_window, &SDLWindow::add_second, this, [this]() {
-//         main_tools_bar->add_second();
-//     }, Qt::QueuedConnection);
-//
-//     connect(main_tools_bar, &ToolsBar::seek, this, [this](const int current_second) {
-//         if (current_second == -1) {
-//             sdl_window->play_over();
-//             return;
-//         }
-//         sdl_window->set_seek_symbol(true, current_second);
-//     });
-//
-//     connect(main_tools_bar, &ToolsBar::volume, this, [this](const int volume) {
-//         sdl_window->set_volume(volume);
-//     });
-//
-//     connect(main_tools_bar, &ToolsBar::silent, this, [this]() {
-//         sdl_window->silent_volume();
-//         main_tools_bar->set_volume_icon(false);
-//     });
-//
-//     connect(main_tools_bar, &ToolsBar::s_restore, this, [this]() {
-//         sdl_window->restore_volume();
-//         main_tools_bar->set_volume_icon(true);
-//     });
-// }
+void MainWindow::center_on_primary_screen(QWidget *window) {
+    if (!window) return;
 
-// void MainWindow::init_CSS() {
-    //    main_splitter->setStyleSheet(R"(
-    //        QSplitter::handle {
-    //            background-color: #c0c0c0;
-    //            border: 1px solid #a0a0a0;
-    //        }
-    //        QSplitter::handle:hover {
-    //            background-color: #a0a0a0;
-    //        }
-    //        QSplitter::handle:horizontal {
-    //            width: 12px;
-    //            image: none;
-    //        }
-    //    )");
+    // 获取主屏幕
+    const QScreen *primary_screen = QGuiApplication::primaryScreen();
+    if (!primary_screen) return;
 
-    //    this->setStyleSheet(
-    //            "QMainWindow {"
-    //            "   background-color: #3498db;"
-    //            "   border: 3px solid #2980b9;"
-    //            "   border-radius: 5px;"
-    //            "}"
-    //            "QLabel {"
-    //            "   color: white;"
-    //            "   font-size: 16px;"
-    //            "}"
-    //    );
-// }
+    // 获取主屏幕的可用区域（排除任务栏等）
+    const QRect screenGeometry = primary_screen->availableGeometry();
 
-// 处理调整大小
-// void MainWindow::handle_resize(const QPoint &global_mouse_pos) {
-//     QRect new_geometry = original_geometry;
-//     const QPoint delta = global_mouse_pos - mouse_press_pos;
-//
-//     if (resize_edge & Qt::LeftEdge) {
-//         new_geometry.setLeft(original_geometry.left() + delta.x());
-//         if (new_geometry.width() < minimumWidth()) {
-//             new_geometry.setLeft(original_geometry.right() - minimumWidth());
-//         }
-//     }
-//     if (resize_edge & Qt::RightEdge) {
-//         new_geometry.setRight(original_geometry.right() + delta.x());
-//         if (new_geometry.width() < minimumWidth()) {
-//             new_geometry.setRight(original_geometry.left() + minimumWidth());
-//         }
-//     }
-//     if (resize_edge & Qt::TopEdge) {
-//         new_geometry.setTop(original_geometry.top() + delta.y());
-//         if (new_geometry.height() < minimumHeight()) {
-//             new_geometry.setTop(original_geometry.bottom() - minimumHeight());
-//         }
-//     }
-//     if (resize_edge & Qt::BottomEdge) {
-//         new_geometry.setBottom(original_geometry.bottom() + delta.y());
-//         if (new_geometry.height() < minimumHeight()) {
-//             new_geometry.setBottom(original_geometry.top() + minimumHeight());
-//         }
-//     }
-//
-//     setGeometry(new_geometry);
-// }
+    // 获取窗口大小
+    const QSize windowSize = window->size();
 
-// 更新光标形状
-// void MainWindow::update_cursor_shape(const QPoint &pos) {
-//     if (pos.x() < 5 && pos.y() < 5) {
-//         this->setCursor(Qt::SizeFDiagCursor);
-//     } else if (pos.x() < 5 && pos.y() > height() - 5) {
-//         this->setCursor(Qt::SizeBDiagCursor);
-//     } else if (pos.x() > width() - 5 && pos.y() < 5) {
-//         this->setCursor(Qt::SizeBDiagCursor);
-//     } else if (pos.x() > width() - 5 && pos.y() > height() - 5) {
-//         this->setCursor(Qt::SizeFDiagCursor);
-//     } else if (pos.x() < 5) {
-//         this->setCursor(Qt::SizeHorCursor);
-//     } else if (pos.x() > width() - 5) {
-//         this->setCursor(Qt::SizeHorCursor);
-//     } else if (pos.y() < 5) {
-//         this->setCursor(Qt::SizeVerCursor);
-//     } else if (pos.y() > height() - 5) {
-//         this->setCursor(Qt::SizeVerCursor);
-//     } else {
-//         this->setCursor(Qt::ArrowCursor);
-//     }
-// }
+    // 计算居中位置
+    const int x = screenGeometry.x() + (screenGeometry.width() - windowSize.width()) / 2;
+    const int y = screenGeometry.y() + (screenGeometry.height() - windowSize.height()) / 2;
 
-// void MainWindow::resizeEvent(QResizeEvent *event) {
-//     QWidget::resizeEvent(event);
-// }
+    // 移动窗口到中心位置
+    window->move(x, y);
+}
 
-// 鼠标按下事件 - 用于拖动和调整大小
-// void MainWindow::mousePressEvent(QMouseEvent *event) {
-//     if (event->button() == Qt::LeftButton) {
-//         drag_position = event->globalPosition().toPoint() - frameGeometry().topLeft();
-//         mouse_press_pos = event->globalPosition().toPoint();
-//         original_geometry = geometry();
-//
-//         // 确定鼠标在哪个边缘（用于调整大小）
-//         QPoint pos = event->pos();
-//         resize_edge = 0;
-//
-//         if (pos.x() < 5) resize_edge |= Qt::LeftEdge;
-//         if (pos.x() > width() - 5) resize_edge |= Qt::RightEdge;
-//         if (pos.y() < 5) resize_edge |= Qt::TopEdge;
-//         if (pos.y() > height() - 5) resize_edge |= Qt::BottomEdge;
-//
-//         event->accept();
-//     }
-// }
+void MainWindow::adjust_window_screen(QWidget *window, double target_aspect_ratio, double screen_occupancy_ratio) {
+    if (!window) return;
 
-// 鼠标移动事件 - 用于拖动和调整大小
-// void MainWindow::mouseMoveEvent(QMouseEvent *event) {
-//     if (event->buttons() & Qt::LeftButton) {
-//         if (resize_edge != 0) {
-//             // 调整大小
-//             handle_resize(event->globalPosition().toPoint());
-//         } else {
-//             // 拖动窗口
-//             move(event->globalPosition().toPoint() - drag_position);
-//         }
-//         event->accept();
-//     } else {
-//         // 更新光标形状
-//         update_cursor_shape(event->pos());
-//     }
-// }
+    // 1. 获取主屏幕可用区域（排除任务栏等）
+    const QScreen* screen = QGuiApplication::primaryScreen();
+    const QRect available = screen->availableGeometry();
 
-// 鼠标释放事件
-// void MainWindow::mouseReleaseEvent(QMouseEvent *event) {
-//     if (event->button() == Qt::LeftButton) {
-//         resize_edge = 0;
-//         setCursor(Qt::ArrowCursor);
-//         event->accept();
-//     }
-// }
+    // 屏幕原始大小（调试用）
+    QRect screen_rect = screen->geometry();
 
-// 绘制事件 - 添加一些视觉效果
-// void MainWindow::paintEvent(QPaintEvent *event) {
-//     Q_UNUSED(event);
-//     QPainter painter(this);
-//     painter.setRenderHint(QPainter::Antialiasing);
-//
-//     // 创建阴影渐变
-//     QRect shadow_rect = rect().adjusted(3, 3, -3, -3);
-//     QLinearGradient gradient(shadow_rect.topLeft(), shadow_rect.bottomRight());
-//     gradient.setColorAt(0, QColor(0, 0, 0, 2));
-//     gradient.setColorAt(1, Qt::transparent);
-//
-//     // 绘制阴影
-//     painter.setPen(Qt::NoPen);
-//     painter.setBrush(gradient);
-//     painter.drawRect(shadow_rect);
-//
-//     // 绘制边框
-//     painter.setPen(QPen(QColor(0, 0, 0), 2));
-//     painter.drawRect(rect().adjusted(1, 1, -1, -1));
-// }
+    // 2. 计算目标窗口高度（占可用高度的百分比）
+    int target_height = static_cast<int>(available.height() * screen_occupancy_ratio);
+
+    // 3. 根据宽高比计算目标宽度
+    int target_width = static_cast<int>(target_height * target_aspect_ratio);
+
+    // 4. 边界检查：如果计算出的宽度超过屏幕可用宽度，则以宽度为准重新计算
+    if (target_width > available.width() * 0.95) {
+        target_width = static_cast<int>(available.width() * 0.95);
+        target_height = static_cast<int>(target_width / target_aspect_ratio);
+    }
+
+    // 5. 设置窗口最小尺寸（防止过小）
+    int min_width = 1080;
+    int min_height = 720;
+    window->setMinimumSize(min_width, min_height);
+
+    // 6. 应用尺寸
+    window->resize(target_width, target_height);
+
+    // 7. 居中显示
+    int x = available.x() + (available.width() - target_width) / 2;
+    int y = available.y() + (available.height() - target_height) / 2;
+    window->move(x, y);
+}
+
+void MainWindow::showEvent(QShowEvent *event) {
+    QWidget::showEvent(event);
+    center_on_primary_screen(this);
+}

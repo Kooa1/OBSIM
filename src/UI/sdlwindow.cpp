@@ -8,7 +8,7 @@
 
 SDLWindow::SDLWindow(QWidget *parent)
     : QWidget(parent),
-      wind_wid(300), wind_hei(200),
+      wind_wid(1920), wind_hei(1080),
       sdl_wind_size(QSize(wind_wid, wind_hei)),
       sdl_initialized(false),
       sdl_rendering(false),

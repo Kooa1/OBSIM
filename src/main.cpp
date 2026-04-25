@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
 
     // const auto captor = std::make_unique<Captor>();
-    auto main_window = std::make_unique<MainWindow>();
+    auto main_window = new MainWindow();
 
     return QApplication::exec();
 }
