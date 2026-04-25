@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(OBSIM)
+project(MonitorServer)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_AUTOMOC ON)
@@ -11,10 +11,6 @@ if (WIN32)
     # 明确使用 MSVC 版本的 Qt（根据你的编译器）
     set(CMAKE_PREFIX_PATH "D:/application/Qt/6.9.0/msvc2022_64")
     
-    # SDL2 配置
-    include_directories("D:/src/SDL2-2.32.8/include")
-    link_directories("D:/src/SDL2-2.32.8/lib/x64")
-    
     # FFmpeg 配置
     include_directories("D:/src/ffmpeg-7.1.1-full_build-shared/include")
     link_directories("D:/src/ffmpeg-7.1.1-full_build-shared/lib")
@@ -24,10 +20,6 @@ if (WIN32)
 
 elseif (APPLE)
     set(CMAKE_PREFIX_PATH "/Users/wuwenze/Qt/6.9.0/macos/lib/cmake/Qt6")
-    
-    set(SDL_ROOT "/opt/homebrew/Cellar/sdl2/2.32.10")
-    include_directories("/opt/homebrew/Cellar/sdl2/2.32.10/include")
-    link_directories("/opt/homebrew/Cellar/sdl2/2.32.10/lib")
     
     set(FFMPEG_ROOT "/opt/homebrew/Cellar/ffmpeg/8.0_1")
     include_directories("/opt/homebrew/Cellar/ffmpeg/8.0_1/include")
@@ -62,23 +54,27 @@ file(GLOB_RECURSE SOURCE_FILES
 )
 
 # 添加可执行文件
-add_executable(OBSIM
+add_executable(MonitorServer
         ${SOURCE_FILES}
         ${HEADER_FILES}
         src/main.cpp
+        include/datasafequeue.h
+        src/captor.cpp
+        include/captor.h
+        include/av_err2str_cxx.h
+        src/UI/mainwindos.cpp
+        include/UI/mainwindos.h
 )
 
 # 设置包含目录
-target_include_directories(OBSIM PRIVATE
+target_include_directories(MonitorServer PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 if (WIN32)
-    target_link_libraries(OBSIM
+    target_link_libraries(MonitorServer
             vld
-            SDL2main
-            SDL2
             Qt6::Core
             Qt6::Gui
             Qt6::Widgets
@@ -89,12 +85,11 @@ if (WIN32)
             swscale
     )
 elseif (APPLE)
-    target_link_libraries(OBSIM
-            SDL2main
-            SDL2
+    target_link_libraries(MonitorServer
             Qt6::Core
             Qt6::Gui
             Qt6::Widgets
+            avdevice
             avformat
             avcodec
             avutil
@@ -120,26 +115,26 @@ if (WIN32)
     
     # 复制主要的 Qt DLLs
     foreach (QT_LIB Core Gui Widgets)
-        add_custom_command(TARGET OBSIM POST_BUILD
+        add_custom_command(TARGET MonitorServer POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${QT_INSTALL_PATH}/bin/Qt6${QT_LIB}${DEBUG_SUFFIX}.dll"
-                "$<TARGET_FILE_DIR:OBSIM>"
+                "$<TARGET_FILE_DIR:MonitorServer>"
                 COMMENT "Copying Qt6${QT_LIB}${DEBUG_SUFFIX}.dll"
         )
     endforeach ()
     
     # 复制平台插件
     if (EXISTS "${QT_INSTALL_PATH}/plugins/platforms/qwindows${DEBUG_SUFFIX}.dll")
-        add_custom_command(TARGET OBSIM POST_BUILD
+        add_custom_command(TARGET MonitorServer POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E make_directory
-                "$<TARGET_FILE_DIR:OBSIM>/plugins/platforms/"
+                "$<TARGET_FILE_DIR:MonitorServer>/plugins/platforms/"
                 COMMENT "Creating platforms directory"
         )
         
-        add_custom_command(TARGET OBSIM POST_BUILD
+        add_custom_command(TARGET MonitorServer POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${QT_INSTALL_PATH}/plugins/platforms/qwindows${DEBUG_SUFFIX}.dll"
-                "$<TARGET_FILE_DIR:OBSIM>/plugins/platforms/"
+                "$<TARGET_FILE_DIR:MonitorServer>/plugins/platforms/"
                 COMMENT "Copying qwindows${DEBUG_SUFFIX}.dll"
         )
     endif ()

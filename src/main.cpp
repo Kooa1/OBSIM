@@ -4,9 +4,10 @@
 
 // #include <vld.h>
 #include <QApplication>
-#include <QMainWindow>
 
-#include "captor.h"
+#include "PCH.h"
+// #include "captor.h"
+#include "UI/mainwindow.h"
 
 extern "C" {
 #include <libavdevice/avdevice.h>
@@ -20,7 +21,8 @@ int main(int argc, char *argv[]) {
 
     QApplication a(argc, argv);
 
-    const auto captor = std::make_unique<Captor>();
+    // const auto captor = std::make_unique<Captor>();
+    auto main_window = std::make_unique<MainWindow>();
 
     return QApplication::exec();
 }
