@@ -5,7 +5,7 @@
 // #include <vld.h>
 #include <QApplication>
 
-#include "PCH.h"
+#include "../include/PCH.h"
 // #include "captor.h"
 #include "UI/mainwindow.h"
 

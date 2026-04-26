@@ -16,16 +16,16 @@ extern "C" {
 #include <iostream>
 #include <fstream>
 
-#include "ffmpegfactory.h"
-#include "av_err2str_cxx.h"
+#include "../Utils/ffmpegfactory.h"
+#include "../Utils/av_err2str_cxx.h"
 
 using std::cout;
 
-class Captor {
+class Camera {
 public:
-    Captor();
+    Camera();
 
-    ~Captor() = default;
+    ~Camera() = default;
 
 private:
     void init_context();

@@ -59,7 +59,7 @@ void MainWindow::adjust_window_screen(QWidget *window, double target_aspect_rati
     if (!window) return;
 
     // 1. 获取主屏幕可用区域（排除任务栏等）
-    const QScreen* screen = QGuiApplication::primaryScreen();
+    const QScreen *screen = QGuiApplication::primaryScreen();
     const QRect available = screen->availableGeometry();
 
     // 屏幕原始大小（调试用）
@@ -78,16 +78,16 @@ void MainWindow::adjust_window_screen(QWidget *window, double target_aspect_rati
     }
 
     // 5. 设置窗口最小尺寸（防止过小）
-    int min_width = 1080;
-    int min_height = 720;
+    constexpr int min_width = 1024;
+    constexpr int min_height = 768;
     window->setMinimumSize(min_width, min_height);
 
     // 6. 应用尺寸
     window->resize(target_width, target_height);
 
     // 7. 居中显示
-    int x = available.x() + (available.width() - target_width) / 2;
-    int y = available.y() + (available.height() - target_height) / 2;
+    const int x = available.x() + (available.width() - target_width) / 2;
+    const int y = available.y() + (available.height() - target_height) / 2;
     window->move(x, y);
 }
 

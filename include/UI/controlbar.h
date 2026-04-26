@@ -5,7 +5,7 @@
 #ifndef OBSIM_CONTROLBAR_H
 #define OBSIM_CONTROLBAR_H
 
-#include "PCH.h"
+#include "../PCH.h"
 
 class ControlBar : public QWidget {
     Q_OBJECT

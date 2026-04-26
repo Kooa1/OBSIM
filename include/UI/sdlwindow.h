@@ -7,12 +7,8 @@
 
 #include <thread>
 
-#include "PCH.h"
-#include "ffmpegfactory.h"
-// #include "toolsbar.h"
-// #include "dumpformat.h"
-// #include "playercore.h"
-// #include "synwrapper.h"
+#include "../PCH.h"
+#include "../Utils/ffmpegfactory.h"
 
 extern "C" {
 #include <SDL.h>

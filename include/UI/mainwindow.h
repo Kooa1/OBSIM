@@ -5,13 +5,13 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include "PCH.h"
+#include "../PCH.h"
 
 #include <QSplitter>
 #include <QHBoxLayout>
 
 #include "UI/sdlwindow.h"
-#include "UI/controlbar.h"
+#include "controlbar.h"
 
 class MainWindow final : public QWidget {
     Q_OBJECT

@@ -2,14 +2,14 @@
 // Created by 66 on 2025/12/18.
 //
 
-#include "../include/captor.h"
+#include "../../include/Core/camera.h"
 
-Captor::Captor() {
+Camera::Camera() {
     av_log_set_level(AV_LOG_INFO);
     init_context();
 }
 
-void Captor::init_context() {
+void Camera::init_context() {
 #ifdef _WIN32
     av_input_format = av_find_input_format("dshow");
     device_name = "video=USB Camera";
@@ -105,7 +105,7 @@ void Captor::init_context() {
     decode_video(nullptr);
 }
 
-void Captor::decode_video(AVPacketPtr av_packet) {
+void Camera::decode_video(AVPacketPtr av_packet) {
     const auto packet = std::move(av_packet);
     if (const int ret = avcodec_send_packet(av_codec_context.get(), packet.get()); ret < 0) {
         av_log(nullptr, AV_LOG_ERROR, "send frame failed: %s\n", av_error_cxx(ret).c_str());
