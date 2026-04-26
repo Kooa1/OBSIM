@@ -12,6 +12,7 @@
 
 #include "UI/sdlwindow.h"
 #include "controlbar.h"
+#include "Core/captor.h"
 
 class MainWindow final : public QWidget {
     Q_OBJECT

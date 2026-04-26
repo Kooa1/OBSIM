@@ -8,7 +8,7 @@ MainWindow::MainWindow() : QWidget(nullptr) {
     setMouseTracking(true);
 
     init_UI();
-
+    auto captor = new Captor();
     QThread::currentThread()->setPriority(QThread::HighPriority);
 }
 
