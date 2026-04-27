@@ -6,8 +6,8 @@
 #include <QApplication>
 
 #include "../include/PCH.h"
-// #include "captor.h"
 #include "UI/mainwindow.h"
+#include "Core/coreengine.h"
 
 extern "C" {
 #include <libavdevice/avdevice.h>
@@ -15,7 +15,6 @@ extern "C" {
 }
 
 int main(int argc, char *argv[]) {
-
     const std::string rtmp_url = "rtemp://172.28.206.198/live/stream_key";
 
     avdevice_register_all();
@@ -23,8 +22,8 @@ int main(int argc, char *argv[]) {
 
     QApplication a(argc, argv);
 
-    // const auto captor = std::make_unique<Captor>();
-    auto main_window = new MainWindow();
+    auto core_engine = std::make_unique<CoreEngine>();
+    auto main_window = new MainWindow(*core_engine);
 
     return QApplication::exec();
 }

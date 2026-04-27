@@ -25,6 +25,9 @@ class DisplayManager : public QObject {
 public:
     explicit DisplayManager(QObject *parent = nullptr);
 
+    // 静态方法：直接运行示例
+    static void run();
+
     // 获取所有显示器信息
     QVector<DisplayInfo> get_all_displays() const;
 
@@ -39,8 +42,6 @@ public:
 
     // 判断指定屏幕是否为主屏
     bool is_primary_screen(int index) const;
-
-    void run();
 
 private:
     DisplayInfo convert_to_display_info(QScreen *screen, int index, bool is_primary) const;

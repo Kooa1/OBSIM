@@ -11,14 +11,16 @@
 #include <QHBoxLayout>
 
 #include "UI/sdlwindow.h"
+#include "UI/settingbar.h"
 #include "controlbar.h"
-#include "Core/captor.h"
+#include "Core/coreengine.h"
+#include "Core/displaycaptor.h"
 
-class MainWindow final : public QWidget {
+class MainWindow : public QWidget {
     Q_OBJECT
 
 public:
-    explicit MainWindow();
+    explicit MainWindow(CoreEngine &core_engine);
 
     ~MainWindow() override;
 
@@ -45,7 +47,11 @@ private:
 
     SDLWindow *sdl_window = nullptr;
 
+    SettingBar *setting_bar = nullptr;
+
     ControlBar *control_bar = nullptr;
+
+    CoreEngine &core;
 };
 
 #endif //MAINWINDOW_H

@@ -4,11 +4,12 @@
 
 #include "UI/mainwindow.h"
 
-MainWindow::MainWindow() : QWidget(nullptr) {
+MainWindow::MainWindow(CoreEngine &core_engine)
+    : QWidget(nullptr),
+      core(core_engine) {
     setMouseTracking(true);
 
     init_UI();
-    auto captor = new Captor();
     QThread::currentThread()->setPriority(QThread::HighPriority);
 }
 
@@ -18,17 +19,27 @@ bool MainWindow::init_UI() {
     main_layout = new QVBoxLayout(this);
     main_splitter = new QSplitter(Qt::Vertical, this);
     sdl_window = new SDLWindow(this);
+    setting_bar = new SettingBar(this);
     control_bar = new ControlBar(this);
 
     init_layout();
-
     return true;
 }
 
 void MainWindow::init_layout() {
     main_splitter->addWidget(sdl_window);
+    main_splitter->addWidget(setting_bar);
     main_splitter->addWidget(control_bar);
     main_layout->addWidget(main_splitter);
+
+    if (const auto handle = main_splitter->handle(1); handle) {
+        handle->setEnabled(false);
+        handle->setVisible(false);
+    }
+
+    main_splitter->setCollapsible(0, false);
+    main_splitter->setCollapsible(1, false);
+    main_splitter->setCollapsible(2, false);
 
     adjust_window_screen(this);
     this->show();
