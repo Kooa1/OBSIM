@@ -7,8 +7,9 @@
 
 #include <iostream>
 
-#include "Utils/ffmpegfactory.h"
-#include "../Utils/displaymanager.h"
+#include "../utils/ffmpegfactory.h"
+#include "../utils/displaymanager.h"
+#include "../utils/datasafequeue.h"
 
 extern "C" {
 #include "libavutil/avutil.h"
@@ -18,7 +19,7 @@ using std::cout;
 
 class DisplayCaptor {
 public:
-    explicit DisplayCaptor();
+    explicit DisplayCaptor(std::unique_ptr<DataSafeQueue<AVFramePtr> > &queue);
 
     ~DisplayCaptor();
 
@@ -47,6 +48,8 @@ private:
     int audio_index = -1;
     int video_index = -1;
     enum AVPixelFormat dest_fmt = AV_PIX_FMT_YUV420P;
+
+    std::unique_ptr<DataSafeQueue<AVFramePtr> > &queue;
 };
 
 

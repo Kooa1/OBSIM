@@ -2,7 +2,7 @@
 // Created by 66 on 2025/8/21.
 //
 
-#include "UI/mainwindow.h"
+#include "mainwindow.h"
 
 MainWindow::MainWindow(CoreEngine &core_engine)
     : QWidget(nullptr),
@@ -18,7 +18,8 @@ MainWindow::~MainWindow() = default;
 bool MainWindow::init_UI() {
     main_layout = new QVBoxLayout(this);
     main_splitter = new QSplitter(Qt::Vertical, this);
-    sdl_window = new SDLWindow(this);
+
+    scene_preview_widget = new ScenePreviewWidget(this);
     setting_bar = new SettingBar(this);
     control_bar = new ControlBar(this);
 
@@ -27,7 +28,7 @@ bool MainWindow::init_UI() {
 }
 
 void MainWindow::init_layout() {
-    main_splitter->addWidget(sdl_window);
+    main_splitter->addWidget(scene_preview_widget);
     main_splitter->addWidget(setting_bar);
     main_splitter->addWidget(control_bar);
     main_layout->addWidget(main_splitter);
@@ -40,6 +41,10 @@ void MainWindow::init_layout() {
     main_splitter->setCollapsible(0, false);
     main_splitter->setCollapsible(1, false);
     main_splitter->setCollapsible(2, false);
+
+    main_splitter->setStretchFactor(0, 1);
+    main_splitter->setStretchFactor(1, 0);
+    main_splitter->setStretchFactor(2, 0);
 
     adjust_window_screen(this);
     this->show();

@@ -2,7 +2,7 @@
 // Created by 66 on 2026/4/26.
 //
 
-#include "Utils/displaymanager.h"
+#include "displaymanager.h"
 
 DisplayManager::DisplayManager(QObject *parent) : QObject(parent) {
 }

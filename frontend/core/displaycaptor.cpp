@@ -2,11 +2,11 @@
 // Created by 66 on 2026/4/26.
 //
 
-#include "Core/displaycaptor.h"
+#include "displaycaptor.h"
 
-#include "Utils/av_err2str_cxx.h"
+#include "../utils/av_err2str_cxx.h"
 
-DisplayCaptor::DisplayCaptor() {
+DisplayCaptor::DisplayCaptor(std::unique_ptr<DataSafeQueue<AVFramePtr> > &queue) : queue(queue) {
     init_ctx();
 }
 
@@ -72,7 +72,7 @@ void DisplayCaptor::init_ctx() {
 
     init_dest_frame();
     init_sws_ctx();
-    start_capturing();
+    // start_capturing();
 }
 
 void DisplayCaptor::init_dest_frame() {
@@ -158,7 +158,9 @@ void DisplayCaptor::receive_frame(AVPacketPtr obj_packet) {
                   av_codec_context->height,
                   dest_frame->data,
                   dest_frame->linesize);
-    }
 
-    cout << "next\n";
+        if (queue->push(std::move(ultimate_frame))) {
+            std::this_thread::sleep_for(std::chrono::microseconds(1));
+        }
+    }
 }

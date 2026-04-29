@@ -16,8 +16,8 @@ extern "C" {
 #include <iostream>
 #include <fstream>
 
-#include "../Utils/ffmpegfactory.h"
-#include "../Utils/av_err2str_cxx.h"
+#include "../utils/ffmpegfactory.h"
+#include "../utils/av_err2str_cxx.h"
 
 using std::cout;
 

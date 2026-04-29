@@ -5,16 +5,16 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include "../PCH.h"
+#include "../utils/PCH.h"
 
 #include <QSplitter>
 #include <QHBoxLayout>
 
-#include "UI/sdlwindow.h"
-#include "UI/settingbar.h"
+#include "scenepreviewwidget.h"
+#include "settingbar.h"
 #include "controlbar.h"
-#include "Core/coreengine.h"
-#include "Core/displaycaptor.h"
+#include "../core/coreengine.h"
+#include "../core/displaycaptor.h"
 
 class MainWindow : public QWidget {
     Q_OBJECT
@@ -31,6 +31,8 @@ public slots:
 private:
     void init_layout();
 
+    void init_conn();
+
     void center_on_primary_screen(QWidget *window);
 
     void adjust_window_screen(QWidget *window = nullptr,
@@ -45,13 +47,15 @@ private:
 
     QSplitter *main_splitter = nullptr;
 
-    SDLWindow *sdl_window = nullptr;
+    ScenePreviewWidget *scene_preview_widget = nullptr;
 
     SettingBar *setting_bar = nullptr;
 
     ControlBar *control_bar = nullptr;
 
     CoreEngine &core;
+
+signals:
 };
 
 #endif //MAINWINDOW_H

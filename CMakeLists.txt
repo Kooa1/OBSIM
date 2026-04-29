@@ -7,6 +7,8 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(CMAKE_AUTOMOC_VERBOSE ON)
+
 if (WIN32)
     # 明确使用 MSVC 版本的 Qt（根据你的编译器）
     set(CMAKE_PREFIX_PATH "D:/application/Qt/6.9.0/msvc2022_64")
@@ -40,6 +42,8 @@ find_package(Qt6 COMPONENTS
         Core
         Gui
         Widgets
+        OpenGL
+        OpenGLWidgets
         REQUIRED
 )
 
@@ -48,30 +52,34 @@ file(GLOB_RECURSE HEADER_FILES
         "include/*.h"
         "include/*.hpp"
         "include/*.hxx"
-        "src/*.h"
-        "src/*.hpp"
-        "src/*.hxx"
+        "frontend/*.h"
+        "frontend/*.hpp"
+        "frontend/*.hxx"
 )
 
 # 自动查找所有源文件
 file(GLOB_RECURSE SOURCE_FILES
-        "src/*.cpp"
-        "src/*.cxx"
-        "src/*.cc"
-        "src/*.c"
+        "frontend/*.cpp"
+        "frontend/*.cxx"
+        "frontend/*.cc"
+        "frontend/*.c"
 )
 
 # 添加可执行文件
 add_executable(OBSIM
         ${SOURCE_FILES}
         ${HEADER_FILES}
-        src/main.cpp
+        frontend/main.cpp
+)
+
+target_compile_definitions(OBSIM PRIVATE
+        HAVE_OBSCONFIG_H
 )
 
 # 设置包含目录
 target_include_directories(OBSIM PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/frontend
 )
 
 if (WIN32)
@@ -79,9 +87,12 @@ if (WIN32)
             vld
             SDL2main
             SDL2
+            Qt6::OpenGL
+            Qt6::OpenGLWidgets
             Qt6::Core
             Qt6::Gui
             Qt6::Widgets
+            opengl32.lib
             avdevice
             avformat
             avcodec

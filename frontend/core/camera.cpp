@@ -2,7 +2,7 @@
 // Created by 66 on 2025/12/18.
 //
 
-#include "../../include/Core/camera.h"
+#include "camera.h"
 
 Camera::Camera() {
     av_log_set_level(AV_LOG_INFO);
