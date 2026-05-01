@@ -32,6 +32,8 @@ private:
 
     void calculate_pos(QPointF point_f);
 
+    void update_cursor();
+
 protected:
     void initializeGL() override;
 

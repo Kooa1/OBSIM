@@ -115,6 +115,9 @@ public:
     // 绘制吸附辅助线（在 render_selection_box 中或单独调用）
     void render_snap_lines();
 
+    // 获取当前应该显示的光标形状（根据鼠标位置）
+    Qt::CursorShape get_cursor_for_current_pos() const;
+
 private:
     // 收集所有吸附参考点
     // 画布边界 + 其他源的边和中心线
@@ -149,6 +152,8 @@ private:
                               std::vector<SnapTarget> &out_horizontal);
 
     void render_hover_box();
+
+    void update_cursor();
 
 private:
     // 源列表（裸指针，生命周期由外部 unique_ptr 管理）

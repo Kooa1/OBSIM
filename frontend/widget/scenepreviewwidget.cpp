@@ -167,6 +167,13 @@ void ScenePreviewWidget::calculate_pos(QPointF point_f) {
             .arg(distToRight).arg(distToBottom);
 }
 
+void ScenePreviewWidget::update_cursor() {
+    Qt::CursorShape shape = m_scene.get_cursor_for_current_pos();
+    if (cursor().shape() != shape) {
+        setCursor(shape);
+    }
+}
+
 void ScenePreviewWidget::initializeGL() {
     QOpenGLWidget::initializeGL();
 }
@@ -184,23 +191,23 @@ void ScenePreviewWidget::mousePressEvent(QMouseEvent *event) {
     QPointF canvas_pos = screen_to_canvas(event->position());
     bool handled = m_scene.on_mouse_press(canvas_pos);
     if (handled) {
-        update(); // 触发重绘显示选中框
+        update(); // 触发重绘
+        update_cursor(); // ✅ 更新光标
     }
 }
 
 void ScenePreviewWidget::mouseMoveEvent(QMouseEvent *event) {
-    // calculate_pos(event->position());
-    // QOpenGLWidget::mouseMoveEvent(event);
-
     QPointF canvas_pos = screen_to_canvas(event->position());
     bool needs_update = m_scene.on_mouse_move(canvas_pos);
     if (needs_update) {
         update();
     }
+    update_cursor(); // ✅ 每帧都更新光标
 }
 
 void ScenePreviewWidget::mouseReleaseEvent(QMouseEvent *event) {
     Q_UNUSED(event);
     m_scene.on_mouse_release();
     update();
+    update_cursor(); // ✅ 更新光标
 }

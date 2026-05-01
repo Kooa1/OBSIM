@@ -130,10 +130,10 @@ bool Scene::on_mouse_move(const QPointF &canvas_pos) {
 
     // 🖱️ 悬停检测（非拖动/缩放模式时）
     if (m_mode == InteractionMode::None) {
-        Source* hit = hit_test(canvas_pos);
+        Source *hit = hit_test(canvas_pos);
         if (hit != m_hovered_source) {
             m_hovered_source = hit;
-            return true;  // 需要重绘
+            return true; // 需要重绘
         }
     } else {
         m_hovered_source = nullptr;
@@ -256,6 +256,7 @@ void Scene::on_mouse_release() {
 // ==================== 选中框绘制 ====================
 
 void Scene::render_selection_box() {
+    // 先绘制悬停框
     render_hover_box();
 
     if (!m_selected_source || !m_selected_source->visible) return;
@@ -268,7 +269,7 @@ void Scene::render_selection_box() {
     float w = bounds.width();
     float h = bounds.height();
 
-    // 绘制白色边框
+    // 绘制红色加粗边框
     glLineWidth(3.0f);
     glColor4f(1.0f, 0.2f, 0.2f, 1.0f);
 
@@ -279,11 +280,10 @@ void Scene::render_selection_box() {
     glVertex2f(x, y + h);
     glEnd();
 
-    // 绘制8个控点（小方块）
-    const float handle_size = 8.0f;
-    const float half = handle_size / 2.0f;
+    // ========== 绘制8个控点（纯红色实心大圆点） ==========
+    const float handle_radius = 8.0f; // 圆点半径（原来6，加大到8）
+    const int segments = 16; // 圆的分段数
 
-    // 控点中心位置
     struct {
         float cx, cy;
     } handles[] = {
@@ -297,25 +297,15 @@ void Scene::render_selection_box() {
                 {x + w, y + h} // BottomRight
             };
 
-    // 先画填充的蓝色方块
-    glColor4f(0.2f, 0.5f, 1.0f, 1.0f);
-    for (const auto &hdl: handles) {
-        glBegin(GL_QUADS);
-        glVertex2f(hdl.cx - half, hdl.cy - half);
-        glVertex2f(hdl.cx + half, hdl.cy - half);
-        glVertex2f(hdl.cx + half, hdl.cy + half);
-        glVertex2f(hdl.cx - half, hdl.cy + half);
-        glEnd();
-    }
-
-    // 再画白色边框
     glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
     for (const auto &hdl: handles) {
-        glBegin(GL_LINE_LOOP);
-        glVertex2f(hdl.cx - half, hdl.cy - half);
-        glVertex2f(hdl.cx + half, hdl.cy - half);
-        glVertex2f(hdl.cx + half, hdl.cy + half);
-        glVertex2f(hdl.cx - half, hdl.cy + half);
+        glBegin(GL_TRIANGLE_FAN);
+        glVertex2f(hdl.cx, hdl.cy);
+        for (int i = 0; i <= segments; i++) {
+            float angle = 2.0f * 3.1415926f * i / segments;
+            glVertex2f(hdl.cx + handle_radius * cosf(angle),
+                       hdl.cy + handle_radius * sinf(angle));
+        }
         glEnd();
     }
 
@@ -345,11 +335,31 @@ void Scene::render_snap_lines() {
     glLineWidth(1.0f);
 }
 
+Qt::CursorShape Scene::get_cursor_for_current_pos() const {
+    if (m_mode == InteractionMode::Resizing) {
+        return cursor_for_handle(m_active_handle);
+    }
+    if (m_mode == InteractionMode::Dragging) {
+        return Qt::ArrowCursor; // 拖动中用普通箭头，不用手势
+    }
+
+    // 检测鼠标是否在控点上
+    if (m_selected_source && m_selected_source->visible) {
+        ResizeHandle handle = get_handle_at_pos(m_selected_source, m_mouse_pos);
+        if (handle != ResizeHandle::None) {
+            return cursor_for_handle(handle);
+        }
+    }
+
+    // 悬停在源上时保持默认箭头
+    return Qt::ArrowCursor;
+}
+
 ResizeHandle Scene::get_handle_at_pos(Source *source, const QPointF &canvas_pos) const {
     if (!source) return ResizeHandle::None;
 
     QRectF bounds = source->get_bounding_rect();
-    const float handle_size = 16.0f; // 点击容差范围
+    const float handle_size = 24.0f; // 点击容差范围（保持不变）
     const float half = handle_size / 2.0f;
 
     float x = bounds.x();
@@ -357,19 +367,22 @@ ResizeHandle Scene::get_handle_at_pos(Source *source, const QPointF &canvas_pos)
     float w = bounds.width();
     float h = bounds.height();
 
-    // 检测8个控点区域
+    // 检测8个控点区域（向源内部偏移，而非外部）
     struct {
         QRectF rect;
         ResizeHandle handle;
     } regions[] = {
-                {QRectF(x - half, y - half, handle_size, handle_size), ResizeHandle::TopLeft},
-                {QRectF(x + w / 2 - half, y - half, handle_size, handle_size), ResizeHandle::Top},
-                {QRectF(x + w - half, y - half, handle_size, handle_size), ResizeHandle::TopRight},
-                {QRectF(x - half, y + h / 2 - half, handle_size, handle_size), ResizeHandle::Left},
-                {QRectF(x + w - half, y + h / 2 - half, handle_size, handle_size), ResizeHandle::Right},
-                {QRectF(x - half, y + h - half, handle_size, handle_size), ResizeHandle::BottomLeft},
-                {QRectF(x + w / 2 - half, y + h - half, handle_size, handle_size), ResizeHandle::Bottom},
-                {QRectF(x + w - half, y + h - half, handle_size, handle_size), ResizeHandle::BottomRight},
+                // 四角：从顶点向内延伸
+                {QRectF(x, y, handle_size, handle_size), ResizeHandle::TopLeft},
+                {QRectF(x + w - handle_size, y, handle_size, handle_size), ResizeHandle::TopRight},
+                {QRectF(x, y + h - handle_size, handle_size, handle_size), ResizeHandle::BottomLeft},
+                {QRectF(x + w - handle_size, y + h - handle_size, handle_size, handle_size), ResizeHandle::BottomRight},
+
+                // 四边中点：从边中点向两侧延伸
+                {QRectF(x + w / 2 - half, y, handle_size, handle_size), ResizeHandle::Top},
+                {QRectF(x + w / 2 - half, y + h - handle_size, handle_size, handle_size), ResizeHandle::Bottom},
+                {QRectF(x, y + h / 2 - half, handle_size, handle_size), ResizeHandle::Left},
+                {QRectF(x + w - handle_size, y + h / 2 - half, handle_size, handle_size), ResizeHandle::Right},
             };
 
     for (const auto &region: regions) {

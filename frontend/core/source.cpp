@@ -4,19 +4,16 @@
 
 #include "source.h"
 
-Source::Source()
-{
+Source::Source() {
     // 生成一个简单的唯一 ID（实际项目可用 UUID 或自增计数器）
     static int next_id = 0;
     id = "source_" + std::to_string(next_id++);
 }
 
-Source::~Source()
-{
+Source::~Source() {
 }
 
-QRectF Source::get_bounding_rect() const
-{
+QRectF Source::get_bounding_rect() const {
     // 计算有效渲染区域（考虑裁剪）
     QRectF content = get_content_rect();
 
@@ -29,8 +26,7 @@ QRectF Source::get_bounding_rect() const
     return QRectF(pos_x, pos_y, render_w, render_h);
 }
 
-QRectF Source::get_content_rect() const
-{
+QRectF Source::get_content_rect() const {
     float left = crop_left;
     float top = crop_top;
     float right = base_width - crop_right;
@@ -43,16 +39,14 @@ QRectF Source::get_content_rect() const
     return QRectF(left, top, right - left, bottom - top);
 }
 
-bool Source::hit_test(const QPointF& canvas_pos) const
-{
+bool Source::hit_test(const QPointF &canvas_pos) const {
     if (!visible) return false;
 
     QRectF bounds = get_bounding_rect();
     return bounds.contains(canvas_pos);
 }
 
-QMatrix4x4 Source::get_local_to_canvas_transform() const
-{
+QMatrix4x4 Source::get_local_to_canvas_transform() const {
     QMatrix4x4 matrix;
     matrix.setToIdentity();
 
@@ -74,20 +68,17 @@ QMatrix4x4 Source::get_local_to_canvas_transform() const
     return matrix;
 }
 
-float Source::get_render_width() const
-{
+float Source::get_render_width() const {
     QRectF content = get_content_rect();
     return content.width();
 }
 
-float Source::get_render_height() const
-{
+float Source::get_render_height() const {
     QRectF content = get_content_rect();
     return content.height();
 }
 
-QPointF Source::canvas_to_local(const QPointF& canvas_pos) const
-{
+QPointF Source::canvas_to_local(const QPointF &canvas_pos) const {
     // 简化版：将画布坐标转为本地坐标
     // 精确版本应用 get_local_to_canvas_transform().inverted()
     float local_x = (canvas_pos.x() - pos_x) / scale_x + crop_left;
