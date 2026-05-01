@@ -148,6 +148,8 @@ private:
                               std::vector<SnapTarget> &out_vertical,
                               std::vector<SnapTarget> &out_horizontal);
 
+    void render_hover_box();
+
 private:
     // 源列表（裸指针，生命周期由外部 unique_ptr 管理）
     std::vector<Source *> sources;
@@ -178,6 +180,8 @@ private:
 
     float m_drag_start_scale_x = 1.0f;
     float m_drag_start_scale_y = 1.0f;
+
+    Source* m_hovered_source = nullptr;
 };
 
 #endif //OBSIM_SCENE_H

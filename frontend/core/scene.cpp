@@ -113,8 +113,8 @@ bool Scene::on_mouse_press(const QPointF &canvas_pos) {
         m_drag_start_pos_y = hit->pos_y;
         m_drag_start_width = hit->base_width;
         m_drag_start_height = hit->base_height;
-        m_drag_start_scale_x = hit->scale_x;   // ✅ 记录
-        m_drag_start_scale_y = hit->scale_y;   // ✅ 记录
+        m_drag_start_scale_x = hit->scale_x; // ✅ 记录
+        m_drag_start_scale_y = hit->scale_y; // ✅ 记录
 
         return true;
     } else {
@@ -127,6 +127,17 @@ bool Scene::on_mouse_press(const QPointF &canvas_pos) {
 bool Scene::on_mouse_move(const QPointF &canvas_pos) {
     m_mouse_pos = canvas_pos;
     m_current_snap_lines.clear();
+
+    // 🖱️ 悬停检测（非拖动/缩放模式时）
+    if (m_mode == InteractionMode::None) {
+        Source* hit = hit_test(canvas_pos);
+        if (hit != m_hovered_source) {
+            m_hovered_source = hit;
+            return true;  // 需要重绘
+        }
+    } else {
+        m_hovered_source = nullptr;
+    }
 
     if (m_mode == InteractionMode::Dragging && m_selected_source) {
         float dx = canvas_pos.x() - m_drag_start_mouse.x();
@@ -153,7 +164,7 @@ bool Scene::on_mouse_move(const QPointF &canvas_pos) {
         float dy = canvas_pos.y() - m_drag_start_mouse.y();
 
         // ✅ 基于拖拽前的尺寸计算新的 scale
-        float start_w = m_drag_start_width  * m_drag_start_scale_x;
+        float start_w = m_drag_start_width * m_drag_start_scale_x;
         float start_h = m_drag_start_height * m_drag_start_scale_y;
         float aspect = m_drag_start_width / m_drag_start_height;
 
@@ -245,6 +256,8 @@ void Scene::on_mouse_release() {
 // ==================== 选中框绘制 ====================
 
 void Scene::render_selection_box() {
+    render_hover_box();
+
     if (!m_selected_source || !m_selected_source->visible) return;
 
     Source *src = m_selected_source;
@@ -256,8 +269,8 @@ void Scene::render_selection_box() {
     float h = bounds.height();
 
     // 绘制白色边框
-    glLineWidth(2.0f);
-    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+    glLineWidth(3.0f);
+    glColor4f(1.0f, 0.2f, 0.2f, 1.0f);
 
     glBegin(GL_LINE_LOOP);
     glVertex2f(x, y);
@@ -471,9 +484,9 @@ void Scene::snap_to_fullscreen(Source *source) {
     float w = bounds.width();
     float h = bounds.height();
 
-    bool snap_left   = (std::abs(x) <= threshold);
-    bool snap_right  = (std::abs(x + w - canvas_w) <= threshold);
-    bool snap_top    = (std::abs(y) <= threshold);
+    bool snap_left = (std::abs(x) <= threshold);
+    bool snap_right = (std::abs(x + w - canvas_w) <= threshold);
+    bool snap_top = (std::abs(y) <= threshold);
     bool snap_bottom = (std::abs(y + h - canvas_h) <= threshold);
     bool near_full_w = (std::abs(w - canvas_w) <= threshold);
     bool near_full_h = (std::abs(h - canvas_h) <= threshold);
@@ -521,4 +534,29 @@ void Scene::collect_snap_targets(Source *exclude_source,
         out_horizontal.push_back({static_cast<float>(bounds.top()), SnapTarget::SourceEdge, src});
         out_horizontal.push_back({static_cast<float>(bounds.bottom()), SnapTarget::SourceEdge, src});
     }
+}
+
+void Scene::render_hover_box() {
+    if (!m_hovered_source || !m_hovered_source->visible) return;
+    // 如果正在选中这个源，不画悬停框（选中框已覆盖）
+    if (m_hovered_source == m_selected_source) return;
+
+    QRectF bounds = m_hovered_source->get_bounding_rect();
+    float x = bounds.x();
+    float y = bounds.y();
+    float w = bounds.width();
+    float h = bounds.height();
+
+    // 白色半透明边框，比选中框细
+    glLineWidth(2.0f);
+    glColor4f(1.0f, 1.0f, 1.0f, 0.6f);
+
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(x, y);
+    glVertex2f(x + w, y);
+    glVertex2f(x + w, y + h);
+    glVertex2f(x, y + h);
+    glEnd();
+
+    glLineWidth(1.0f);
 }
