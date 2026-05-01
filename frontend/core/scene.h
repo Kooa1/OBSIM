@@ -116,6 +116,17 @@ public:
     void render_snap_lines();
 
 private:
+    // 收集所有吸附参考点
+    // 画布边界 + 其他源的边和中心线
+    struct SnapTarget {
+        float value;
+
+        enum Type { CanvasEdge, SourceEdge, SourceCenter };
+
+        Type type;
+        Source *source; // 如果是源产生的目标，记录来源
+    };
+
     // 获取源上鼠标所在的控点
     ResizeHandle get_handle_at_pos(Source *source, const QPointF &canvas_pos) const;
 
@@ -128,16 +139,14 @@ private:
                           float width, float height,
                           Source *exclude_source = nullptr);
 
-    // 收集所有吸附参考点
-    // 画布边界 + 其他源的边和中心线
-    struct SnapTarget {
-        float value;
+    // 检测并应用满屏吸附（缩放时调用）
+    void snap_to_fullscreen(Source* source);
 
-        enum Type { CanvasEdge, SourceEdge, SourceCenter };
+    std::vector<SnapLine> current_snap_lines() const { return m_current_snap_lines; }
 
-        Type type;
-        Source *source; // 如果是源产生的目标，记录来源
-    };
+    void collect_snap_targets(Source *exclude_source,
+                              std::vector<SnapTarget> &out_vertical,
+                              std::vector<SnapTarget> &out_horizontal);
 
 private:
     // 源列表（裸指针，生命周期由外部 unique_ptr 管理）
@@ -160,19 +169,15 @@ private:
     float m_drag_start_height = 0; // 源按下时的 base_height（缩放用）
     ResizeHandle m_active_handle = ResizeHandle::None; // 当前操作的控点
 
-    std::vector<SnapLine> current_snap_lines() const { return m_current_snap_lines; }
-
-    void collect_snap_targets(Source* exclude_source,
-                          std::vector<SnapTarget>& out_vertical,
-                          std::vector<SnapTarget>& out_horizontal);
-
     // 吸附阈值（画布逻辑像素，默认10）
     float m_snap_threshold = 10.0f;
     bool m_snap_enabled = true;
 
     // 当前帧的吸附线（用于渲染）
     std::vector<SnapLine> m_current_snap_lines;
-};
 
+    float m_drag_start_scale_x = 1.0f;
+    float m_drag_start_scale_y = 1.0f;
+};
 
 #endif //OBSIM_SCENE_H

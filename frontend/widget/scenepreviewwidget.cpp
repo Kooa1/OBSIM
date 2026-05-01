@@ -20,8 +20,8 @@ void ScenePreviewWidget::add_test_source() {
     auto rect1 = std::make_unique<TestSource>();
     rect1->pos_x = 200.0f;
     rect1->pos_y = 200.0f;
-    rect1->base_width = 600.0f;
-    rect1->base_height = 400.0f;
+    rect1->base_width = 1920.0f;
+    rect1->base_height = 1080.0f;
     rect1->scale_x = 1.0f;
     rect1->scale_y = 1.0f;
     rect1->color_r = 1.0f; // 红色
@@ -33,8 +33,8 @@ void ScenePreviewWidget::add_test_source() {
     auto rect2 = std::make_unique<TestSource>();
     rect2->pos_x = 400.0f; // 与 rect1 有重叠区域
     rect2->pos_y = 300.0f;
-    rect2->base_width = 500.0f;
-    rect2->base_height = 400.0f;
+    rect2->base_width = 320.0f;
+    rect2->base_height = 180.0f;
     rect2->scale_x = 1.0f;
     rect2->scale_y = 1.0f;
     rect2->color_r = 0.0f; // 绿色

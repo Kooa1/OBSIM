@@ -8,8 +8,8 @@
 // ==================== 源管理 ====================
 
 Scene::Scene() {
-    m_snap_threshold = 25.0f;  // 25 个逻辑像素内触发吸附
-    m_snap_enabled = true;     // 默认开启
+    m_snap_threshold = 25.0f; // 25 个逻辑像素内触发吸附
+    m_snap_enabled = true; // 默认开启
 }
 
 void Scene::add_source(Source *source) {
@@ -94,37 +94,30 @@ Source *Scene::hit_test(const QPointF &canvas_pos) const {
 
 bool Scene::on_mouse_press(const QPointF &canvas_pos) {
     m_mouse_pos = canvas_pos;
-
-    // 先检测点击了哪个源
     Source *hit = hit_test(canvas_pos);
 
     if (hit) {
-        // 点击了源
         set_selected_source(hit);
-
-        // 检测是否点中了控点（只有选中的源才显示控点，这里用 hit 即当前选中的）
         ResizeHandle handle = get_handle_at_pos(hit, canvas_pos);
 
         if (handle != ResizeHandle::None) {
-            // 点中控点 → 缩放模式
             m_mode = InteractionMode::Resizing;
             m_active_handle = handle;
         } else {
-            // 点中源内部 → 拖动模式
             m_mode = InteractionMode::Dragging;
             m_active_handle = ResizeHandle::None;
         }
 
-        // 记录起始状态
         m_drag_start_mouse = canvas_pos;
         m_drag_start_pos_x = hit->pos_x;
         m_drag_start_pos_y = hit->pos_y;
         m_drag_start_width = hit->base_width;
         m_drag_start_height = hit->base_height;
+        m_drag_start_scale_x = hit->scale_x;   // ✅ 记录
+        m_drag_start_scale_y = hit->scale_y;   // ✅ 记录
 
         return true;
     } else {
-        // 点击空白区域，取消选中
         clear_selection();
         m_mode = InteractionMode::None;
         return false;
@@ -133,8 +126,6 @@ bool Scene::on_mouse_press(const QPointF &canvas_pos) {
 
 bool Scene::on_mouse_move(const QPointF &canvas_pos) {
     m_mouse_pos = canvas_pos;
-
-    // 清除上一帧的吸附线
     m_current_snap_lines.clear();
 
     if (m_mode == InteractionMode::Dragging && m_selected_source) {
@@ -144,12 +135,11 @@ bool Scene::on_mouse_move(const QPointF &canvas_pos) {
         float new_x = m_drag_start_pos_x + dx;
         float new_y = m_drag_start_pos_y + dy;
 
-        // 🧲 应用吸附
         QPointF snapped = snap_position(
             QPointF(new_x, new_y),
             m_selected_source->get_bounding_rect().width(),
             m_selected_source->get_bounding_rect().height(),
-            m_selected_source  // 排除自身
+            m_selected_source
         );
 
         m_selected_source->pos_x = snapped.x();
@@ -159,59 +149,86 @@ bool Scene::on_mouse_move(const QPointF &canvas_pos) {
     }
 
     if (m_mode == InteractionMode::Resizing && m_selected_source) {
-        // 计算尺寸变化
         float dx = canvas_pos.x() - m_drag_start_mouse.x();
         float dy = canvas_pos.y() - m_drag_start_mouse.y();
 
-        float new_w = m_drag_start_width;
-        float new_h = m_drag_start_height;
+        // ✅ 基于拖拽前的尺寸计算新的 scale
+        float start_w = m_drag_start_width  * m_drag_start_scale_x;
+        float start_h = m_drag_start_height * m_drag_start_scale_y;
+        float aspect = m_drag_start_width / m_drag_start_height;
+
+        float new_w = start_w;
+        float new_h = start_h;
         float new_x = m_drag_start_pos_x;
         float new_y = m_drag_start_pos_y;
 
-        // 根据控点位置，计算新的位置和尺寸
         switch (m_active_handle) {
             case ResizeHandle::Right:
-                new_w = std::max(10.0f, m_drag_start_width + dx);
+                new_w = std::max(10.0f, start_w + dx);
+                new_h = new_w / aspect;
                 break;
+
             case ResizeHandle::Bottom:
-                new_h = std::max(10.0f, m_drag_start_height + dy);
+                new_h = std::max(10.0f, start_h + dy);
+                new_w = new_h * aspect;
                 break;
-            case ResizeHandle::BottomRight:
-                new_w = std::max(10.0f, m_drag_start_width + dx);
-                new_h = std::max(10.0f, m_drag_start_height + dy);
+
+            case ResizeHandle::BottomRight: {
+                float s = std::max((start_w + dx) / start_w, (start_h + dy) / start_h);
+                new_w = std::max(10.0f, start_w * s);
+                new_h = new_w / aspect;
                 break;
+            }
+
             case ResizeHandle::Left:
-                new_w = std::max(10.0f, m_drag_start_width - dx);
-                new_x = m_drag_start_pos_x + (m_drag_start_width - new_w);
+                new_w = std::max(10.0f, start_w - dx);
+                new_h = new_w / aspect;
+                new_x = m_drag_start_pos_x + (start_w - new_w);
                 break;
+
             case ResizeHandle::Top:
-                new_h = std::max(10.0f, m_drag_start_height - dy);
-                new_y = m_drag_start_pos_y + (m_drag_start_height - new_h);
+                new_h = std::max(10.0f, start_h - dy);
+                new_w = new_h * aspect;
+                new_y = m_drag_start_pos_y + (start_h - new_h);
                 break;
-            case ResizeHandle::TopLeft:
-                new_w = std::max(10.0f, m_drag_start_width - dx);
-                new_h = std::max(10.0f, m_drag_start_height - dy);
-                new_x = m_drag_start_pos_x + (m_drag_start_width - new_w);
-                new_y = m_drag_start_pos_y + (m_drag_start_height - new_h);
+
+            case ResizeHandle::TopLeft: {
+                float s = std::max((start_w - dx) / start_w, (start_h - dy) / start_h);
+                new_w = std::max(10.0f, start_w * s);
+                new_h = new_w / aspect;
+                new_x = m_drag_start_pos_x + (start_w - new_w);
+                new_y = m_drag_start_pos_y + (start_h - new_h);
                 break;
-            case ResizeHandle::TopRight:
-                new_w = std::max(10.0f, m_drag_start_width + dx);
-                new_h = std::max(10.0f, m_drag_start_height - dy);
-                new_y = m_drag_start_pos_y + (m_drag_start_height - new_h);
+            }
+
+            case ResizeHandle::TopRight: {
+                float s = std::max((start_w + dx) / start_w, (start_h - dy) / start_h);
+                new_w = std::max(10.0f, start_w * s);
+                new_h = new_w / aspect;
+                new_y = m_drag_start_pos_y + (start_h - new_h);
                 break;
-            case ResizeHandle::BottomLeft:
-                new_w = std::max(10.0f, m_drag_start_width - dx);
-                new_h = std::max(10.0f, m_drag_start_height + dy);
-                new_x = m_drag_start_pos_x + (m_drag_start_width - new_w);
+            }
+
+            case ResizeHandle::BottomLeft: {
+                float s = std::max((start_w - dx) / start_w, (start_h + dy) / start_h);
+                new_w = std::max(10.0f, start_w * s);
+                new_h = new_w / aspect;
+                new_x = m_drag_start_pos_x + (start_w - new_w);
                 break;
+            }
+
             default:
                 break;
         }
 
+        // ✅ 只修改 scale，不动 base
         m_selected_source->pos_x = new_x;
         m_selected_source->pos_y = new_y;
-        m_selected_source->base_width = new_w;
-        m_selected_source->base_height = new_h;
+        m_selected_source->scale_x = new_w / m_drag_start_width;
+        m_selected_source->scale_y = new_h / m_drag_start_height;
+
+        // 🧲 检查满屏吸附
+        snap_to_fullscreen(m_selected_source);
 
         return true;
     }
@@ -222,7 +239,7 @@ bool Scene::on_mouse_move(const QPointF &canvas_pos) {
 void Scene::on_mouse_release() {
     m_mode = InteractionMode::None;
     m_active_handle = ResizeHandle::None;
-    m_current_snap_lines.clear();   // ← 加这一行
+    m_current_snap_lines.clear(); // ← 加这一行
 }
 
 // ==================== 选中框绘制 ====================
@@ -365,9 +382,9 @@ Qt::CursorShape Scene::cursor_for_handle(ResizeHandle handle) const {
     }
 }
 
-QPointF Scene::snap_position(const QPointF& proposed_pos,
-                              float width, float height,
-                              Source* exclude_source) {
+QPointF Scene::snap_position(const QPointF &proposed_pos,
+                             float width, float height,
+                             Source *exclude_source) {
     if (!m_snap_enabled) return proposed_pos;
 
     m_current_snap_lines.clear();
@@ -379,9 +396,9 @@ QPointF Scene::snap_position(const QPointF& proposed_pos,
     float final_x = proposed_pos.x();
     float final_y = proposed_pos.y();
 
-    const float left   = proposed_pos.x();
-    const float right  = proposed_pos.x() + width;
-    const float top    = proposed_pos.y();
+    const float left = proposed_pos.x();
+    const float right = proposed_pos.x() + width;
+    const float top = proposed_pos.y();
     const float bottom = proposed_pos.y() + height;
 
     // ---- X 轴吸附（只对齐左右边缘） ----
@@ -389,7 +406,7 @@ QPointF Scene::snap_position(const QPointF& proposed_pos,
     SnapLine best_line_x;
     bool has_x = false;
 
-    for (const auto& t : vert_targets) {
+    for (const auto &t: vert_targets) {
         float dl = std::abs(left - t.value);
         if (dl < best_dist_x) {
             best_dist_x = dl;
@@ -416,7 +433,7 @@ QPointF Scene::snap_position(const QPointF& proposed_pos,
     SnapLine best_line_y;
     bool has_y = false;
 
-    for (const auto& t : horz_targets) {
+    for (const auto &t: horz_targets) {
         float dt = std::abs(top - t.value);
         if (dt < best_dist_y) {
             best_dist_y = dt;
@@ -441,9 +458,46 @@ QPointF Scene::snap_position(const QPointF& proposed_pos,
     return QPointF(final_x, final_y);
 }
 
-void Scene::collect_snap_targets(Source* exclude_source,
-                                 std::vector<SnapTarget>& out_vertical,
-                                 std::vector<SnapTarget>& out_horizontal) {
+void Scene::snap_to_fullscreen(Source *source) {
+    if (!source) return;
+
+    const float canvas_w = 1920.0f;
+    const float canvas_h = 1080.0f;
+    const float threshold = 25.0f;
+
+    QRectF bounds = source->get_bounding_rect();
+    float x = bounds.x();
+    float y = bounds.y();
+    float w = bounds.width();
+    float h = bounds.height();
+
+    bool snap_left   = (std::abs(x) <= threshold);
+    bool snap_right  = (std::abs(x + w - canvas_w) <= threshold);
+    bool snap_top    = (std::abs(y) <= threshold);
+    bool snap_bottom = (std::abs(y + h - canvas_h) <= threshold);
+    bool near_full_w = (std::abs(w - canvas_w) <= threshold);
+    bool near_full_h = (std::abs(h - canvas_h) <= threshold);
+
+    bool corner_snap = (snap_left || snap_right) && (snap_top || snap_bottom) && near_full_w && near_full_h;
+    bool edge_snap_w = snap_left && snap_right && near_full_h;
+    bool edge_snap_h = snap_top && snap_bottom && near_full_w;
+
+    if (!corner_snap && !edge_snap_w && !edge_snap_h) return;
+
+    // ✅ 等比缩放满屏
+    float scale_x = canvas_w / source->base_width;
+    float scale_y = canvas_h / source->base_height;
+    float scale = std::max(scale_x, scale_y);
+
+    source->pos_x = (canvas_w - source->base_width * scale) / 2.0f;
+    source->pos_y = (canvas_h - source->base_height * scale) / 2.0f;
+    source->scale_x = scale;
+    source->scale_y = scale;
+}
+
+void Scene::collect_snap_targets(Source *exclude_source,
+                                 std::vector<SnapTarget> &out_vertical,
+                                 std::vector<SnapTarget> &out_horizontal) {
     const float canvas_w = 1920.0f;
     const float canvas_h = 1080.0f;
 
@@ -454,7 +508,7 @@ void Scene::collect_snap_targets(Source* exclude_source,
     out_horizontal.push_back({canvas_h, SnapTarget::CanvasEdge, nullptr});
 
     // 其他源的边
-    for (Source* src : sources) {
+    for (Source *src: sources) {
         if (src == exclude_source || !src->visible) continue;
 
         QRectF bounds = src->get_bounding_rect();

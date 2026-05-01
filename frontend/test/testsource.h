@@ -13,10 +13,12 @@ public:
     float color_a = 1.0f;
 
     TestSource() {
-        // 🔧 必须在这里设置默认基准尺寸
-        base_width = 400;
-        base_height = 300;
+        // 默认 16:9 比例，320×180 作为基准
+        base_width = 1920.0f;
+        base_height = 1080.0f;
         visible = true;
+        lock_aspect_ratio = true;       // 锁定比例
+        fixed_aspect_ratio = 16.0f / 9.0f;
     }
 
     void render() override {

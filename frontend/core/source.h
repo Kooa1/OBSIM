@@ -89,6 +89,7 @@ private:
     float crop_top = 0.0f;
     float crop_right = 0.0f;
     float crop_bottom = 0.0f;
+    float fixed_aspect_ratio = 16.0f / 9.0f;
 
     // 可见性
     bool visible = true;
