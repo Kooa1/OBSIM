@@ -74,6 +74,7 @@ add_executable(OBSIM
 
 target_compile_definitions(OBSIM PRIVATE
         HAVE_OBSCONFIG_H
+        NOMINMAX
 )
 
 # 设置包含目录

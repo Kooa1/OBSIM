@@ -8,6 +8,11 @@
 
 ScenePreviewWidget::ScenePreviewWidget(QWidget *parent)
     : QOpenGLWidget(parent) {
+    // 请求模板缓冲
+    QSurfaceFormat fmt = format();
+    fmt.setStencilBufferSize(8);
+    setFormat(fmt);
+
     setMouseTracking(true);
     add_test_source();
 }
@@ -66,71 +71,112 @@ void ScenePreviewWidget::rendering_view() {
     m_viewX = (w - m_viewW) / 2;
     m_viewY = (h - m_viewH) / 2;
 
-    // ===== 第1步：清空整个窗口（灰色背景） =====
+    // ===== 第1步：全局设置 =====
     glViewport(0, 0, w, h);
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClearStencil(0);
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);  // 窗口灰边背景
+    glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-    // ===== 第2步：设置画布区域 =====
-    glViewport(m_viewX, m_viewY, m_viewW, m_viewH);
-    glScissor(m_viewX, m_viewY, m_viewW, m_viewH);
-    glEnable(GL_SCISSOR_TEST);
-
-    // 清空画布为黑色
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    // ===== 第3步：设置正交投影 =====
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glOrtho(0, CANVAS_W, CANVAS_H, 0, -1, 1);
+    glOrtho(0, w, h, 0, -1, 1);
     glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
 
-    // ===== 第4步：渲染所有源 =====
-    int rendered_count = 0;
-    for (Source *source: m_scene.get_sources()) {
-        // 🔧 修复：不可见或空指针时跳过
-        if (!source || !source->visible) {
-            qDebug() << "跳过源：!source=" << (!source)
-                    << " visible=" << (source ? source->visible : false);
-            continue;
-        }
+    // ===== 第2步：绘制画布黑色背景，模板值写入 2 =====
+    glEnable(GL_STENCIL_TEST);
+    glStencilFunc(GL_ALWAYS, 2, 0xFF);
+    glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
 
-        // 获取源的边界矩形
-        QRectF bounds = source->get_bounding_rect();
-        qDebug() << "尝试渲染源，bounds:" << bounds
-                << " base:" << source->base_width << "x" << source->base_height;
+    glColor4f(0.0f, 0.0f, 0.0f, 1.0f);
+    glBegin(GL_QUADS);
+    glVertex2f(m_viewX, m_viewY);
+    glVertex2f(m_viewX + m_viewW, m_viewY);
+    glVertex2f(m_viewX + m_viewW, m_viewY + m_viewH);
+    glVertex2f(m_viewX, m_viewY + m_viewH);
+    glEnd();
 
-        // 🔧 修复：跳过零尺寸的源
-        if (bounds.width() <= 0 || bounds.height() <= 0) {
-            qDebug() << "跳过零尺寸源";
-            continue;
-        }
-
-        // 跳过完全在画布外的源
-        if (bounds.left() >= CANVAS_W || bounds.right() <= 0 ||
-            bounds.top() >= CANVAS_H || bounds.bottom() <= 0) {
-            qDebug() << "跳过画布外源：" << bounds;
-            continue;
-        }
-
-        glLoadIdentity();
-
-        // 应用平移
-        glTranslatef(source->pos_x, source->pos_y, 0.0f);
-
-        // 应用缩放
-        glScalef(source->scale_x, source->scale_y, 1.0f);
-
-        // 渲染（此时原点在源左上角）
-        source->render();
-        rendered_count++;
-    }
+    // ===== 第3步：仅增加源覆盖区域模板值（不写颜色） =====
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glStencilFunc(GL_ALWAYS, 0, 0xFF);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
 
     glLoadIdentity();
+    glTranslatef(m_viewX, m_viewY, 0);
+    glScalef(m_viewW / CANVAS_W, m_viewH / CANVAS_H, 1);
+
+    for (Source *source : m_scene.get_sources()) {
+        if (!source || !source->visible) continue;
+        QRectF bounds = source->get_bounding_rect();
+        if (bounds.width() <= 0 || bounds.height() <= 0) continue;
+
+        glPushMatrix();
+        glTranslatef(source->pos_x, source->pos_y, 0.0f);
+        glScalef(source->scale_x, source->scale_y, 1.0f);
+        source->render();
+        glPopMatrix();
+    }
+
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+    // ===== 第4步：正常渲染所有源 =====
+    glDisable(GL_STENCIL_TEST);
+
+    glLoadIdentity();
+    glTranslatef(m_viewX, m_viewY, 0);
+    glScalef(m_viewW / CANVAS_W, m_viewH / CANVAS_H, 1);
+
+    for (Source *source : m_scene.get_sources()) {
+        if (!source || !source->visible) continue;
+        QRectF bounds = source->get_bounding_rect();
+        if (bounds.width() <= 0 || bounds.height() <= 0) continue;
+
+        glPushMatrix();
+        glTranslatef(source->pos_x, source->pos_y, 0.0f);
+        glScalef(source->scale_x, source->scale_y, 1.0f);
+        source->render();
+        glPopMatrix();
+    }
+
+    // 绘制选中框
     m_scene.render_selection_box();
 
-    glDisable(GL_SCISSOR_TEST);
+    // ===== 第5步：在画布外源区域绘制马赛克覆盖 =====
+    glLoadIdentity();  // 回到窗口像素坐标
+
+    glEnable(GL_STENCIL_TEST);
+    glStencilFunc(GL_EQUAL, 1, 0xFF);  // 只影响画布外源覆盖区
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+    // 马赛克参数
+    const int blockSize = 16;  // 马赛克块大小（像素），越大马赛克越粗糙
+    const int cols = (w + blockSize - 1) / blockSize;
+    const int rows = (h + blockSize - 1) / blockSize;
+
+    // 简单随机种子（固定种子保证每帧结果一致）
+    srand(42);
+
+    glBegin(GL_QUADS);
+    for (int row = 0; row < rows; ++row) {
+        for (int col = 0; col < cols; ++col) {
+            int x = col * blockSize;
+            int y = row * blockSize;
+            int bw = std::min(blockSize, w - x);
+            int bh = std::min(blockSize, h - y);
+
+            // 深灰到浅灰之间随机
+            float gray = 0.3f + (rand() % 40) / 100.0f;  // 0.3 ~ 0.7 之间
+            glColor3f(gray, gray, gray);
+
+            glVertex2i(x, y);
+            glVertex2i(x + bw, y);
+            glVertex2i(x + bw, y + bh);
+            glVertex2i(x, y + bh);
+        }
+    }
+    glEnd();
+
+    glDisable(GL_STENCIL_TEST);
 }
 
 QPointF ScenePreviewWidget::screen_to_canvas(const QPointF &screen_pos) const {
