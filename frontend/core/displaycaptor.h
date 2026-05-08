@@ -28,10 +28,6 @@ public:
 private:
     void init_ctx();
 
-    void init_dest_frame();
-
-    void init_sws_ctx();
-
     void receive_frame(AVPacketPtr obj_packet);
 
 private:
@@ -47,7 +43,6 @@ private:
 
     int audio_index = -1;
     int video_index = -1;
-    enum AVPixelFormat dest_fmt = AV_PIX_FMT_YUV420P;
 
     std::unique_ptr<DataSafeQueue<AVFramePtr> > &queue;
 };

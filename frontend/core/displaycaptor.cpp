@@ -69,40 +69,7 @@ void DisplayCaptor::init_ctx() {
         av_log(nullptr, AV_LOG_ERROR, "open2 avcodec failed : %s\n", av_error_cxx(ret).c_str());
         return;
     }
-
-    init_dest_frame();
-    init_sws_ctx();
     // start_capturing();
-}
-
-void DisplayCaptor::init_dest_frame() {
-    dest_frame.reset(av_frame_alloc(), AVFrameDeleter());
-    dest_frame->format = dest_fmt;
-    dest_frame->width = 1920;
-    dest_frame->height = 1080;
-
-    av_frame_get_buffer(dest_frame.get(), 0);
-    if (!dest_frame) {
-        av_log(nullptr, AV_LOG_ERROR, "init destination frame failed\n");
-    }
-
-    // cout << "init dest frame successes\n";
-}
-
-void DisplayCaptor::init_sws_ctx() {
-    sws_context.reset(sws_getContext(
-        av_codec_context->width,
-        av_codec_context->height,
-        av_codec_context->pix_fmt,
-        av_codec_context->width,
-        av_codec_context->height,
-        dest_fmt,SWS_FAST_BILINEAR, nullptr, nullptr, nullptr
-    ));
-
-    if (!sws_context) {
-        av_log(nullptr, AV_LOG_ERROR, "init swsContext failed\n");
-        return;
-    }
 }
 
 void DisplayCaptor::start_capturing() {
@@ -150,14 +117,6 @@ void DisplayCaptor::receive_frame(AVPacketPtr obj_packet) {
             av_log(nullptr, AV_LOG_ERROR, "Receive frame failed: %s\n", av_error_cxx(ret).c_str());
             continue;
         }
-
-        sws_scale(sws_context.get(),
-                  ultimate_frame->data,
-                  ultimate_frame->linesize,
-                  0,
-                  av_codec_context->height,
-                  dest_frame->data,
-                  dest_frame->linesize);
 
         if (queue->push(std::move(ultimate_frame))) {
             std::this_thread::sleep_for(std::chrono::microseconds(1));
