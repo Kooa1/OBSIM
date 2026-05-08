@@ -133,7 +133,7 @@ public:
         cv_not_empty.notify_one();
     }
 
-    size_t get_queue_size() const {
+    inline size_t get_queue_size() const {
         std::lock_guard<std::mutex> lock_guard(q_mutex);
         return data_queue.size();
     }

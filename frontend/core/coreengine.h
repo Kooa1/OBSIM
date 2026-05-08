@@ -10,7 +10,7 @@
 #include "../utils/PCH.h"
 #include "../utils/datasafequeue.h"
 #include "../utils/ffmpegfactory.h"
-#include "displaycaptor.h"
+#include "screencaptor.h"
 
 class CoreEngine {
 public:
@@ -24,12 +24,12 @@ public:
 
     std::unique_ptr<DataSafeQueue<AVFramePtr> > &get_queue();
 
-    std::unique_ptr<DisplayCaptor> &get_captor();
+    std::unique_ptr<ScreenCaptor> &get_captor();
 
 private:
     std::unique_ptr<DataSafeQueue<AVFramePtr> > q_video;
 
-    std::unique_ptr<DisplayCaptor> display_captor;
+    std::unique_ptr<ScreenCaptor> display_captor;
 
     std::thread video_thread;
 };

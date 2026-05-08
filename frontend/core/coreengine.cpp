@@ -19,7 +19,7 @@ void CoreEngine::run() {
 }
 
 void CoreEngine::init_display_captor() {
-    display_captor = std::make_unique<DisplayCaptor>(q_video);
+    display_captor = std::make_unique<ScreenCaptor>(q_video);
     q_video = std::make_unique<DataSafeQueue<AVFramePtr> >();
 }
 
@@ -27,6 +27,6 @@ std::unique_ptr<DataSafeQueue<AVFramePtr> > &CoreEngine::get_queue() {
     return q_video;
 }
 
-std::unique_ptr<DisplayCaptor> &CoreEngine::get_captor() {
+std::unique_ptr<ScreenCaptor> &CoreEngine::get_captor() {
     return display_captor;
 }

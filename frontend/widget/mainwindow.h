@@ -14,7 +14,7 @@
 #include "settingbar.h"
 #include "controlbar.h"
 #include "../core/coreengine.h"
-#include "../core/displaycaptor.h"
+#include "../core/screencaptor.h"
 
 class MainWindow : public QWidget {
     Q_OBJECT

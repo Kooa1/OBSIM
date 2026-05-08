@@ -13,38 +13,47 @@
 
 extern "C" {
 #include "libavutil/avutil.h"
+#include "libavutil/pixdesc.h"
 }
 
 using std::cout;
 
-class DisplayCaptor {
+class ScreenCaptor {
 public:
-    explicit DisplayCaptor(std::unique_ptr<DataSafeQueue<AVFramePtr> > &queue);
+    explicit ScreenCaptor(std::unique_ptr<DataSafeQueue<AVFramePtr> > &queue);
 
-    ~DisplayCaptor();
+    ~ScreenCaptor();
 
     void start_capturing();
 
 private:
     void init_ctx();
 
-    void receive_frame(AVPacketPtr obj_packet);
+    void init_sws_ctx();
+
+    void receive_frame0(AVPacketPtr obj_packet);
+
+    void receive_frame1(AVPacketPtr obj_packet);
 
 private:
+    std::unique_ptr<DataSafeQueue<AVFramePtr> > &queue;
+
+    std::function<void(AVPacketPtr)> decode_func;
+    enum AVPixelFormat target_pixel_format = AV_PIX_FMT_BGRA;
+    bool change_fmt = false;
+
     const AVInputFormat *av_input_format = nullptr;
     const AVCodec *av_codec = nullptr;
-
     AVFormatContextPtr av_format_context = nullptr;
     AVCodecContextPtr av_codec_context = nullptr;
     AVDictionary *options = nullptr;
     AVStreamPtr video_stream = nullptr;
-    AVFramePtr dest_frame = nullptr;
     SwsContextPtr sws_context = nullptr;
 
     int audio_index = -1;
     int video_index = -1;
 
-    std::unique_ptr<DataSafeQueue<AVFramePtr> > &queue;
+
 };
 
 

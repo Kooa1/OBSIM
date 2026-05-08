@@ -14,11 +14,12 @@ ScenePreviewWidget::ScenePreviewWidget(QWidget *parent)
     setFormat(fmt);
 
     setMouseTracking(true);
-    add_test_source();
+
+    // 测试源
+    // add_test_source();
 }
 
-ScenePreviewWidget::~ScenePreviewWidget() {
-}
+ScenePreviewWidget::~ScenePreviewWidget() = default;
 
 void ScenePreviewWidget::add_test_source() {
     // 创建红色矩形源
@@ -74,7 +75,7 @@ void ScenePreviewWidget::rendering_view() {
     // ===== 第1步：全局设置 =====
     glViewport(0, 0, w, h);
     glClearStencil(0);
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);  // 窗口灰边背景
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // 窗口灰边背景
     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
     glMatrixMode(GL_PROJECTION);
@@ -105,7 +106,7 @@ void ScenePreviewWidget::rendering_view() {
     glTranslatef(m_viewX, m_viewY, 0);
     glScalef(m_viewW / CANVAS_W, m_viewH / CANVAS_H, 1);
 
-    for (Source *source : m_scene.get_sources()) {
+    for (Source *source: m_scene.get_sources()) {
         if (!source || !source->visible) continue;
         QRectF bounds = source->get_bounding_rect();
         if (bounds.width() <= 0 || bounds.height() <= 0) continue;
@@ -126,7 +127,7 @@ void ScenePreviewWidget::rendering_view() {
     glTranslatef(m_viewX, m_viewY, 0);
     glScalef(m_viewW / CANVAS_W, m_viewH / CANVAS_H, 1);
 
-    for (Source *source : m_scene.get_sources()) {
+    for (Source *source: m_scene.get_sources()) {
         if (!source || !source->visible) continue;
         QRectF bounds = source->get_bounding_rect();
         if (bounds.width() <= 0 || bounds.height() <= 0) continue;
@@ -142,14 +143,14 @@ void ScenePreviewWidget::rendering_view() {
     m_scene.render_selection_box();
 
     // ===== 第5步：在画布外源区域绘制马赛克覆盖 =====
-    glLoadIdentity();  // 回到窗口像素坐标
+    glLoadIdentity(); // 回到窗口像素坐标
 
     glEnable(GL_STENCIL_TEST);
-    glStencilFunc(GL_EQUAL, 1, 0xFF);  // 只影响画布外源覆盖区
+    glStencilFunc(GL_EQUAL, 1, 0xFF); // 只影响画布外源覆盖区
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
     // 马赛克参数
-    const int blockSize = 16;  // 马赛克块大小（像素），越大马赛克越粗糙
+    const int blockSize = 16; // 马赛克块大小（像素），越大马赛克越粗糙
     const int cols = (w + blockSize - 1) / blockSize;
     const int rows = (h + blockSize - 1) / blockSize;
 
@@ -165,7 +166,7 @@ void ScenePreviewWidget::rendering_view() {
             int bh = std::min(blockSize, h - y);
 
             // 深灰到浅灰之间随机
-            float gray = 0.3f + (rand() % 40) / 100.0f;  // 0.3 ~ 0.7 之间
+            float gray = 0.3f + (rand() % 40) / 100.0f; // 0.3 ~ 0.7 之间
             glColor3f(gray, gray, gray);
 
             glVertex2i(x, y);
