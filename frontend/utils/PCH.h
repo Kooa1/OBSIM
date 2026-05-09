@@ -19,5 +19,6 @@
 #include <vector>
 #include <algorithm>
 #include <memory>
+#include <string>
 
 #endif //PCH_H

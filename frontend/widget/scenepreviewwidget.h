@@ -13,6 +13,8 @@
 #include "core/source.h"
 #include "core/scene.h"
 #include "test/testsource.h"
+#include "core/screencaptor.h"
+#include "core/screencapturesource.h"
 
 
 class ScenePreviewWidget : public QOpenGLWidget {
@@ -25,14 +27,20 @@ public:
 
     void add_test_source();
 
+    void add_screen_capture_source(int screen_index);
+
 private:
     void rendering_view();
+
+    void update_all_video_sources();
 
     QPointF screen_to_canvas(const QPointF &screen_pos) const;
 
     void calculate_pos(QPointF point_f);
 
     void update_cursor();
+
+    void on_frame_ready();
 
 protected:
     void initializeGL() override;
@@ -56,7 +64,7 @@ private:
     int m_viewW = 1920;
     int m_viewH = 1080;
 
-    std::vector<std::unique_ptr<TestSource> > m_sources_storage;
+    std::vector<std::unique_ptr<Source> > m_sources_storage;
     Scene m_scene;
 };
 

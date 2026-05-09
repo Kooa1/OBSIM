@@ -15,13 +15,13 @@ void DisplayManager::run() {
     QVector<DisplayInfo> displays = display_manager.get_all_displays();
     qDebug() << "连接的显示器数量:" << displays.size();
 
-    for (const DisplayInfo& info : displays) {
+    for (const DisplayInfo &info: displays) {
         if (info.is_primary) {
-            qDebug() << "主屏幕:" << info.name;
+            qDebug() << "主屏幕:" << QString::fromStdString(info.name);
             qDebug() << "  几何区域:" << info.geometry;
             qDebug() << "  刷新率:" << info.refresh_rate << "Hz";
         } else {
-            qDebug() << "次屏幕:" << info.name;
+            qDebug() << "次屏幕:" << QString::fromStdString(info.name);
             qDebug() << "  几何区域:" << info.geometry;
             qDebug() << "  位置偏移:" << info.geometry.x() << "," << info.geometry.y();
         }
@@ -90,9 +90,9 @@ bool DisplayManager::is_primary_screen(int index) const {
 DisplayInfo DisplayManager::convert_to_display_info(QScreen *screen, int index, bool is_primary) const {
     DisplayInfo info;
     info.index = index;
-    info.name = screen->name();
-    info.manufacturer = screen->manufacturer();
-    info.model = screen->model();
+    info.name = screen->name().toStdString();
+    info.manufacturer = screen->manufacturer().toStdString();
+    info.model = screen->model().toStdString();
     info.geometry = screen->geometry();
     info.available_geometry = screen->availableGeometry();
     info.is_primary = is_primary;

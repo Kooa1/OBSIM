@@ -17,6 +17,7 @@ ScenePreviewWidget::ScenePreviewWidget(QWidget *parent)
 
     // 测试源
     // add_test_source();
+    add_screen_capture_source(0);
 }
 
 ScenePreviewWidget::~ScenePreviewWidget() = default;
@@ -57,6 +58,23 @@ void ScenePreviewWidget::add_test_source() {
     m_sources_storage.push_back(std::move(rect2));
 
     qDebug() << "添加了" << m_scene.get_sources().size() << "个测试源";
+}
+
+void ScenePreviewWidget::add_screen_capture_source(int screen_index) {
+    auto src = std::make_unique<ScreenCaptureSource>(screen_index);
+
+    // ✅ 注入回调：采集线程有新帧时，发射信号
+    // 使用 QPointer 防止 Widget 销毁后回调访问野指针
+    QPointer<ScenePreviewWidget> self(this);
+    src->set_frame_ready_callback([self]() {
+        if (self) {
+            // emit 是跨线程安全的，Qt 会自动将信号投递到主线程
+            emit self->on_frame_ready();
+        }
+    });
+
+    m_scene.add_source(src.get());
+    m_sources_storage.push_back(std::move(src));
 }
 
 void ScenePreviewWidget::rendering_view() {
@@ -180,6 +198,15 @@ void ScenePreviewWidget::rendering_view() {
     glDisable(GL_STENCIL_TEST);
 }
 
+void ScenePreviewWidget::update_all_video_sources() {
+    for (Source *src: m_scene.get_sources()) {
+        auto *vid = dynamic_cast<ScreenCaptureSource *>(src);
+        if (vid) {
+            vid->update_texture_if_new_frame();
+        }
+    }
+}
+
 QPointF ScenePreviewWidget::screen_to_canvas(const QPointF &screen_pos) const {
     // screen_pos 是逻辑像素（Qt6 event->position() 返回值）
     // 需要乘以 dpr 得到物理像素，再映射到 1920x1080 画布
@@ -221,8 +248,15 @@ void ScenePreviewWidget::update_cursor() {
     }
 }
 
+void ScenePreviewWidget::on_frame_ready() {
+    update();
+}
+
 void ScenePreviewWidget::initializeGL() {
     QOpenGLWidget::initializeGL();
+    for (Source *src: m_scene.get_sources()) {
+        src->load_resources();
+    }
 }
 
 void ScenePreviewWidget::resizeGL(int w, int h) {
@@ -231,6 +265,7 @@ void ScenePreviewWidget::resizeGL(int w, int h) {
 }
 
 void ScenePreviewWidget::paintGL() {
+    update_all_video_sources();
     rendering_view();
 }
 

@@ -17,6 +17,15 @@ public:
 
 private:
     void init_UI();
+
+    void init_control_block();
+
+    void init_layout();
+
+private:
+    QHBoxLayout *main_layout = nullptr;
+
+    QSplitter *main_splitter = nullptr;
 };
 
 

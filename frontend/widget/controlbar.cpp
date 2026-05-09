@@ -11,4 +11,13 @@ ControlBar::ControlBar(QWidget *parent) : QWidget(parent) {
 }
 
 void ControlBar::init_UI() {
+    main_layout = new QHBoxLayout(this);
+    main_splitter = new QSplitter(Qt::Horizontal, this);
+}
+
+void ControlBar::init_control_block() {
+}
+
+void ControlBar::init_layout() {
+    main_splitter->addWidget(main_splitter);
 }

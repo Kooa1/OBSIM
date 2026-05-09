@@ -7,7 +7,6 @@
 
 #include "utils/PCH.h"
 #include "widget/mainwindow.h"
-#include "core/coreengine.h"
 
 extern "C" {
 #include <libavdevice/avdevice.h>
@@ -39,11 +38,7 @@ int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
 
     // init_OBS();
-
-    auto core_engine = std::make_unique<CoreEngine>();
-    auto main_window = new MainWindow(*core_engine);
-
-    // core_engine->run();
+    auto main_window = new MainWindow();
 
     // return QApplication::exec();
     a.exec();

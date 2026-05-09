@@ -9,9 +9,9 @@
 
 struct DisplayInfo {
     int index; // 屏幕索引
-    QString name; // 屏幕名称
-    QString manufacturer; // 制造商
-    QString model; // 型号
+    std::string name; // 屏幕名称
+    std::string manufacturer; // 制造商
+    std::string model; // 型号
     QRect geometry; // 屏幕几何区域 (位置和大小)
     QRect available_geometry; // 可用区域 (排除任务栏等)
     bool is_primary; // 是否为主屏幕

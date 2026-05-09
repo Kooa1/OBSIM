@@ -13,14 +13,13 @@
 #include "scenepreviewwidget.h"
 #include "settingbar.h"
 #include "controlbar.h"
-#include "../core/coreengine.h"
 #include "../core/screencaptor.h"
 
 class MainWindow : public QWidget {
     Q_OBJECT
 
 public:
-    explicit MainWindow(CoreEngine &core_engine);
+    explicit MainWindow();
 
     ~MainWindow() override;
 
@@ -52,8 +51,6 @@ private:
     SettingBar *setting_bar = nullptr;
 
     ControlBar *control_bar = nullptr;
-
-    CoreEngine &core;
 
 signals:
 };

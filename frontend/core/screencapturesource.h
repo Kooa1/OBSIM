@@ -10,33 +10,30 @@
 
 class ScreenCaptureSource : public Source {
 public:
-    // 构造函数接收采集参数（屏幕索引、设备名等）
     explicit ScreenCaptureSource(int screen_index);
     ~ScreenCaptureSource() override;
 
     // ========== Source 虚函数 ==========
     void render() override;
     const char* source_type_name() const override { return "Screen Capture"; }
-    void load_resources() override;      // OpenGL 上下文就绪时创建纹理
-    void unload_resources() override;    // 释放纹理
+    void load_resources() override;
+    void unload_resources() override;
 
-    // ========== 给 Widget 调用的接口 ==========
-    bool try_get_latest_frame(FrameData& out_frame);
-    void update_texture(const FrameData& frame);
-    bool is_capturing() const;
+    // ========== 主线程每帧调用 ==========
+    bool update_texture_if_new_frame();
+
+    void set_frame_ready_callback(ScreenCaptor::FrameReadyCallback callback);
 
 private:
     void create_texture(int width, int height);
+    void upload_frame_to_texture(const AVFramePtr& frame);
 
-private:
-    // ✅ 持有你的采集类实例
     std::unique_ptr<ScreenCaptor> m_capture;
-
-    // OpenGL 纹理
     GLuint m_texture_id = 0;
     int    m_tex_width = 0;
     int    m_tex_height = 0;
     bool   m_texture_created = false;
+
 };
 
 

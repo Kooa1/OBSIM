@@ -4,9 +4,8 @@
 
 #include "mainwindow.h"
 
-MainWindow::MainWindow(CoreEngine &core_engine)
-    : QWidget(nullptr),
-      core(core_engine) {
+MainWindow::MainWindow()
+    : QWidget(nullptr) {
     setMouseTracking(true);
 
     init_UI();

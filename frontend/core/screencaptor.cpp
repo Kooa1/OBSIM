@@ -4,29 +4,49 @@
 
 #include "screencaptor.h"
 
+
 #include "../utils/av_err2str_cxx.h"
 
-ScreenCaptor::ScreenCaptor(std::unique_ptr<DataSafeQueue<AVFramePtr> > &queue) : queue(queue) {
+ScreenCaptor::ScreenCaptor() {
     init_ctx();
 }
 
-ScreenCaptor::~ScreenCaptor() = default;
+ScreenCaptor::~ScreenCaptor() {
+    stop();
+}
 
-void ScreenCaptor::start_capturing() {
-    AVPacketPtr av_packet;
-    while (true) {
-        av_packet.reset(av_packet_alloc(), AVPacketDeleter());
+void ScreenCaptor::start() {
+    queue = std::make_unique<DataSafeQueue<AVFramePtr> >(64);
 
-        if (const int ret = av_read_frame(av_format_context.get(), av_packet.get()); ret == AVERROR_EOF) {
-            break;
-        } else if (ret == AVERROR(EAGAIN) || ret < 0) {
-            continue;
-        };
+    if (is_capturing.load()) return; // 防止重复启动
 
-        if (av_packet->stream_index == video_index) {
-            decode_func(std::move(av_packet));
-        }
+    is_capturing.store(true);
+
+    cap_thread = std::thread([this]() {
+        capture_loop();
+    });
+}
+
+void ScreenCaptor::stop() {
+    is_capturing.store(false);
+
+    if (cap_thread.joinable()) {
+        cap_thread.join();
     }
+
+    if (queue) {
+        queue->clean_queue();
+    }
+}
+
+void ScreenCaptor::set_frame_ready_callback(FrameReadyCallback callback) {
+    std::lock_guard<std::mutex> lock(callback_mutex);
+    frame_ready_callback = std::move(callback);
+}
+
+bool ScreenCaptor::try_pop_frame(AVFramePtr &out_frame) {
+    if (!queue) return false;
+    return queue->pop_with_drain(out_frame);
 }
 
 void ScreenCaptor::init_ctx() {
@@ -38,6 +58,11 @@ void ScreenCaptor::init_ctx() {
         av_log(av_codec_context.get(), AV_LOG_ERROR, "codec context init fault");
         return;
     }
+
+    auto m_d_m = new DisplayManager();
+    DisplayManager::run();
+
+    // return;
 
     AVFormatContext *fm_ctx = nullptr;
     av_dict_set(&options, "framerate", "30", 0);
@@ -112,7 +137,25 @@ void ScreenCaptor::init_sws_ctx() {
 
     if (!sws_context) {
         av_log(nullptr, AV_LOG_ERROR, "init sws ctx fault\n");
-        return;
+    }
+}
+
+void ScreenCaptor::capture_loop() {
+    std::cout << "capture_loop STARTED" << std::endl;
+
+    AVPacketPtr av_packet;
+    while (is_capturing.load()) {
+        av_packet.reset(av_packet_alloc(), AVPacketDeleter());
+
+        if (const int ret = av_read_frame(av_format_context.get(), av_packet.get()); ret == AVERROR_EOF) {
+            break;
+        } else if (ret == AVERROR(EAGAIN) || ret < 0) {
+            continue;
+        }
+
+        if (av_packet->stream_index == video_index) {
+            decode_func(std::move(av_packet));
+        }
     }
 }
 
@@ -127,10 +170,7 @@ void ScreenCaptor::receive_frame0(AVPacketPtr obj_packet) {
 
     while (ret >= 0) {
         AVFramePtr ultimate_frame(av_frame_alloc(), AVFrameDeleter());
-        if (!ultimate_frame) {
-            av_log(nullptr, AV_LOG_ERROR, "Failed to allocate ultimate_frame\n");
-            return;
-        }
+        if (!ultimate_frame) return;
 
         ret = avcodec_receive_frame(av_codec_context.get(), ultimate_frame.get());
         if (ret == AVERROR(EAGAIN)) {
@@ -178,6 +218,7 @@ void ScreenCaptor::receive_frame0(AVPacketPtr obj_packet) {
         }
 
         if (queue->push(std::move(dest_frame))) {
+            notify_frame_ready();
             std::this_thread::sleep_for(std::chrono::microseconds(1));
         }
     }
@@ -194,10 +235,7 @@ void ScreenCaptor::receive_frame1(AVPacketPtr obj_packet) {
 
     while (ret >= 0) {
         AVFramePtr ultimate_frame(av_frame_alloc(), AVFrameDeleter());
-        if (!ultimate_frame) {
-            av_log(nullptr, AV_LOG_ERROR, "Failed to allocate ultimate_frame\n");
-            return;
-        }
+        if (!ultimate_frame) return;
 
         ret = avcodec_receive_frame(av_codec_context.get(), ultimate_frame.get());
         if (ret == AVERROR(EAGAIN)) {
@@ -216,7 +254,15 @@ void ScreenCaptor::receive_frame1(AVPacketPtr obj_packet) {
         }
 
         if (queue->push(std::move(ultimate_frame))) {
+            notify_frame_ready();
             std::this_thread::sleep_for(std::chrono::microseconds(1));
         }
+    }
+}
+
+void ScreenCaptor::notify_frame_ready() {
+    std::lock_guard<std::mutex> lock(callback_mutex);
+    if (frame_ready_callback) {
+        frame_ready_callback();
     }
 }

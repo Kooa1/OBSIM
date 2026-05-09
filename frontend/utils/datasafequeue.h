@@ -127,6 +127,19 @@ public:
         return value;
     }
 
+    bool pop_with_drain(T& out) {
+        std::lock_guard<std::mutex> lock(q_mutex);
+        if (data_queue.empty()) return false;
+
+        // 循环取出所有帧，只留最后一个
+        while (data_queue.size() > 1) {
+            data_queue.pop();
+        }
+        out = std::move(data_queue.front());
+        data_queue.pop();
+        return true;
+    }
+
     inline void push_poison_pill() {
         std::unique_lock<std::mutex> lock(q_mutex);
         data_queue.push(std::move(T()));

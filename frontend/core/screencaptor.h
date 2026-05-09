@@ -6,6 +6,8 @@
 #define OBSIM_CAPTOR_H
 
 #include <iostream>
+#include <atomic>
+#include <functional>
 
 #include "../utils/ffmpegfactory.h"
 #include "../utils/displaymanager.h"
@@ -13,6 +15,7 @@
 
 extern "C" {
 #include "libavutil/avutil.h"
+#include "libavutil/opt.h"
 #include "libavutil/pixdesc.h"
 }
 
@@ -20,27 +23,45 @@ using std::cout;
 
 class ScreenCaptor {
 public:
-    explicit ScreenCaptor(std::unique_ptr<DataSafeQueue<AVFramePtr> > &queue);
+    using FrameReadyCallback = std::function<void()>;
+
+    explicit ScreenCaptor();
 
     ~ScreenCaptor();
 
-    void start_capturing();
+    void start();
+
+    void stop();
+
+    void set_frame_ready_callback(FrameReadyCallback callback);
+
+    bool try_pop_frame(AVFramePtr &out_frame);
+
+    bool is_running() const { return is_capturing.load(); }
 
 private:
     void init_ctx();
 
     void init_sws_ctx();
 
+    void capture_loop();
+
     void receive_frame0(AVPacketPtr obj_packet);
 
     void receive_frame1(AVPacketPtr obj_packet);
 
-private:
-    std::unique_ptr<DataSafeQueue<AVFramePtr> > &queue;
+    void notify_frame_ready();
 
+private:
+    FrameReadyCallback frame_ready_callback;
+
+    std::mutex callback_mutex;
+    std::thread cap_thread;
+    std::atomic_bool is_capturing = false;
+
+    std::unique_ptr<DataSafeQueue<AVFramePtr> > queue;
     std::function<void(AVPacketPtr)> decode_func;
     enum AVPixelFormat target_pixel_format = AV_PIX_FMT_BGRA;
-    bool change_fmt = false;
 
     const AVInputFormat *av_input_format = nullptr;
     const AVCodec *av_codec = nullptr;
@@ -50,7 +71,8 @@ private:
     AVStreamPtr video_stream = nullptr;
     SwsContextPtr sws_context = nullptr;
 
-    int audio_index = -1;
+    bool change_fmt = false;
+
     int video_index = -1;
 
 
