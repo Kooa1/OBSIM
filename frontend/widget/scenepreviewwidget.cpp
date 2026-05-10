@@ -20,7 +20,11 @@ ScenePreviewWidget::ScenePreviewWidget(QWidget *parent)
     add_screen_capture_source(0);
 }
 
-ScenePreviewWidget::~ScenePreviewWidget() = default;
+ScenePreviewWidget::~ScenePreviewWidget() {
+    makeCurrent();            // 确保有 GL 上下文
+    delete_mosaic_list();
+    doneCurrent();
+}
 
 void ScenePreviewWidget::add_test_source() {
     // 创建红色矩形源
@@ -164,36 +168,12 @@ void ScenePreviewWidget::rendering_view() {
     glLoadIdentity(); // 回到窗口像素坐标
 
     glEnable(GL_STENCIL_TEST);
-    glStencilFunc(GL_EQUAL, 1, 0xFF); // 只影响画布外源覆盖区
+    glStencilFunc(GL_EQUAL, 1, 0xFF);
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
-    // 马赛克参数
-    const int blockSize = 16; // 马赛克块大小（像素），越大马赛克越粗糙
-    const int cols = (w + blockSize - 1) / blockSize;
-    const int rows = (h + blockSize - 1) / blockSize;
-
-    // 简单随机种子（固定种子保证每帧结果一致）
-    srand(42);
-
-    glBegin(GL_QUADS);
-    for (int row = 0; row < rows; ++row) {
-        for (int col = 0; col < cols; ++col) {
-            int x = col * blockSize;
-            int y = row * blockSize;
-            int bw = std::min(blockSize, w - x);
-            int bh = std::min(blockSize, h - y);
-
-            // 深灰到浅灰之间随机
-            float gray = 0.3f + (rand() % 40) / 100.0f; // 0.3 ~ 0.7 之间
-            glColor3f(gray, gray, gray);
-
-            glVertex2i(x, y);
-            glVertex2i(x + bw, y);
-            glVertex2i(x + bw, y + bh);
-            glVertex2i(x, y + bh);
-        }
-    }
-    glEnd();
+    // 确保显示列表已创建并调用
+    ensure_mosaic_list(w, h);
+    glCallList(m_mosaic_list);
 
     glDisable(GL_STENCIL_TEST);
 }
@@ -252,6 +232,47 @@ void ScenePreviewWidget::on_frame_ready() {
     update();
 }
 
+void ScenePreviewWidget::ensure_mosaic_list(int w, int h) {
+    if (m_mosaic_list != 0 && m_mosaic_w == w && m_mosaic_h == h)
+        return; // 尺寸未变，复用
+
+    delete_mosaic_list();
+    m_mosaic_list = glGenLists(1);
+    m_mosaic_w = w;
+    m_mosaic_h = h;
+
+    const int blockSize = 16;
+    const int cols = (w + blockSize - 1) / blockSize;
+    const int rows = (h + blockSize - 1) / blockSize;
+    srand(42);
+
+    glNewList(m_mosaic_list, GL_COMPILE);
+    glBegin(GL_QUADS);
+    for (int row = 0; row < rows; ++row) {
+        for (int col = 0; col < cols; ++col) {
+            int x = col * blockSize;
+            int y = row * blockSize;
+            int bw = std::min(blockSize, w - x);
+            int bh = std::min(blockSize, h - y);
+            float gray = 0.3f + (rand() % 40) / 100.0f;
+            glColor3f(gray, gray, gray);
+            glVertex2i(x, y);
+            glVertex2i(x + bw, y);
+            glVertex2i(x + bw, y + bh);
+            glVertex2i(x, y + bh);
+        }
+    }
+    glEnd();
+    glEndList();
+}
+
+void ScenePreviewWidget::delete_mosaic_list() {
+    if (m_mosaic_list != 0) {
+        glDeleteLists(m_mosaic_list, 1);
+        m_mosaic_list = 0;
+    }
+}
+
 void ScenePreviewWidget::initializeGL() {
     QOpenGLWidget::initializeGL();
     for (Source *src: m_scene.get_sources()) {
@@ -260,8 +281,8 @@ void ScenePreviewWidget::initializeGL() {
 }
 
 void ScenePreviewWidget::resizeGL(int w, int h) {
-    Q_UNUSED(w);
-    Q_UNUSED(h);
+    Q_UNUSED(w); Q_UNUSED(h);
+    delete_mosaic_list(); // 下次 paintGL 会自动重建
 }
 
 void ScenePreviewWidget::paintGL() {

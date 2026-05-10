@@ -42,6 +42,10 @@ private:
 
     void on_frame_ready();
 
+    void   ensure_mosaic_list(int w, int h);
+
+    void   delete_mosaic_list();
+
 protected:
     void initializeGL() override;
 
@@ -63,6 +67,10 @@ private:
     int m_viewY = 0;
     int m_viewW = 1920;
     int m_viewH = 1080;
+
+    GLuint m_mosaic_list = 0;       // 马赛克显示列表 ID
+    int    m_mosaic_w = 0;          // 创建列表时的视图宽
+    int    m_mosaic_h = 0;          // 创建列表时的视图高
 
     std::vector<std::unique_ptr<Source> > m_sources_storage;
     Scene m_scene;
