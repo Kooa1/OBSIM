@@ -62,10 +62,9 @@ void ScreenCaptor::init_ctx() {
     auto m_d_m = new DisplayManager();
     DisplayManager::run();
 
-    // return;
 
     AVFormatContext *fm_ctx = nullptr;
-    av_dict_set(&options, "framerate", "30", 0);
+    av_dict_set(&options, "framerate", "60", 0);
     av_dict_set(&options, "video_size", "1920x1080", 0);
 
     if (const int ret = avformat_open_input(&fm_ctx, "desktop", av_input_format, &options); ret != 0) {

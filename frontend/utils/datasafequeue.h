@@ -127,8 +127,8 @@ public:
         return value;
     }
 
-    bool pop_with_drain(T& out) {
-        std::lock_guard<std::mutex> lock(q_mutex);
+    bool pop_with_drain(T &out) {
+        std::unique_lock<std::mutex> lock(q_mutex);
         if (data_queue.empty()) return false;
 
         // 循环取出所有帧，只留最后一个
@@ -137,6 +137,10 @@ public:
         }
         out = std::move(data_queue.front());
         data_queue.pop();
+
+        lock.unlock();
+        cv_not_full.notify_one();
+
         return true;
     }
 

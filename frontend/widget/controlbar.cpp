@@ -1,23 +1,198 @@
-//
-// Created by 66 on 2026/4/25.
-//
-
 #include "controlbar.h"
 
-ControlBar::ControlBar(QWidget *parent) : QWidget(parent) {
-    this->setMinimumHeight(220);
+// ==================== 场景控制块 ====================
 
+SceneControlBlock::SceneControlBlock(QWidget* parent)
+    : ControlBlock("场景", parent) {
+
+    m_scene_list = new QListWidget();
+    m_scene_list->setAlternatingRowColors(true);
+
+    auto* btn_layout = new QHBoxLayout();
+    auto* btn_add = new QPushButton("＋");
+    auto* btn_del = new QPushButton("－");
+    btn_add->setFixedSize(28, 28);
+    btn_del->setFixedSize(28, 28);
+    btn_layout->addStretch();
+    btn_layout->addWidget(btn_add);
+    btn_layout->addWidget(btn_del);
+
+    m_content_layout->addWidget(m_scene_list);
+    m_content_layout->addLayout(btn_layout);
+
+    m_scene_list->addItem("场景 1");
+    m_scene_list->addItem("场景 2");
+    m_scene_list->setCurrentRow(0);
+}
+
+
+// ==================== 输入源控制块 ====================
+
+SourceControlBlock::SourceControlBlock(QWidget* parent)
+    : ControlBlock("输入源", parent) {
+
+    m_source_list = new QListWidget();
+    m_source_list->setAlternatingRowColors(true);
+
+    auto* btn_layout = new QHBoxLayout();
+    auto* btn_add = new QPushButton("＋");
+    auto* btn_del = new QPushButton("－");
+    btn_add->setFixedSize(28, 28);
+    btn_del->setFixedSize(28, 28);
+    btn_layout->addStretch();
+    btn_layout->addWidget(btn_add);
+    btn_layout->addWidget(btn_del);
+
+    m_content_layout->addWidget(m_source_list);
+    m_content_layout->addLayout(btn_layout);
+}
+
+
+// ==================== 混音控制块 ====================
+
+AudioMixerBlock::AudioMixerBlock(QWidget* parent)
+    : ControlBlock("混音器", parent) {
+
+    m_tracks_layout = new QVBoxLayout();
+    m_tracks_layout->setSpacing(6);
+    m_content_layout->addLayout(m_tracks_layout);
+    m_content_layout->addStretch();
+
+    // 默认添加几条音轨
+    add_track("桌面音频", 0.8f);
+    add_track("麦克风", 0.6f);
+}
+
+AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString& name, float volume) {
+    TrackWidget tw;
+
+    tw.container = new QWidget();
+    auto* layout = new QVBoxLayout(tw.container);
+    layout->setContentsMargins(0, 2, 0, 2);
+    layout->setSpacing(2);
+
+    // 第一行：名称 + 静音按钮
+    auto* top_row = new QHBoxLayout();
+    tw.name_label = new QLabel(name);
+
+    tw.mute_btn = new QPushButton("🔊");
+    tw.mute_btn->setFixedSize(24, 24);
+    tw.mute_btn->setCheckable(true);
+
+    top_row->addWidget(tw.name_label);
+    top_row->addStretch();
+    top_row->addWidget(tw.mute_btn);
+
+    // 第二行：音量滑块
+    tw.volume_slider = new QSlider(Qt::Horizontal);
+    tw.volume_slider->setRange(0, 100);
+    tw.volume_slider->setValue(static_cast<int>(volume * 100));
+
+    // 第三行：电平表
+    tw.level_meter = new QProgressBar();
+    tw.level_meter->setRange(0, 100);
+    tw.level_meter->setValue(0);
+    tw.level_meter->setTextVisible(false);
+    tw.level_meter->setFixedHeight(6);
+
+    layout->addLayout(top_row);
+    layout->addWidget(tw.volume_slider);
+    layout->addWidget(tw.level_meter);
+
+    // 信号连接
+    QObject::connect(tw.volume_slider, &QSlider::valueChanged, this,
+        [this, name](int value) {
+            emit track_volume_changed(name, value / 100.0f);
+        });
+
+    QObject::connect(tw.mute_btn, &QPushButton::toggled, this,
+        [this, name](bool checked) {
+            emit track_muted_changed(name, checked);
+        });
+
+    return tw;
+}
+
+void AudioMixerBlock::add_track(const QString& name, float volume) {
+    if (m_tracks.contains(name)) return;
+
+    TrackWidget tw = create_track_widget(name, volume);
+    m_tracks_layout->addWidget(tw.container);
+    m_tracks[name] = tw;
+}
+
+void AudioMixerBlock::remove_track(const QString& name) {
+    auto it = m_tracks.find(name);
+    if (it != m_tracks.end()) {
+        m_tracks_layout->removeWidget(it->second.container);
+        delete it->second.container;
+        m_tracks.erase(it);
+    }
+}
+
+void AudioMixerBlock::clear_tracks() {
+    for (auto& [name, tw] : m_tracks) {
+        m_tracks_layout->removeWidget(tw.container);
+        delete tw.container;
+    }
+    m_tracks.clear();
+}
+
+
+// ==================== 直播录制块 ====================
+
+StreamRecordBlock::StreamRecordBlock(QWidget* parent)
+    : ControlBlock("直播 / 录制", parent) {
+
+    m_btn_start_stream = new QPushButton("🔴 开始直播");
+    m_btn_start_record = new QPushButton("⏺ 开始录制");
+    m_btn_settings     = new QPushButton("⚙ 设置");
+
+    m_content_layout->addWidget(m_btn_start_stream);
+    m_content_layout->addWidget(m_btn_start_record);
+    m_content_layout->addStretch();
+    m_content_layout->addWidget(m_btn_settings);
+
+    connect(m_btn_start_stream, &QPushButton::clicked, this, &StreamRecordBlock::start_stream_clicked);
+    connect(m_btn_start_record, &QPushButton::clicked, this, &StreamRecordBlock::start_record_clicked);
+}
+
+
+// ==================== 总控制栏 ====================
+
+ControlBar::ControlBar(QWidget* parent) : QWidget(parent) {
+    setMinimumHeight(220);
     init_UI();
 }
 
 void ControlBar::init_UI() {
-    main_layout = new QHBoxLayout(this);
+    main_layout   = new QHBoxLayout(this);
+    main_layout->setContentsMargins(6, 6, 6, 6);
+
     main_splitter = new QSplitter(Qt::Horizontal, this);
+
+    init_control_blocks();
+    init_layout();
 }
 
-void ControlBar::init_control_block() {
+void ControlBar::init_control_blocks() {
+    m_scene_block         = new SceneControlBlock(this);
+    m_source_block        = new SourceControlBlock(this);
+    m_audio_mixer_block   = new AudioMixerBlock(this);
+    m_stream_record_block = new StreamRecordBlock(this);
 }
 
 void ControlBar::init_layout() {
-    main_splitter->addWidget(main_splitter);
+    // 场景 | 输入源 | 混音器 | 直播录制
+    main_splitter->addWidget(m_scene_block);
+    main_splitter->addWidget(m_source_block);
+    main_splitter->addWidget(m_audio_mixer_block);
+    main_splitter->addWidget(m_stream_record_block);
+
+    main_splitter->setStretchFactor(0, 1);
+    main_splitter->setStretchFactor(1, 1);
+    main_splitter->setStretchFactor(2, 4);
+    main_splitter->setStretchFactor(3, 2);
+
+    main_layout->addWidget(main_splitter);
 }
