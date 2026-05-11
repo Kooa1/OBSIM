@@ -108,18 +108,11 @@ void ScreenCaptureSource::upload_frame_to_texture(const AVFramePtr& frame) {
 // ========== 主线程每帧调用 ==========
 
 bool ScreenCaptureSource::update_texture_if_new_frame() {
-    AVFramePtr latest;
-    AVFramePtr temp;
-    bool got_any = false;
+    if (!m_capture || !m_capture->is_running()) return false;
 
-    // drain：只保留最后一帧
-    while (m_capture->try_pop_frame(temp)) {
-        latest = std::move(temp);
-        got_any = true;
-    }
-
-    if (got_any && latest) {
-        upload_frame_to_texture(std::move(latest));
+    AVFramePtr frame;
+    if (m_capture->try_pop_frame(frame)) {
+        upload_frame_to_texture(std::move(frame));  // 完美转发
         return true;
     }
     return false;
