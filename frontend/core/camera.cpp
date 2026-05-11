@@ -28,4 +28,5 @@ const char* Camera::get_device_name() const {
 void Camera::setup_options(AVDictionary** opts) {
     av_dict_set(opts, "video_size", "1280x720", 0);
     av_dict_set(opts, "framerate", "30", 0);
+    av_dict_set(opts, "rtbufsize", "2048k", 0);
 }

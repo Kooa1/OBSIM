@@ -124,12 +124,13 @@ void VideoCaptor::init_sws_ctx() {
 
 // ========== 采集循环 ==========
 void VideoCaptor::capture_loop() {
-    AVPacketPtr av_packet;
+    // 回退为每次循环分配独立 AVPacket，避免别名 shared_ptr 导致数据失效
     while (is_capturing.load()) {
-        av_packet.reset(av_packet_alloc(), AVPacketDeleter());
+        AVPacketPtr av_packet(av_packet_alloc(), AVPacketDeleter());
         int ret = av_read_frame(av_format_context.get(), av_packet.get());
         if (ret == AVERROR_EOF) break;
         else if (ret == AVERROR(EAGAIN) || ret < 0) continue;
+
         if (av_packet->stream_index == video_index) {
             decode_func(std::move(av_packet));
         }
@@ -139,7 +140,11 @@ void VideoCaptor::capture_loop() {
 // ========== 需要格式转换的接收函数 ==========
 void VideoCaptor::receive_frame0(AVPacketPtr obj_packet) {
     auto packet = std::move(obj_packet);
-    int ret = avcodec_send_packet(av_codec_context.get(), packet.get());
+    int ret = 0;
+    // 处理 EAGAIN：内部队列满时短暂休眠再重试
+    while ((ret = avcodec_send_packet(av_codec_context.get(), packet.get())) == AVERROR(EAGAIN)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
     if (ret < 0) {
         av_log(nullptr, AV_LOG_ERROR, "send video packet failed: %s\n", av_error_cxx(ret).c_str());
         return;
@@ -166,17 +171,19 @@ void VideoCaptor::receive_frame0(AVPacketPtr obj_packet) {
                         dest_frame->data, dest_frame->linesize);
         if (ret < 0) continue;
 
-        if (queue->push(std::move(dest_frame))) {
-            notify_frame_ready();
-            std::this_thread::sleep_for(std::chrono::microseconds(1));
-        }
+        queue->push_no_wait(std::move(dest_frame));
+        notify_frame_ready();
+        std::this_thread::sleep_for(std::chrono::microseconds(1));
     }
 }
 
 // ========== 无需格式转换的接收函数 ==========
 void VideoCaptor::receive_frame1(AVPacketPtr obj_packet) {
     auto packet = std::move(obj_packet);
-    int ret = avcodec_send_packet(av_codec_context.get(), packet.get());
+    int ret = 0;
+    while ((ret = avcodec_send_packet(av_codec_context.get(), packet.get())) == AVERROR(EAGAIN)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
     if (ret < 0) {
         av_log(nullptr, AV_LOG_ERROR, "send video packet failed: %s\n", av_error_cxx(ret).c_str());
         return;
@@ -189,10 +196,9 @@ void VideoCaptor::receive_frame1(AVPacketPtr obj_packet) {
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
         if (ret < 0) continue;
 
-        if (queue->push(std::move(ultimate_frame))) {
-            notify_frame_ready();
-            std::this_thread::sleep_for(std::chrono::microseconds(1));
-        }
+        queue->push_no_wait(std::move(ultimate_frame));
+        notify_frame_ready();
+        std::this_thread::sleep_for(std::chrono::microseconds(1));
     }
 }
 
