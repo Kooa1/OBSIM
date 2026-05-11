@@ -15,6 +15,7 @@
 #include "test/testsource.h"
 #include "core/screencaptor.h"
 #include "core/screencapturesource.h"
+#include "core/cameracapturesource.h"
 
 
 class ScenePreviewWidget : public QOpenGLWidget {
@@ -29,6 +30,8 @@ public:
 
     void add_screen_capture_source(int screen_index);
 
+    void add_camera_capture_source();
+
 private:
     void rendering_view();
 
@@ -42,9 +45,9 @@ private:
 
     void on_frame_ready();
 
-    void   ensure_mosaic_list(int w, int h);
+    void ensure_mosaic_list(int w, int h);
 
-    void   delete_mosaic_list();
+    void delete_mosaic_list();
 
 protected:
     void initializeGL() override;
@@ -68,9 +71,9 @@ private:
     int m_viewW = 1920;
     int m_viewH = 1080;
 
-    GLuint m_mosaic_list = 0;       // 马赛克显示列表 ID
-    int    m_mosaic_w = 0;          // 创建列表时的视图宽
-    int    m_mosaic_h = 0;          // 创建列表时的视图高
+    GLuint m_mosaic_list = 0; // 马赛克显示列表 ID
+    int m_mosaic_w = 0; // 创建列表时的视图宽
+    int m_mosaic_h = 0; // 创建列表时的视图高
 
     std::vector<std::unique_ptr<Source> > m_sources_storage;
     Scene m_scene;

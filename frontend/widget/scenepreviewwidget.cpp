@@ -18,11 +18,11 @@ ScenePreviewWidget::ScenePreviewWidget(QWidget *parent)
     // 测试源
     // add_test_source();
     add_screen_capture_source(0);
-    // add_screen_capture_source(0);
+    add_camera_capture_source();
 }
 
 ScenePreviewWidget::~ScenePreviewWidget() {
-    makeCurrent();            // 确保有 GL 上下文
+    makeCurrent(); // 确保有 GL 上下文
     delete_mosaic_list();
     doneCurrent();
 }
@@ -74,6 +74,20 @@ void ScenePreviewWidget::add_screen_capture_source(int screen_index) {
     src->set_frame_ready_callback([self]() {
         if (self) {
             // emit 是跨线程安全的，Qt 会自动将信号投递到主线程
+            emit self->on_frame_ready();
+        }
+    });
+
+    m_scene.add_source(src.get());
+    m_sources_storage.push_back(std::move(src));
+}
+
+void ScenePreviewWidget::add_camera_capture_source() {
+    auto src = std::make_unique<CameraCaptureSource>();
+
+    QPointer<ScenePreviewWidget> self(this);
+    src->set_frame_ready_callback([self]() {
+        if (self) {
             emit self->on_frame_ready();
         }
     });
@@ -180,10 +194,12 @@ void ScenePreviewWidget::rendering_view() {
 }
 
 void ScenePreviewWidget::update_all_video_sources() {
-    for (Source *src: m_scene.get_sources()) {
-        auto *vid = dynamic_cast<ScreenCaptureSource *>(src);
-        if (vid) {
+    for (Source* src : m_scene.get_sources()) {
+        if (auto* vid = dynamic_cast<ScreenCaptureSource*>(src)) {
             vid->update_texture_if_new_frame();
+        }
+        if (auto* cam = dynamic_cast<CameraCaptureSource*>(src)) {  // ✅ 新增
+            cam->update_texture_if_new_frame();
         }
     }
 }
@@ -282,7 +298,8 @@ void ScenePreviewWidget::initializeGL() {
 }
 
 void ScenePreviewWidget::resizeGL(int w, int h) {
-    Q_UNUSED(w); Q_UNUSED(h);
+    Q_UNUSED(w);
+    Q_UNUSED(h);
     delete_mosaic_list(); // 下次 paintGL 会自动重建
 }
 
