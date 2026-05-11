@@ -1,0 +1,33 @@
+#ifndef OBSIM_VIDEOSOURCE_H
+#define OBSIM_VIDEOSOURCE_H
+
+#include <QOpenGLFunctions>
+
+#include <GL/gl.h>
+
+#include "source.h"
+#include "videocaptor.h"
+
+class VideoSource : public Source {
+public:
+    explicit VideoSource(std::unique_ptr<VideoCaptor> captor);
+    ~VideoSource() override = default;
+
+    void load_resources() override;
+    void unload_resources() override;
+    void render() override;
+    bool update_frame() override;                     // 新增接口
+    void set_frame_ready_callback(VideoCaptor::FrameReadyCallback callback);
+
+protected:
+    void create_texture(int width, int height);
+    void upload_frame_to_texture(const AVFramePtr& frame);
+
+    std::unique_ptr<VideoCaptor> m_capture;
+    GLuint m_texture_id = 0;
+    int    m_tex_width = 0;
+    int    m_tex_height = 0;
+    bool   m_texture_created = false;
+};
+
+#endif
