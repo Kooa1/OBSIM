@@ -144,6 +144,33 @@ public:
         return true;
     }
 
+    std::optional<T> try_pop_drain() {
+        std::queue<T> temp;
+        {
+            std::unique_lock<std::mutex> lock(q_mutex);
+            if (data_queue.empty()) return std::nullopt;
+
+            // O(1) 交换，持锁时间极短
+            std::swap(temp, data_queue);
+            lock.unlock();
+            cv_not_full.notify_one();
+        }
+
+        // 锁外处理：丢弃旧帧，只保留最新帧
+        std::optional<T> result;
+        if (temp.size() == 1) {
+            result = std::move(temp.front());
+        } else {
+            // 移到最后一个
+            while (temp.size() > 1) {
+                temp.pop();
+            }
+            result = std::move(temp.front());
+        }
+
+        return result;
+    }
+
     inline void push_poison_pill() {
         std::unique_lock<std::mutex> lock(q_mutex);
         data_queue.push(std::move(T()));

@@ -44,9 +44,9 @@ void ScreenCaptor::set_frame_ready_callback(FrameReadyCallback callback) {
     frame_ready_callback = std::move(callback);
 }
 
-bool ScreenCaptor::try_pop_frame(AVFramePtr &out_frame) {
-    if (!queue) return false;
-    return queue->pop_with_drain(out_frame);
+std::optional<AVFramePtr> ScreenCaptor::try_pop_frame() {
+    if (!queue) return std::nullopt;
+    return queue->try_pop_drain();
 }
 
 void ScreenCaptor::init_ctx() {

@@ -35,7 +35,7 @@ public:
 
     void set_frame_ready_callback(FrameReadyCallback callback);
 
-    bool try_pop_frame(AVFramePtr &out_frame);
+    std::optional<AVFramePtr> try_pop_frame();;
 
     bool is_running() const { return is_capturing.load(); }
 
