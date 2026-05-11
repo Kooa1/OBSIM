@@ -18,6 +18,7 @@ ScenePreviewWidget::ScenePreviewWidget(QWidget *parent)
     // 测试源
     // add_test_source();
     add_screen_capture_source(0);
+    // add_screen_capture_source(0);
 }
 
 ScenePreviewWidget::~ScenePreviewWidget() {
