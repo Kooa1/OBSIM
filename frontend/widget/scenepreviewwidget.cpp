@@ -4,8 +4,6 @@
 
 #include "scenepreviewwidget.h"
 
-#include <qevent.h>
-
 ScenePreviewWidget::ScenePreviewWidget(QWidget *parent)
     : QOpenGLWidget(parent) {
     // 请求模板缓冲
@@ -22,7 +20,11 @@ ScenePreviewWidget::ScenePreviewWidget(QWidget *parent)
 }
 
 ScenePreviewWidget::~ScenePreviewWidget() {
-    makeCurrent(); // 确保有 GL 上下文
+    // 通知所有回调停止
+    for (auto& flag : m_alive_flags) {
+        *flag = false;
+    }
+    makeCurrent();
     delete_mosaic_list();
     doneCurrent();
 }
@@ -68,13 +70,15 @@ void ScenePreviewWidget::add_test_source() {
 void ScenePreviewWidget::add_screen_capture_source(int screen_index) {
     auto src = std::make_unique<ScreenCaptureSource>(screen_index);
 
-    // ✅ 注入回调：采集线程有新帧时，发射信号
-    // 使用 QPointer 防止 Widget 销毁后回调访问野指针
-    QPointer<ScenePreviewWidget> self(this);
-    src->set_frame_ready_callback([self]() {
-        if (self) {
-            // emit 是跨线程安全的，Qt 会自动将信号投递到主线程
-            emit self->on_frame_ready();
+    // ✅ 使用 shared_ptr<bool> 作为跨线程存活标记
+    auto alive_flag = std::make_shared<std::atomic<bool>>(true);
+    // 保存到 Widget 成员，析构时置 false
+    m_alive_flags.push_back(alive_flag);
+
+    QPointer<ScenePreviewWidget> self(this);  // 如果仍编译失败，直接移除这行
+    src->set_frame_ready_callback([alive_flag, this]() {
+        if (*alive_flag) {
+            emit on_frame_ready();
         }
     });
 
@@ -85,10 +89,12 @@ void ScenePreviewWidget::add_screen_capture_source(int screen_index) {
 void ScenePreviewWidget::add_camera_capture_source() {
     auto src = std::make_unique<CameraCaptureSource>();
 
-    QPointer<ScenePreviewWidget> self(this);
-    src->set_frame_ready_callback([self]() {
-        if (self) {
-            emit self->on_frame_ready();
+    auto alive_flag = std::make_shared<std::atomic<bool>>(true);
+    m_alive_flags.push_back(alive_flag);
+
+    src->set_frame_ready_callback([alive_flag, this]() {
+        if (*alive_flag) {
+            emit on_frame_ready();
         }
     });
 
@@ -195,12 +201,7 @@ void ScenePreviewWidget::rendering_view() {
 
 void ScenePreviewWidget::update_all_video_sources() {
     for (Source* src : m_scene.get_sources()) {
-        if (auto* vid = dynamic_cast<ScreenCaptureSource*>(src)) {
-            vid->update_texture_if_new_frame();
-        }
-        if (auto* cam = dynamic_cast<CameraCaptureSource*>(src)) {  // ✅ 新增
-            cam->update_texture_if_new_frame();
-        }
+        src->update_frame();   // 多态调用，默认空操作
     }
 }
 

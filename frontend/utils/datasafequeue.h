@@ -171,6 +171,16 @@ public:
         return result;
     }
 
+    bool push_no_wait(T value) {
+        std::unique_lock<std::mutex> lock(q_mutex);
+        if (data_queue.size() >= max_size) {
+            data_queue.pop();  // 丢弃最旧的帧（自动释放 AVFramePtr 引用）
+        }
+        data_queue.push(std::move(value));
+        cv_not_empty.notify_one();
+        return true;
+    }
+
     inline void push_poison_pill() {
         std::unique_lock<std::mutex> lock(q_mutex);
         data_queue.push(std::move(T()));

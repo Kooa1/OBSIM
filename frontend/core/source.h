@@ -22,6 +22,9 @@ public:
     // 在调用此函数前，glOrtho 和裁剪区域已设置好
     virtual void render() = 0;
 
+    // 每帧更新数据（如视频纹理），返回 true 表示有更新
+    virtual bool update_frame() { return false; }
+
     // 返回源的显示名称（如 "Image", "Video" 等）
     virtual const char* source_type_name() const = 0;
 

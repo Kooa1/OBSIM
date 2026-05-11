@@ -9,6 +9,8 @@
 
 #include <QDebug>
 #include <QtOpenGLWidgets/QOpenGLWidget>
+#include <qevent.h>
+#include <qpointer.h>
 
 #include "core/source.h"
 #include "core/scene.h"
@@ -77,6 +79,8 @@ private:
 
     std::vector<std::unique_ptr<Source> > m_sources_storage;
     Scene m_scene;
+
+    std::vector<std::shared_ptr<std::atomic<bool> > > m_alive_flags;
 };
 
 
