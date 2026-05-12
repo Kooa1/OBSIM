@@ -15,13 +15,13 @@ ScenePreviewWidget::ScenePreviewWidget(QWidget *parent)
 
     // 测试源
     add_test_source();
-    add_screen_capture_source(0);
-    add_camera_capture_source();
+    // add_screen_capture_source(0);
+    // add_camera_capture_source();
 }
 
 ScenePreviewWidget::~ScenePreviewWidget() {
     // 通知所有回调停止
-    for (auto& flag : m_alive_flags) {
+    for (auto &flag: m_alive_flags) {
         *flag = false;
     }
     makeCurrent();
@@ -71,11 +71,11 @@ void ScenePreviewWidget::add_screen_capture_source(int screen_index) {
     auto src = std::make_unique<ScreenCaptureSource>(screen_index);
 
     // ✅ 使用 shared_ptr<bool> 作为跨线程存活标记
-    auto alive_flag = std::make_shared<std::atomic<bool>>(true);
+    auto alive_flag = std::make_shared<std::atomic<bool> >(true);
     // 保存到 Widget 成员，析构时置 false
     m_alive_flags.push_back(alive_flag);
 
-    QPointer<ScenePreviewWidget> self(this);  // 如果仍编译失败，直接移除这行
+    QPointer<ScenePreviewWidget> self(this); // 如果仍编译失败，直接移除这行
     src->set_frame_ready_callback([alive_flag, this]() {
         if (*alive_flag) {
             emit on_frame_ready();
@@ -89,7 +89,7 @@ void ScenePreviewWidget::add_screen_capture_source(int screen_index) {
 void ScenePreviewWidget::add_camera_capture_source() {
     auto src = std::make_unique<CameraCaptureSource>();
 
-    auto alive_flag = std::make_shared<std::atomic<bool>>(true);
+    auto alive_flag = std::make_shared<std::atomic<bool> >(true);
     m_alive_flags.push_back(alive_flag);
 
     src->set_frame_ready_callback([alive_flag, this]() {
@@ -140,25 +140,41 @@ void ScenePreviewWidget::rendering_view() {
     glVertex2f(m_viewX, m_viewY + m_viewH);
     glEnd();
 
-    // ===== 第3步：仅增加源覆盖区域模板值（不写颜色） =====
+    // ===== 第3步：区分画布内外，分别设置模板值 =====
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-    glStencilFunc(GL_ALWAYS, 0, 0xFF);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
 
-    glLoadIdentity();
-    glTranslatef(m_viewX, m_viewY, 0);
-    glScalef(m_viewW / CANVAS_W, m_viewH / CANVAS_H, 1);
+    Source *selected = m_scene.selected_source();
 
-    for (Source *source: m_scene.get_sources()) {
-        if (!source || !source->visible) continue;
-        QRectF bounds = source->get_bounding_rect();
-        if (bounds.width() <= 0 || bounds.height() <= 0) continue;
+    if (selected && selected->visible) {
+        // 3a. 选中源覆盖区域：模板值设为 1
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
-        glPushMatrix();
-        glTranslatef(source->pos_x, source->pos_y, 0.0f);
-        glScalef(source->scale_x, source->scale_y, 1.0f);
-        source->render();
-        glPopMatrix();
+        glLoadIdentity();
+        glTranslatef(m_viewX, m_viewY, 0);
+        glScalef(m_viewW / CANVAS_W, m_viewH / CANVAS_H, 1);
+
+        QRectF bounds = selected->get_bounding_rect();
+        if (bounds.width() > 0 && bounds.height() > 0) {
+            glPushMatrix();
+            glTranslatef(selected->pos_x, selected->pos_y, 0.0f);
+            glScalef(selected->scale_x, selected->scale_y, 1.0f);
+            selected->render();
+            glPopMatrix();
+        }
+
+        // 3b. 画布矩形区域：将画布内的模板值恢复为 2
+        glLoadIdentity();
+
+        glStencilFunc(GL_ALWAYS, 2, 0xFF);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+
+        glBegin(GL_QUADS);
+        glVertex2f(m_viewX, m_viewY);
+        glVertex2f(m_viewX + m_viewW, m_viewY);
+        glVertex2f(m_viewX + m_viewW, m_viewY + m_viewH);
+        glVertex2f(m_viewX, m_viewY + m_viewH);
+        glEnd();
     }
 
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -170,7 +186,11 @@ void ScenePreviewWidget::rendering_view() {
     glTranslatef(m_viewX, m_viewY, 0);
     glScalef(m_viewW / CANVAS_W, m_viewH / CANVAS_H, 1);
 
-    for (Source *source: m_scene.get_sources()) {
+    // 启用裁剪测试：只渲染画布内的内容
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(m_viewX, h - (m_viewY + m_viewH), m_viewW, m_viewH);
+
+    for (Source *source : m_scene.get_sources()) {
         if (!source || !source->visible) continue;
         QRectF bounds = source->get_bounding_rect();
         if (bounds.width() <= 0 || bounds.height() <= 0) continue;
@@ -182,26 +202,29 @@ void ScenePreviewWidget::rendering_view() {
         glPopMatrix();
     }
 
+    glDisable(GL_SCISSOR_TEST);
+
     // 绘制选中框
     m_scene.render_selection_box();
 
-    // ===== 第5步：在画布外源区域绘制马赛克覆盖 =====
-    glLoadIdentity(); // 回到窗口像素坐标
+    // ===== 第5步：仅当有选中源时，在画布外区域绘制马赛克 =====
+    if (m_scene.selected_source()) {
+        glLoadIdentity(); // 回到窗口像素坐标
 
-    glEnable(GL_STENCIL_TEST);
-    glStencilFunc(GL_EQUAL, 1, 0xFF);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+        glEnable(GL_STENCIL_TEST);
+        glStencilFunc(GL_EQUAL, 1, 0xFF);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
-    // 确保显示列表已创建并调用
-    ensure_mosaic_list(w, h);
-    glCallList(m_mosaic_list);
+        ensure_mosaic_list(w, h);
+        glCallList(m_mosaic_list);
 
-    glDisable(GL_STENCIL_TEST);
+        glDisable(GL_STENCIL_TEST);
+    }
 }
 
 void ScenePreviewWidget::update_all_video_sources() {
-    for (Source* src : m_scene.get_sources()) {
-        src->update_frame();   // 多态调用，默认空操作
+    for (Source *src: m_scene.get_sources()) {
+        src->update_frame(); // 多态调用，默认空操作
     }
 }
 
