@@ -58,20 +58,17 @@ protected:
     }
 
     // ===== 成员变量（protected 允许子类访问） =====
-    bool m_initialized = false; // ✅ 移到 protected 区域
+    bool m_initialized = false;
 
 private:
     // ===== 成员变量 =====
-    std::unique_ptr<DataSafeQueue<AVFramePtr> > queue;
+    std::unique_ptr<DataSafeQueue<AVFramePtr>> queue;
     std::atomic_bool is_capturing{false};
     std::thread cap_thread;
     FrameReadyCallback frame_ready_callback;
     std::mutex callback_mutex;
 
     std::function<void(AVPacketPtr)> decode_func;
-    enum AVSampleFormat target_sample_format = AV_SAMPLE_FMT_FLTP;
-    int target_sample_rate = 44100;
-    int target_channels = 2;
 
     const AVInputFormat *av_input_format = nullptr;
     const AVCodec *av_decoder = nullptr;
@@ -79,7 +76,6 @@ private:
     AVCodecContextPtr av_codec_context = nullptr;
     AVDictionary *options = nullptr;
     AVStreamPtr audio_stream = nullptr;
-    SwrContextPtr swr_context = nullptr;
     int audio_index = -1;
 };
 

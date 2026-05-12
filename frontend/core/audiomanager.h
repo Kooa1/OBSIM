@@ -8,6 +8,7 @@
 #include <cmath>
 #include <algorithm>
 
+
 #include <QObject>
 #include <QPointer>
 #include <QTimer>

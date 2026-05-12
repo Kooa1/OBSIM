@@ -90,33 +90,21 @@ void AudioCaptor::init_ctx() {
         return;
     }
 
-    // AVChannelLayout out_ch_layout = AV_CHANNEL_LAYOUT_STEREO;
-    // AVChannelLayout in_ch_layout = av_codec_context->ch_layout;
-    //
-    // SwrContext *raw_swr = nullptr;
-    // if (swr_alloc_set_opts2(&raw_swr,
-    //                         &out_ch_layout,
-    //                         target_sample_format,
-    //                         target_sample_rate,
-    //                         &in_ch_layout,
-    //                         av_codec_context->sample_fmt,
-    //                         av_codec_context->sample_rate,
-    //                         0, nullptr) < 0) {
-    //     av_log(nullptr, AV_LOG_ERROR, "swr_alloc_set_opts2 failed\n");
-    //     return;
-    // }
-    // swr_context.reset(raw_swr);
-    //
-    // if (swr_init(swr_context.get()) < 0) {
-    //     av_log(nullptr, AV_LOG_ERROR, "swr_init failed\n");
-    //     return;
-    // }
+    // ✅ 清理：移除重采样相关代码
+    // 音频帧保持设备原始格式，电平计算已改为适配任意格式
 
     decode_func = [this](AVPacketPtr packet) {
         receive_frame(std::move(packet));
     };
 
     av_dict_free(&options);
+
+    // ✅ 添加格式信息日志
+    av_log(nullptr, AV_LOG_INFO, "AudioCaptor initialized: sample_rate=%d, channels=%d, format=%d\n",
+           av_codec_context->sample_rate,
+           av_codec_context->ch_layout.nb_channels,
+           av_codec_context->sample_fmt);
+
     m_initialized = true;
 }
 
@@ -160,7 +148,10 @@ void AudioCaptor::capture_loop() {
 void AudioCaptor::receive_frame(AVPacketPtr obj_packet) {
     if (!queue || !av_codec_context) return;
 
+    // 移动语义接管 packet 所有权
     auto packet = std::move(obj_packet);
+
+    // 发送 packet 到解码器，处理 EAGAIN
     int ret = 0;
     while ((ret = avcodec_send_packet(av_codec_context.get(), packet.get())) == AVERROR(EAGAIN)) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -169,29 +160,46 @@ void AudioCaptor::receive_frame(AVPacketPtr obj_packet) {
         av_log(nullptr, AV_LOG_ERROR, "send audio packet failed: %s\n", av_error_cxx(ret).c_str());
         return;
     }
+    // packet 在此之后不再需要，离开作用域时自动释放
 
+    // 循环接收所有可用的解码帧
     while (ret >= 0) {
+        // ✅ 使用智能指针 + 自定义删除器
         AVFramePtr raw_frame(av_frame_alloc(), AVFrameDeleter());
         if (!raw_frame) return;
+
         ret = avcodec_receive_frame(av_codec_context.get(), raw_frame.get());
-        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
-        if (ret < 0) continue;
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+            break; // raw_frame 自动释放
+        }
+        if (ret < 0) {
+            continue; // raw_frame 自动释放
+        }
 
-        // 直接推送原始帧（不重采样）
-        // 注意：增加引用计数，因为 raw_frame 会被 move 到队列
-        AVFramePtr clone_frame(av_frame_clone(raw_frame.get()), AVFrameDeleter());
-        if (!clone_frame) continue;
+        // ✅ 零拷贝：用 av_frame_ref 创建引用计数副本
+        AVFramePtr ref_frame(av_frame_alloc(), AVFrameDeleter());
+        if (!ref_frame) continue;
 
-        queue->push_no_wait(std::move(clone_frame));
+        ret = av_frame_ref(ref_frame.get(), raw_frame.get());
+        if (ret < 0) {
+            av_log(nullptr, AV_LOG_ERROR, "av_frame_ref failed: %s\n", av_error_cxx(ret).c_str());
+            continue; // ref_frame 和 raw_frame 自动释放
+        }
+
+        // ✅ 移动语义：将智能指针移入队列，零拷贝交出所有权
+        queue->push_no_wait(std::move(ref_frame));
+
+        // raw_frame 离开作用域时自动释放
+        // ref_frame 已被移走，变为空指针
+
         notify_frame_ready();
     }
+    // packet 和 raw_frame 均在各自作用域结束时自动释放
 }
 
 void AudioCaptor::notify_frame_ready() {
-    static int count = 0;
-    if (++count % 100 == 0) {
-        qDebug() << "AudioCaptor: notify_frame_ready called" << count << "times";
-    }
+    // ✅ 修复：移除静态变量，改用实例成员（如果要计数的话）
+    // 当前简单实现：每次直接回调
     std::lock_guard<std::mutex> lock(callback_mutex);
     if (frame_ready_callback) {
         frame_ready_callback();
