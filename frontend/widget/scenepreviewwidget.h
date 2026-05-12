@@ -1,16 +1,12 @@
-//
-// Created by 66 on 2026/4/28.
-//
-
 #ifndef OBSIM_SCENEPREVIEWWIDGET_H
 #define OBSIM_SCENEPREVIEWWIDGET_H
 
-#include <iostream>
-
 #include <QDebug>
 #include <QtOpenGLWidgets/QOpenGLWidget>
-#include <qevent.h>
-#include <qpointer.h>
+#include <QMouseEvent>
+#include <QPointer>
+#include <atomic>
+#include <memory>
 
 #include "core/source.h"
 #include "core/scene.h"
@@ -37,6 +33,16 @@ public:
 private:
     void rendering_view();
 
+    void setup_viewport_and_clear();
+
+    void render_canvas_background();
+
+    void render_source_stencil_for_selected();
+
+    void render_all_sources_with_clip();
+
+    void render_mosaic_for_selected();
+
     void update_all_video_sources();
 
     QPointF screen_to_canvas(const QPointF &screen_pos) const;
@@ -44,8 +50,6 @@ private:
     void calculate_pos(QPointF point_f);
 
     void update_cursor();
-
-    void on_frame_ready();
 
     void ensure_mosaic_list(int w, int h);
 
@@ -73,15 +77,14 @@ private:
     int m_viewW = 1920;
     int m_viewH = 1080;
 
-    GLuint m_mosaic_list = 0; // 马赛克显示列表 ID
-    int m_mosaic_w = 0; // 创建列表时的视图宽
-    int m_mosaic_h = 0; // 创建列表时的视图高
+    GLuint m_mosaic_list = 0;
+    int m_mosaic_w = 0;
+    int m_mosaic_h = 0;
 
     std::vector<std::unique_ptr<Source> > m_sources_storage;
     Scene m_scene;
 
-    std::vector<std::shared_ptr<std::atomic<bool> > > m_alive_flags;
+    QPointer<ScenePreviewWidget> m_self_guard; // 跨线程安全引用
 };
 
-
-#endif //OBSIM_SCENEPREVIEWWIDGET_H
+#endif
