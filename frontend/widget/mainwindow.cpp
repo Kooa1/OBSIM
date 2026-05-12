@@ -22,8 +22,22 @@ bool MainWindow::init_UI() {
     setting_bar = new SettingBar(this);
     control_bar = new ControlBar(this);
 
+    // 初始化音频管理器（独立于视频预览）
+    m_audio_manager = std::make_unique<AudioManager>(this);
+    m_audio_manager->start_all();
+
     init_layout();
+    connect_audio_signals();  // 连接音频 → UI 信号
     return true;
+}
+
+void MainWindow::connect_audio_signals() {
+    if (!m_audio_manager || !control_bar) return;
+
+    connect(m_audio_manager.get(), &AudioManager::levels_updated,
+            control_bar, &ControlBar::update_audio_levels);
+
+    qDebug() << "MainWindow: 音频电平信号已连接到 ControlBar";
 }
 
 void MainWindow::init_layout() {

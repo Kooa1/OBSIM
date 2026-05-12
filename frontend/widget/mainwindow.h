@@ -13,7 +13,8 @@
 #include "scenepreviewwidget.h"
 #include "settingbar.h"
 #include "controlbar.h"
-#include "../core/screencaptor.h"
+
+#include "../core/audiomanager.h"
 
 class MainWindow : public QWidget {
     Q_OBJECT
@@ -25,7 +26,7 @@ public:
 
     bool init_UI();
 
-public slots:
+    void connect_audio_signals();
 
 private:
     void init_layout();
@@ -51,6 +52,8 @@ private:
     SettingBar *setting_bar = nullptr;
 
     ControlBar *control_bar = nullptr;
+
+    std::unique_ptr<AudioManager> m_audio_manager;
 
 signals:
 };

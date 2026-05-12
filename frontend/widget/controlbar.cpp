@@ -88,12 +88,26 @@ AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString&
     tw.volume_slider->setRange(0, 100);
     tw.volume_slider->setValue(static_cast<int>(volume * 100));
 
-    // 第三行：电平表
+    // 第三行：电平表（带颜色渐变效果）
     tw.level_meter = new QProgressBar();
     tw.level_meter->setRange(0, 100);
     tw.level_meter->setValue(0);
     tw.level_meter->setTextVisible(false);
-    tw.level_meter->setFixedHeight(6);
+    tw.level_meter->setFixedHeight(8);
+
+    // 动态颜色样式：低电平绿色，中电平黄色，高电平红色
+    tw.level_meter->setStyleSheet(
+        "QProgressBar {"
+        "  background-color: #2a2a2a;"
+        "  border: 1px solid #555;"
+        "  border-radius: 2px;"
+        "}"
+        "QProgressBar::chunk {"
+        "  background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
+        "    stop:0 #4CAF50, stop:0.6 #FFEB3B, stop:0.85 #FF9800, stop:1 #F44336);"
+        "  border-radius: 1px;"
+        "}"
+    );
 
     layout->addLayout(top_row);
     layout->addWidget(tw.volume_slider);
@@ -138,6 +152,16 @@ void AudioMixerBlock::clear_tracks() {
     m_tracks.clear();
 }
 
+void AudioMixerBlock::update_track_level(const QString &name, float level) {
+    auto it = m_tracks.find(name);
+    if (it != m_tracks.end()) {
+        int value = static_cast<int>(level * 100);
+        // 用 QMetaObject::invokeMethod 确保 UI 更新在主线程
+        QMetaObject::invokeMethod(it->second.level_meter, "setValue",
+            Qt::QueuedConnection, Q_ARG(int, value));
+    }
+}
+
 
 // ==================== 直播录制块 ====================
 
@@ -163,6 +187,20 @@ StreamRecordBlock::StreamRecordBlock(QWidget* parent)
 ControlBar::ControlBar(QWidget* parent) : QWidget(parent) {
     setMinimumHeight(220);
     init_UI();
+}
+
+void ControlBar::update_audio_levels(float system_level, float mic_level) {
+    if (m_audio_mixer_block) {
+        m_audio_mixer_block->update_track_level("桌面音频", system_level);
+        m_audio_mixer_block->update_track_level("麦克风", mic_level);
+
+        // 每秒输出一次（避免刷屏）
+        static int counter = 0;
+        if (++counter % 20 == 0) {
+            qDebug() << "音频电平 - 系统:" << system_level
+                     << "麦克风:" << mic_level;
+        }
+    }
 }
 
 void ControlBar::init_UI() {

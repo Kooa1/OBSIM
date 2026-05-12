@@ -11,6 +11,7 @@ extern "C" {
 #include "libavformat/avformat.h"
 #include "libavcodec/avcodec.h"
 #include "libswscale/swscale.h"
+#include "libswresample/swresample.h"
 };
 
 struct AVFormatContextDeleter {
@@ -60,12 +61,22 @@ struct AVFrameDeleter {
     }
 };
 
+struct SwrContextDeleter {
+    void operator()(SwrContext *context) const {
+        if (context) {
+            swr_free(&context);
+        }
+    }
+};
+
+
 using AVFormatContextPtr = std::shared_ptr<AVFormatContext>;
 using AVCodecContextPtr = std::unique_ptr<AVCodecContext, AVCodecContextDeleter>;
 using SwsContextPtr = std::unique_ptr<struct SwsContext, SwsContextDeleter>;
 using AVPacketPtr = std::shared_ptr<AVPacket>;
 using AVFramePtr = std::shared_ptr<AVFrame>;
 using AVStreamPtr = std::unique_ptr<AVStream, AVStreamDeleter>;
+using SwrContextPtr = std::unique_ptr<SwrContext, SwrContextDeleter>;
 
 inline AVStreamPtr get_stream_by_index(AVFormatContextPtr *avFormatContext, int stream_index) {
     if (!avFormatContext || stream_index < 0 ||

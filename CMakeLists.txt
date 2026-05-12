@@ -99,18 +99,25 @@ if (WIN32)
             avcodec
             avutil
             swscale
+            swresample
     )
 elseif (APPLE)
     target_link_libraries(OBSIM
+            vld
             SDL2main
             SDL2
+            Qt6::OpenGL
+            Qt6::OpenGLWidgets
             Qt6::Core
             Qt6::Gui
             Qt6::Widgets
+            opengl32.lib
+            avdevice
             avformat
             avcodec
             avutil
             swscale
+            swresample
     )
 endif ()
 
