@@ -43,7 +43,7 @@ public:
 protected:
     virtual void init_ctx();
 
-    void capture_loop();
+    virtual void capture_loop();
 
     void receive_frame(AVPacketPtr packet);
 
@@ -59,14 +59,13 @@ protected:
 
     // ===== 成员变量（protected 允许子类访问） =====
     bool m_initialized = false;
-
-private:
-    // ===== 成员变量 =====
     std::unique_ptr<DataSafeQueue<AVFramePtr>> queue;
     std::atomic_bool is_capturing{false};
     std::thread cap_thread;
     FrameReadyCallback frame_ready_callback;
     std::mutex callback_mutex;
+
+private:
 
     std::function<void(AVPacketPtr)> decode_func;
 
