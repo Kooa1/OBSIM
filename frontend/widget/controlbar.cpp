@@ -46,14 +46,20 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
 
     connect(btn_add, &QPushButton::clicked, this, [this]() {
         SourceTypeDialog type_dialog;
-        if (type_dialog.exec() == QDialog::Accepted) {
-            QString type = type_dialog.selectedType();
-            SourceNameDialog name_dialog;
-            if (name_dialog.exec() == QDialog::Accepted) {
-                QString name = name_dialog.sourceName();
-                if (!name.isEmpty()) {
-                    m_source_list->addItem(name + " (" + type + ")");
-                }
+        if (type_dialog.exec() != QDialog::Accepted) return;
+
+        QString type = type_dialog.selectedType();
+        QVector<DisplayInfo> displays;
+        if (type == QStringLiteral("显示屏采集")) {
+            DisplayManager dm;
+            displays = dm.get_all_displays();
+        }
+
+        SourceNameDialog name_dialog(displays);
+        if (name_dialog.exec() == QDialog::Accepted) {
+            QString name = name_dialog.sourceName();
+            if (!name.isEmpty()) {
+                m_source_list->addItem(name + " (" + type + ")");
             }
         }
     });
@@ -222,7 +228,7 @@ SourceTypeDialog::SourceTypeDialog(QWidget *parent)
 
 // ==================== 输入源命名对话框 ====================
 
-SourceNameDialog::SourceNameDialog(QWidget *parent)
+SourceNameDialog::SourceNameDialog(const QVector<DisplayInfo> &displays, QWidget *parent)
     : QDialog(parent) {
     setWindowTitle("输入源名称");
     setMinimumWidth(350);
@@ -232,15 +238,36 @@ SourceNameDialog::SourceNameDialog(QWidget *parent)
     auto *name_label = new QLabel("输入源名称:");
     m_name_edit = new QLineEdit();
     m_name_edit->setPlaceholderText("请输入输入源名称");
+    layout->addWidget(name_label);
+    layout->addWidget(m_name_edit);
+
+    if (!displays.isEmpty()) {
+        auto *display_label = new QLabel("选择显示器:");
+        m_display_combo = new QComboBox();
+        for (const auto &d : displays) {
+            QString text = QString::fromStdString(d.name);
+            if (d.is_primary) {
+                text = "主屏幕: " + text;
+            }
+            m_display_combo->addItem(text, d.index);
+        }
+        layout->addWidget(display_label);
+        layout->addWidget(m_display_combo);
+    }
 
     auto *button_box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     connect(button_box, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(button_box, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
-    layout->addWidget(name_label);
-    layout->addWidget(m_name_edit);
     layout->addStretch();
     layout->addWidget(button_box);
+}
+
+int SourceNameDialog::selectedDisplayIndex() const {
+    if (m_display_combo) {
+        return m_display_combo->currentData().toInt();
+    }
+    return -1;
 }
 
 

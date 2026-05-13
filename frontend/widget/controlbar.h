@@ -6,6 +6,7 @@
 #include <QWidget>
 
 #include "../utils/PCH.h"
+#include "../utils/displaymanager.h"
 
 // ==================== 控制块基类 ====================
 class ControlBlock : public QWidget {
@@ -143,12 +144,14 @@ class SourceNameDialog : public QDialog {
     Q_OBJECT
 
 public:
-    explicit SourceNameDialog(QWidget *parent = nullptr);
+    explicit SourceNameDialog(const QVector<DisplayInfo> &displays = {}, QWidget *parent = nullptr);
 
     QString sourceName() const { return m_name_edit->text().trimmed(); }
+    int selectedDisplayIndex() const;
 
 private:
     QLineEdit *m_name_edit;
+    QComboBox *m_display_combo = nullptr;
 };
 
 

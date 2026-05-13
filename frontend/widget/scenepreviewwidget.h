@@ -14,6 +14,7 @@
 #include "core/screencaptor.h"
 #include "core/screencapturesource.h"
 #include "core/cameracapturesource.h"
+#include "utils/displaymanager.h"
 
 
 class ScenePreviewWidget : public QOpenGLWidget {
