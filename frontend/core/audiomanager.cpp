@@ -7,14 +7,13 @@ AudioManager::AudioManager(QObject *parent)
 
     QPointer<AudioManager> self(this);
 
-    // ✅ 系统音频回调：计算电平 + 发射信号
+    // ✅ 系统音频回调
     m_system_audio->set_frame_ready_callback([self]() {
         if (self) {
             auto frame = self->m_system_audio->try_pop_frame();
             if (frame.has_value()) {
                 self->calculate_level_from_frame(frame.value().get(), self->m_system_level);
 
-                // 立即发射信号（不等待定时器）
                 QMetaObject::invokeMethod(self, [self]() {
                     if (self) {
                         emit self->levels_updated(
@@ -27,7 +26,7 @@ AudioManager::AudioManager(QObject *parent)
         }
     });
 
-    // ✅ 麦克风回调：与系统音频保持一致的逻辑
+    // ✅ 麦克风回调
     m_mic_audio->set_frame_ready_callback([self]() {
         if (self) {
             auto frame = self->m_mic_audio->try_pop_frame();
@@ -46,15 +45,16 @@ AudioManager::AudioManager(QObject *parent)
         }
     });
 
-    // 定时器作为兜底（即使没有新帧也定期更新 UI）
+    // 60Hz 定时器：UI 刷新 + 帧间过渡衰减（补偿 dshow 低帧率，消除阶梯感）
     m_level_emit_timer = new QTimer(this);
     connect(m_level_emit_timer, &QTimer::timeout, this, [this]() {
+        float mic = m_mic_level.load();
+        if (mic > 0.01f) {
+            mic *= 0.95f;
+            if (mic < 0.005f) mic = 0.0f;
+            m_mic_level.store(mic);
+        }
         emit levels_updated(m_system_level.load(), m_mic_level.load());
-    });
-
-    // ✅ 添加：启动后立即发射一次初始电平
-    QTimer::singleShot(100, this, [this]() {
-        emit levels_updated(0.0f, 0.0f);
     });
 }
 
@@ -135,9 +135,8 @@ void AudioManager::stop_all() {
 
 void AudioManager::calculate_level_from_frame(const AVFrame* frame, std::atomic<float>& level_store) {
     if (!frame || frame->nb_samples <= 0) {
-        // 没有新帧时，缓慢衰减（而不是立即降到0）
         float current = level_store.load();
-        float decayed = current * 0.95f;  // 缓慢衰减
+        float decayed = current * 0.92f;
         if (decayed < 0.01f) decayed = 0.0f;
         level_store.store(decayed);
         return;
@@ -165,45 +164,51 @@ void AudioManager::calculate_level_from_frame(const AVFrame* frame, std::atomic<
 
     if (sample_count == 0) return;
 
-    // 计算 RMS (Root Mean Square)
     float rms = std::sqrt(sum / sample_count);
 
-    // 将 RMS 值转换为 0-1 范围的电平值
-    // 使用更自然的映射：rms^0.5 让低音量区域更敏感
-    float level = std::min(1.0f, std::sqrt(rms) * 1.5f);
-
-    // 确保最小值不为0（避免完全静音时跳动）
-    if (level < 0.005f) level = 0.0f;
-
-    // 平滑处理：快速上升，缓慢下降
     float current = level_store.load();
     float smoothed;
-    if (level > current) {
-        // 上升：快速响应 (attack)
-        smoothed = current * 0.3f + level * 0.7f;
+    bool is_mic = (&level_store == &m_mic_level);
+
+    if (is_mic) {
+        // ===== 麦克风（完全参考系统电平代码结构） =====
+        float level;
+        if (rms < 0.008f) {
+            level = 0.0f;
+        } else {
+            level = std::min(1.0f, std::sqrt(rms) * 2.0f);
+        }
+        if (level < 0.005f) level = 0.0f;
+
+        if (level > current) {
+            smoothed = current * 0.3f + level * 0.7f;
+        } else {
+            smoothed = current * 0.8f + level * 0.2f;
+        }
     } else {
-        // 下降：缓慢衰减 (release)
-        smoothed = current * 0.8f + level * 0.2f;
+        // ===== 系统音频 =====
+        float level = std::min(1.0f, std::sqrt(rms) * 1.5f);
+        if (level < 0.005f) level = 0.0f;
+
+        if (level > current) {
+            smoothed = current * 0.3f + level * 0.7f;
+        } else {
+            smoothed = current * 0.8f + level * 0.2f;
+        }
     }
 
     level_store.store(smoothed);
 
-    // 调试输出（前5帧）
     static int sys_counter = 0;
     static int mic_counter = 0;
 
-    // 判断是系统音频还是麦克风
     if (&level_store == &m_system_level) {
         if (++sys_counter <= 5) {
-            qDebug() << "AudioManager[SYS] format:" << frame->format
-                     << "samples:" << samples << "channels:" << channels
-                     << "rms:" << rms << "level:" << smoothed;
+            qDebug() << "AudioManager[SYS] rms:" << rms << "level:" << smoothed;
         }
     } else {
         if (++mic_counter <= 5) {
-            qDebug() << "AudioManager[MIC] format:" << frame->format
-                     << "samples:" << samples << "channels:" << channels
-                     << "rms:" << rms << "level:" << smoothed;
+            qDebug() << "AudioManager[MIC] rms:" << rms << "level:" << smoothed;
         }
     }
 }
