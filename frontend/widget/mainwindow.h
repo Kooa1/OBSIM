@@ -16,6 +16,8 @@
 
 #include "../core/audiomanager.h"
 
+struct CaptorConfig;
+
 class MainWindow : public QWidget {
     Q_OBJECT
 
@@ -33,11 +35,16 @@ private:
 
     void init_conn();
 
+    void connect_signal();
+
     void center_on_primary_screen(QWidget *window);
 
     void adjust_window_screen(QWidget *window = nullptr,
                               double target_aspect_ratio = 16.0 / 9.0,
                               double screen_occupancy_ratio = 0.78);
+
+    void on_display_capture_requested(const CaptorConfig &config, const QString &name);
+    void on_camera_capture_requested(const QString &name);
 
 protected:
     void showEvent(QShowEvent *event) override;
@@ -54,8 +61,6 @@ private:
     ControlBar *control_bar = nullptr;
 
     std::unique_ptr<AudioManager> m_audio_manager;
-
-signals:
 };
 
 #endif //MAINWINDOW_H

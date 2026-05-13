@@ -1,11 +1,15 @@
 #include "screencapturesource.h"
 #include "screencaptor.h"
 
-ScreenCaptureSource::ScreenCaptureSource(int screen_index)
-    : VideoSource(std::make_unique<ScreenCaptor>())
+ScreenCaptureSource::ScreenCaptureSource(const CaptorConfig &config)
+    : VideoSource([&config]() {
+        auto captor = std::make_unique<ScreenCaptor>();
+        captor->apply_config(config);
+        return captor;
+    }())
 {
-    base_width  = 1920.0f;
-    base_height = 1080.0f;
+    base_width  = static_cast<float>(config.width);
+    base_height = static_cast<float>(config.height);
     pos_x = 0.0f;
     pos_y = 0.0f;
     scale_x = 1.0f;

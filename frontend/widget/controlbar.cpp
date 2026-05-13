@@ -1,4 +1,5 @@
 #include "controlbar.h"
+#include "../core/videocaptor.h"
 
 // ==================== 场景控制块 ====================
 
@@ -58,9 +59,22 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
         SourceNameDialog name_dialog(displays);
         if (name_dialog.exec() == QDialog::Accepted) {
             QString name = name_dialog.sourceName();
-            if (!name.isEmpty()) {
-                m_source_list->addItem(name + " (" + type + ")");
+            if (name.isEmpty()) return;
+
+            if (type == QStringLiteral("显示屏采集")) {
+                int idx = name_dialog.selectedDisplayIndex();
+                if (idx >= 0 && idx < displays.size()) {
+                    CaptorConfig config;
+                    config.offset_x = displays[idx].geometry.x();
+                    config.offset_y = displays[idx].geometry.y();
+                    config.width = displays[idx].geometry.width();
+                    config.height = displays[idx].geometry.height();
+                    emit display_capture_requested(config, name);
+                }
+            } else {
+                emit camera_capture_requested(name);
             }
+            m_source_list->addItem(name + " (" + type + ")");
         }
     });
 }

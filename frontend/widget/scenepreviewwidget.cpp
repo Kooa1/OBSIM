@@ -65,8 +65,8 @@ void ScenePreviewWidget::add_test_source() {
 
 }
 
-void ScenePreviewWidget::add_screen_capture_source(int screen_index) {
-    auto src = std::make_unique<ScreenCaptureSource>(screen_index);
+void ScenePreviewWidget::add_screen_capture_source(const CaptorConfig &config) {
+    auto src = std::make_unique<ScreenCaptureSource>(config);
 
     // ✅ 使用 QPointer + invokeMethod 安全跨线程投递
     QPointer<ScenePreviewWidget> self = m_self_guard;

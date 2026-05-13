@@ -3,6 +3,7 @@
 //
 
 #include "mainwindow.h"
+#include "../core/videocaptor.h"
 
 MainWindow::MainWindow()
     : QWidget(nullptr) {
@@ -27,7 +28,8 @@ bool MainWindow::init_UI() {
     m_audio_manager->start_all();
 
     init_layout();
-    connect_audio_signals();  // 连接音频 → UI 信号
+    connect_audio_signals();
+    connect_signal();
     return true;
 }
 
@@ -37,6 +39,27 @@ void MainWindow::connect_audio_signals() {
     connect(m_audio_manager.get(), &AudioManager::levels_updated,
             control_bar, &ControlBar::update_audio_levels);
 
+}
+
+void MainWindow::connect_signal() {
+    if (!control_bar || !scene_preview_widget) return;
+
+    connect(control_bar->source_control(), &SourceControlBlock::display_capture_requested,
+            this, &MainWindow::on_display_capture_requested);
+    connect(control_bar->source_control(), &SourceControlBlock::camera_capture_requested,
+            this, &MainWindow::on_camera_capture_requested);
+}
+
+void MainWindow::on_display_capture_requested(const CaptorConfig &config, const QString &name) {
+    if (scene_preview_widget) {
+        scene_preview_widget->add_screen_capture_source(config);
+    }
+}
+
+void MainWindow::on_camera_capture_requested(const QString &name) {
+    if (scene_preview_widget) {
+        scene_preview_widget->add_camera_capture_source();
+    }
 }
 
 void MainWindow::init_layout() {

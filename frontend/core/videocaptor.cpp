@@ -35,6 +35,10 @@ std::optional<AVFramePtr> VideoCaptor::try_pop_frame() {
     return queue->try_pop_drain();
 }
 
+void VideoCaptor::apply_config(const CaptorConfig &config) {
+    m_config = config;
+}
+
 // ========== FFmpeg 初始化（通用流程） ==========
 void VideoCaptor::init_ctx() {
     av_input_format = av_find_input_format(get_input_format_name());

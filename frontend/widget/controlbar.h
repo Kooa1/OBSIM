@@ -8,6 +8,8 @@
 #include "../utils/PCH.h"
 #include "../utils/displaymanager.h"
 
+struct CaptorConfig;
+
 // ==================== 控制块基类 ====================
 class ControlBlock : public QWidget {
     Q_OBJECT
@@ -61,6 +63,10 @@ public:
     explicit SourceControlBlock(QWidget *parent = nullptr);
 
     QListWidget *source_list() const { return m_source_list; }
+
+signals:
+    void display_capture_requested(const CaptorConfig &config, const QString &name);
+    void camera_capture_requested(const QString &name);
 
 private:
     QListWidget *m_source_list;

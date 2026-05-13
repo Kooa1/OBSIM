@@ -25,6 +25,13 @@ extern "C" {
 #include <libavutil/imgutils.h>
 }
 
+struct CaptorConfig {
+    int offset_x = 0;
+    int offset_y = 0;
+    int width = 0;
+    int height = 0;
+};
+
 class VideoCaptor {
 public:
     using FrameReadyCallback = std::function<void()>;
@@ -39,6 +46,7 @@ public:
     bool is_running() const { return is_capturing.load(); }
 
 protected:
+    virtual void apply_config(const CaptorConfig &config);
     virtual void init_ctx();
     void init_sws_ctx();
     void capture_loop();
@@ -61,6 +69,8 @@ protected:
     std::function<void(AVPacketPtr)> decode_func;
     enum AVPixelFormat target_pixel_format = AV_PIX_FMT_BGRA;
     bool change_fmt = false;
+
+    CaptorConfig m_config;
 
     const AVInputFormat* av_input_format = nullptr;
     const AVCodec* av_decoder = nullptr;

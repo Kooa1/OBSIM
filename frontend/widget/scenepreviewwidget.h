@@ -11,7 +11,7 @@
 #include "core/source.h"
 #include "core/scene.h"
 #include "test/testsource.h"
-#include "core/screencaptor.h"
+#include "core/videocaptor.h"
 #include "core/screencapturesource.h"
 #include "core/cameracapturesource.h"
 #include "utils/displaymanager.h"
@@ -27,7 +27,7 @@ public:
 
     void add_test_source();
 
-    void add_screen_capture_source(int screen_index);
+    void add_screen_capture_source(const CaptorConfig &config);
 
     void add_camera_capture_source();
 
