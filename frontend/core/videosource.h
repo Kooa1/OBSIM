@@ -16,8 +16,9 @@ public:
     void load_resources() override;
     void unload_resources() override;
     void render() override;
-    bool update_frame() override;                     // 新增接口
+    bool update_frame() override;
     void set_frame_ready_callback(VideoCaptor::FrameReadyCallback callback);
+    void stop_capture();
 
 protected:
     void create_texture(int width, int height);

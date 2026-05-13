@@ -67,6 +67,7 @@ public:
 signals:
     void display_capture_requested(const CaptorConfig &config, const QString &name);
     void camera_capture_requested(const QString &name);
+    void source_remove_requested(int index);
 
 private:
     QListWidget *m_source_list;

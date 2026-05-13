@@ -98,6 +98,23 @@ void ScenePreviewWidget::add_camera_capture_source() {
     m_sources_storage.push_back(std::move(src));
 }
 
+void ScenePreviewWidget::remove_source(int index) {
+    if (index < 0 || index >= static_cast<int>(m_sources_storage.size())) return;
+
+    auto *video_src = dynamic_cast<VideoSource *>(m_sources_storage[index].get());
+    if (video_src) {
+        video_src->stop_capture();
+    }
+
+    Source *src = m_sources_storage[index].get();
+    if (m_scene.selected_source() == src) {
+        m_scene.clear_selection();
+    }
+    m_scene.remove_source(src);
+    m_sources_storage.erase(m_sources_storage.begin() + index);
+    update();
+}
+
 void ScenePreviewWidget::setup_viewport_and_clear() {
     const int w = this->width() * devicePixelRatio();
     const int h = this->height() * devicePixelRatio();

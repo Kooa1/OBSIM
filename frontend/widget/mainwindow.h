@@ -45,6 +45,7 @@ private:
 
     void on_display_capture_requested(const CaptorConfig &config, const QString &name);
     void on_camera_capture_requested(const QString &name);
+    void on_source_remove_requested(int index);
 
 protected:
     void showEvent(QShowEvent *event) override;

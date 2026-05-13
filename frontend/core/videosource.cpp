@@ -4,7 +4,13 @@ VideoSource::VideoSource(std::unique_ptr<VideoCaptor> captor)
     : m_capture(std::move(captor))
 {
     if (m_capture) {
-        m_capture->start();  // 统一启动采集
+        m_capture->start();
+    }
+}
+
+void VideoSource::stop_capture() {
+    if (m_capture) {
+        m_capture->stop();
     }
 }
 

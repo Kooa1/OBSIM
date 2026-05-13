@@ -30,6 +30,7 @@ public:
     void add_screen_capture_source(const CaptorConfig &config);
 
     void add_camera_capture_source();
+    void remove_source(int index);
 
 private:
     void rendering_view();

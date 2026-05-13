@@ -45,6 +45,13 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
     m_content_layout->addWidget(m_source_list);
     m_content_layout->addLayout(btn_layout);
 
+    connect(btn_del, &QPushButton::clicked, this, [this]() {
+        int row = m_source_list->currentRow();
+        if (row < 0) return;
+        delete m_source_list->takeItem(row);
+        emit source_remove_requested(row);
+    });
+
     connect(btn_add, &QPushButton::clicked, this, [this]() {
         SourceTypeDialog type_dialog;
         if (type_dialog.exec() != QDialog::Accepted) return;

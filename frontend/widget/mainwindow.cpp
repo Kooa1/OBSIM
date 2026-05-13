@@ -48,6 +48,8 @@ void MainWindow::connect_signal() {
             this, &MainWindow::on_display_capture_requested);
     connect(control_bar->source_control(), &SourceControlBlock::camera_capture_requested,
             this, &MainWindow::on_camera_capture_requested);
+    connect(control_bar->source_control(), &SourceControlBlock::source_remove_requested,
+            this, &MainWindow::on_source_remove_requested);
 }
 
 void MainWindow::on_display_capture_requested(const CaptorConfig &config, const QString &name) {
@@ -59,6 +61,12 @@ void MainWindow::on_display_capture_requested(const CaptorConfig &config, const 
 void MainWindow::on_camera_capture_requested(const QString &name) {
     if (scene_preview_widget) {
         scene_preview_widget->add_camera_capture_source();
+    }
+}
+
+void MainWindow::on_source_remove_requested(int index) {
+    if (scene_preview_widget) {
+        scene_preview_widget->remove_source(index);
     }
 }
 
