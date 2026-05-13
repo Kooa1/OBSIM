@@ -13,27 +13,15 @@ void DisplayManager::run() {
 
     // 获取所有显示器信息
     QVector<DisplayInfo> displays = display_manager.get_all_displays();
-    qDebug() << "连接的显示器数量:" << displays.size();
 
     for (const DisplayInfo &info: displays) {
-        if (info.is_primary) {
-            qDebug() << "主屏幕:" << QString::fromStdString(info.name);
-            qDebug() << "  几何区域:" << info.geometry;
-            qDebug() << "  刷新率:" << info.refresh_rate << "Hz";
-        } else {
-            qDebug() << "次屏幕:" << QString::fromStdString(info.name);
-            qDebug() << "  几何区域:" << info.geometry;
-            qDebug() << "  位置偏移:" << info.geometry.x() << "," << info.geometry.y();
-        }
     }
 
     // 获取主屏幕信息
     DisplayInfo primary = display_manager.get_primary_display();
-    qDebug() << "主屏幕分辨率:" << primary.geometry.width() << "x" << primary.geometry.height();
 
     // 获取屏幕数量
     int screen_count = display_manager.get_display_count();
-    qDebug() << "总屏幕数:" << screen_count;
 }
 
 QVector<DisplayInfo> DisplayManager::get_all_displays() const {

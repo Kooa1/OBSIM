@@ -110,11 +110,8 @@ void AudioCaptor::init_ctx() {
 
 void AudioCaptor::capture_loop() {
     if (!av_format_context) {
-        qDebug() << "AudioCaptor: av_format_context is null, cannot start loop";
         return;
     }
-
-    qDebug() << "AudioCaptor: capture_loop started, audio_index =" << audio_index;
 
     int packet_count = 0;
     int audio_packet_count = 0;
@@ -123,11 +120,9 @@ void AudioCaptor::capture_loop() {
         AVPacketPtr av_packet(av_packet_alloc(), AVPacketDeleter());
         int ret = av_read_frame(av_format_context.get(), av_packet.get());
         if (ret == AVERROR_EOF) {
-            qDebug() << "AudioCaptor: EOF after" << packet_count << "packets";
             break;
         } else if (ret == AVERROR(EAGAIN)) continue;
         else if (ret < 0) {
-            qDebug() << "AudioCaptor: av_read_frame error:" << av_error_cxx(ret).c_str();
             continue;
         }
 
@@ -136,11 +131,6 @@ void AudioCaptor::capture_loop() {
         if (av_packet->stream_index == audio_index) {
             audio_packet_count++;
             decode_func(std::move(av_packet));
-
-            if (audio_packet_count % 100 == 0) {
-                qDebug() << "AudioCaptor: processed" << audio_packet_count
-                        << "audio packets out of" << packet_count << "total";
-            }
         }
     }
 }

@@ -37,7 +37,6 @@ void MainWindow::connect_audio_signals() {
     connect(m_audio_manager.get(), &AudioManager::levels_updated,
             control_bar, &ControlBar::update_audio_levels);
 
-    qDebug() << "MainWindow: 音频电平信号已连接到 ControlBar";
 }
 
 void MainWindow::init_layout() {

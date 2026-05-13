@@ -82,7 +82,7 @@ public:
     // 清空所有音轨
     void clear_tracks();
 
-    void update_track_level(const QString& name, float level);
+    void update_track_level(const QString &name, float level);
 
 signals:
     void track_volume_changed(const QString &name, float volume);
@@ -121,6 +121,34 @@ private:
     QPushButton *m_btn_start_stream;
     QPushButton *m_btn_start_record;
     QPushButton *m_btn_settings;
+};
+
+
+// ==================== 输入源类型选择对话框 ====================
+class SourceTypeDialog : public QDialog {
+    Q_OBJECT
+
+public:
+    explicit SourceTypeDialog(QWidget *parent = nullptr);
+
+    QString selectedType() const { return m_selected_type; }
+
+private:
+    QString m_selected_type;
+};
+
+
+// ==================== 输入源命名对话框 ====================
+class SourceNameDialog : public QDialog {
+    Q_OBJECT
+
+public:
+    explicit SourceNameDialog(QWidget *parent = nullptr);
+
+    QString sourceName() const { return m_name_edit->text().trimmed(); }
+
+private:
+    QLineEdit *m_name_edit;
 };
 
 

@@ -2,15 +2,14 @@
 
 // ==================== 场景控制块 ====================
 
-SceneControlBlock::SceneControlBlock(QWidget* parent)
+SceneControlBlock::SceneControlBlock(QWidget *parent)
     : ControlBlock("场景", parent) {
-
     m_scene_list = new QListWidget();
     m_scene_list->setAlternatingRowColors(true);
 
-    auto* btn_layout = new QHBoxLayout();
-    auto* btn_add = new QPushButton("＋");
-    auto* btn_del = new QPushButton("－");
+    auto *btn_layout = new QHBoxLayout();
+    auto *btn_add = new QPushButton("＋");
+    auto *btn_del = new QPushButton("－");
     btn_add->setFixedSize(28, 28);
     btn_del->setFixedSize(28, 28);
     btn_layout->addStretch();
@@ -28,15 +27,14 @@ SceneControlBlock::SceneControlBlock(QWidget* parent)
 
 // ==================== 输入源控制块 ====================
 
-SourceControlBlock::SourceControlBlock(QWidget* parent)
+SourceControlBlock::SourceControlBlock(QWidget *parent)
     : ControlBlock("输入源", parent) {
-
     m_source_list = new QListWidget();
     m_source_list->setAlternatingRowColors(true);
 
-    auto* btn_layout = new QHBoxLayout();
-    auto* btn_add = new QPushButton("＋");
-    auto* btn_del = new QPushButton("－");
+    auto *btn_layout = new QHBoxLayout();
+    auto *btn_add = new QPushButton("＋");
+    auto *btn_del = new QPushButton("－");
     btn_add->setFixedSize(28, 28);
     btn_del->setFixedSize(28, 28);
     btn_layout->addStretch();
@@ -45,14 +43,27 @@ SourceControlBlock::SourceControlBlock(QWidget* parent)
 
     m_content_layout->addWidget(m_source_list);
     m_content_layout->addLayout(btn_layout);
+
+    connect(btn_add, &QPushButton::clicked, this, [this]() {
+        SourceTypeDialog type_dialog;
+        if (type_dialog.exec() == QDialog::Accepted) {
+            QString type = type_dialog.selectedType();
+            SourceNameDialog name_dialog;
+            if (name_dialog.exec() == QDialog::Accepted) {
+                QString name = name_dialog.sourceName();
+                if (!name.isEmpty()) {
+                    m_source_list->addItem(name + " (" + type + ")");
+                }
+            }
+        }
+    });
 }
 
 
 // ==================== 混音控制块 ====================
 
-AudioMixerBlock::AudioMixerBlock(QWidget* parent)
+AudioMixerBlock::AudioMixerBlock(QWidget *parent)
     : ControlBlock("混音器", parent) {
-
     m_tracks_layout = new QVBoxLayout();
     m_tracks_layout->setSpacing(6);
     m_content_layout->addLayout(m_tracks_layout);
@@ -63,16 +74,16 @@ AudioMixerBlock::AudioMixerBlock(QWidget* parent)
     add_track("麦克风", 0.6f);
 }
 
-AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString& name, float volume) {
+AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString &name, float volume) {
     TrackWidget tw;
 
     tw.container = new QWidget();
-    auto* layout = new QVBoxLayout(tw.container);
+    auto *layout = new QVBoxLayout(tw.container);
     layout->setContentsMargins(0, 2, 0, 2);
     layout->setSpacing(2);
 
     // 第一行：名称 + 静音按钮
-    auto* top_row = new QHBoxLayout();
+    auto *top_row = new QHBoxLayout();
     tw.name_label = new QLabel(name);
 
     tw.mute_btn = new QPushButton("🔊");
@@ -115,19 +126,19 @@ AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString&
 
     // 信号连接
     QObject::connect(tw.volume_slider, &QSlider::valueChanged, this,
-        [this, name](int value) {
-            emit track_volume_changed(name, value / 100.0f);
-        });
+                     [this, name](int value) {
+                         emit track_volume_changed(name, value / 100.0f);
+                     });
 
     QObject::connect(tw.mute_btn, &QPushButton::toggled, this,
-        [this, name](bool checked) {
-            emit track_muted_changed(name, checked);
-        });
+                     [this, name](bool checked) {
+                         emit track_muted_changed(name, checked);
+                     });
 
     return tw;
 }
 
-void AudioMixerBlock::add_track(const QString& name, float volume) {
+void AudioMixerBlock::add_track(const QString &name, float volume) {
     if (m_tracks.contains(name)) return;
 
     TrackWidget tw = create_track_widget(name, volume);
@@ -135,7 +146,7 @@ void AudioMixerBlock::add_track(const QString& name, float volume) {
     m_tracks[name] = tw;
 }
 
-void AudioMixerBlock::remove_track(const QString& name) {
+void AudioMixerBlock::remove_track(const QString &name) {
     auto it = m_tracks.find(name);
     if (it != m_tracks.end()) {
         m_tracks_layout->removeWidget(it->second.container);
@@ -145,7 +156,7 @@ void AudioMixerBlock::remove_track(const QString& name) {
 }
 
 void AudioMixerBlock::clear_tracks() {
-    for (auto& [name, tw] : m_tracks) {
+    for (auto &[name, tw]: m_tracks) {
         m_tracks_layout->removeWidget(tw.container);
         delete tw.container;
     }
@@ -158,19 +169,18 @@ void AudioMixerBlock::update_track_level(const QString &name, float level) {
         int value = static_cast<int>(level * 100);
         // 用 QMetaObject::invokeMethod 确保 UI 更新在主线程
         QMetaObject::invokeMethod(it->second.level_meter, "setValue",
-            Qt::QueuedConnection, Q_ARG(int, value));
+                                  Qt::QueuedConnection, Q_ARG(int, value));
     }
 }
 
 
 // ==================== 直播录制块 ====================
 
-StreamRecordBlock::StreamRecordBlock(QWidget* parent)
+StreamRecordBlock::StreamRecordBlock(QWidget *parent)
     : ControlBlock("直播 / 录制", parent) {
-
     m_btn_start_stream = new QPushButton("🔴 开始直播");
     m_btn_start_record = new QPushButton("⏺ 开始录制");
-    m_btn_settings     = new QPushButton("⚙ 设置");
+    m_btn_settings = new QPushButton("⚙ 设置");
 
     m_content_layout->addWidget(m_btn_start_stream);
     m_content_layout->addWidget(m_btn_start_record);
@@ -182,9 +192,61 @@ StreamRecordBlock::StreamRecordBlock(QWidget* parent)
 }
 
 
+// ==================== 输入源类型选择对话框 ====================
+
+SourceTypeDialog::SourceTypeDialog(QWidget *parent)
+    : QDialog(parent) {
+    setWindowTitle("选择输入源类型");
+    setMinimumWidth(280);
+
+    auto *layout = new QVBoxLayout(this);
+
+    auto *btn_camera = new QPushButton("摄像头采集");
+    auto *btn_display = new QPushButton("显示屏采集");
+    btn_camera->setFixedHeight(48);
+    btn_display->setFixedHeight(48);
+
+    connect(btn_camera, &QPushButton::clicked, this, [this]() {
+        m_selected_type = QStringLiteral("摄像头采集");
+        accept();
+    });
+    connect(btn_display, &QPushButton::clicked, this, [this]() {
+        m_selected_type = QStringLiteral("显示屏采集");
+        accept();
+    });
+
+    layout->addWidget(btn_camera);
+    layout->addWidget(btn_display);
+}
+
+
+// ==================== 输入源命名对话框 ====================
+
+SourceNameDialog::SourceNameDialog(QWidget *parent)
+    : QDialog(parent) {
+    setWindowTitle("输入源名称");
+    setMinimumWidth(350);
+
+    auto *layout = new QVBoxLayout(this);
+
+    auto *name_label = new QLabel("输入源名称:");
+    m_name_edit = new QLineEdit();
+    m_name_edit->setPlaceholderText("请输入输入源名称");
+
+    auto *button_box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    connect(button_box, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(button_box, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    layout->addWidget(name_label);
+    layout->addWidget(m_name_edit);
+    layout->addStretch();
+    layout->addWidget(button_box);
+}
+
+
 // ==================== 总控制栏 ====================
 
-ControlBar::ControlBar(QWidget* parent) : QWidget(parent) {
+ControlBar::ControlBar(QWidget *parent) : QWidget(parent) {
     setMinimumHeight(220);
     init_UI();
 }
@@ -193,18 +255,11 @@ void ControlBar::update_audio_levels(float system_level, float mic_level) {
     if (m_audio_mixer_block) {
         m_audio_mixer_block->update_track_level("桌面音频", system_level);
         m_audio_mixer_block->update_track_level("麦克风", mic_level);
-
-        // 每秒输出一次（避免刷屏）
-        static int counter = 0;
-        if (++counter % 20 == 0) {
-            qDebug() << "音频电平 - 系统:" << system_level
-                     << "麦克风:" << mic_level;
-        }
     }
 }
 
 void ControlBar::init_UI() {
-    main_layout   = new QHBoxLayout(this);
+    main_layout = new QHBoxLayout(this);
     main_layout->setContentsMargins(6, 6, 6, 6);
 
     main_splitter = new QSplitter(Qt::Horizontal, this);
@@ -214,9 +269,9 @@ void ControlBar::init_UI() {
 }
 
 void ControlBar::init_control_blocks() {
-    m_scene_block         = new SceneControlBlock(this);
-    m_source_block        = new SourceControlBlock(this);
-    m_audio_mixer_block   = new AudioMixerBlock(this);
+    m_scene_block = new SceneControlBlock(this);
+    m_source_block = new SourceControlBlock(this);
+    m_audio_mixer_block = new AudioMixerBlock(this);
     m_stream_record_block = new StreamRecordBlock(this);
 }
 

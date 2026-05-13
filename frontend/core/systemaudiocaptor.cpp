@@ -10,7 +10,6 @@ static const GUID s_guid_pcm = {
 
 SystemAudioCaptor::SystemAudioCaptor() {
     init_ctx();
-    qDebug() << "SystemAudioCaptor initialized:" << m_initialized;
 }
 
 SystemAudioCaptor::~SystemAudioCaptor() {
@@ -33,7 +32,6 @@ void SystemAudioCaptor::cleanup_wasapi() {
 // WASAPI is initialized lazily in capture_loop() on the capture thread
 void SystemAudioCaptor::init_ctx() {
     m_initialized = true;
-    qDebug() << "SystemAudioCaptor: deferred init (WASAPI will init in capture thread)";
 }
 
 static AVSampleFormat wasapi_format_to_av(const WAVEFORMATEX* fmt) {
@@ -61,7 +59,6 @@ void SystemAudioCaptor::capture_loop() {
     bool com_ok = SUCCEEDED(hr) || hr == S_FALSE;
 
     if (!com_ok) {
-        qDebug() << "SystemAudioCaptor: CoInitializeEx failed:" << hr;
         return;
     }
 
@@ -71,7 +68,6 @@ void SystemAudioCaptor::capture_loop() {
         CLSCTX_ALL, __uuidof(IMMDeviceEnumerator),
         reinterpret_cast<void**>(&m_enumerator));
     if (FAILED(hr)) {
-        qDebug() << "SystemAudioCaptor: CoCreateInstance(MMDeviceEnumerator) failed:" << hr;
         CoUninitialize();
         return;
     }
@@ -79,7 +75,6 @@ void SystemAudioCaptor::capture_loop() {
     // Get default render endpoint (speaker/headphones)
     hr = m_enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &m_device);
     if (FAILED(hr)) {
-        qDebug() << "SystemAudioCaptor: GetDefaultAudioEndpoint(eRender) failed:" << hr;
         cleanup_wasapi();
         CoUninitialize();
         return;
@@ -89,7 +84,6 @@ void SystemAudioCaptor::capture_loop() {
     hr = m_device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
                             reinterpret_cast<void**>(&m_audio_client));
     if (FAILED(hr)) {
-        qDebug() << "SystemAudioCaptor: Activate(IAudioClient) failed:" << hr;
         cleanup_wasapi();
         CoUninitialize();
         return;
@@ -99,7 +93,6 @@ void SystemAudioCaptor::capture_loop() {
     WAVEFORMATEX* mix_fmt = nullptr;
     hr = m_audio_client->GetMixFormat(&mix_fmt);
     if (FAILED(hr) || !mix_fmt) {
-        qDebug() << "SystemAudioCaptor: GetMixFormat failed:" << hr;
         cleanup_wasapi();
         CoUninitialize();
         return;
@@ -107,8 +100,6 @@ void SystemAudioCaptor::capture_loop() {
 
     m_av_sample_fmt = wasapi_format_to_av(mix_fmt);
     if (m_av_sample_fmt == AV_SAMPLE_FMT_NONE) {
-        qDebug() << "SystemAudioCaptor: unsupported WASAPI format:" << mix_fmt->wFormatTag
-                 << "bits:" << mix_fmt->wBitsPerSample;
         CoTaskMemFree(mix_fmt);
         cleanup_wasapi();
         CoUninitialize();
@@ -119,10 +110,6 @@ void SystemAudioCaptor::capture_loop() {
     m_channels = mix_fmt->nChannels;
     m_bytes_per_frame = mix_fmt->nBlockAlign;
 
-    qDebug() << "SystemAudioCaptor: device format - rate:" << m_sample_rate
-             << "ch:" << m_channels << "bits:" << mix_fmt->wBitsPerSample
-             << "av_fmt:" << m_av_sample_fmt;
-
     // Initialize audio client with loopback flag
     const REFERENCE_TIME buf_duration = 100000; // 10 ms
     hr = m_audio_client->Initialize(
@@ -130,7 +117,6 @@ void SystemAudioCaptor::capture_loop() {
         AUDCLNT_STREAMFLAGS_LOOPBACK,
         buf_duration, 0, mix_fmt, nullptr);
     if (FAILED(hr)) {
-        qDebug() << "SystemAudioCaptor: IAudioClient::Initialize(LOOPBACK) failed:" << hr;
         CoTaskMemFree(mix_fmt);
         cleanup_wasapi();
         CoUninitialize();
@@ -143,7 +129,6 @@ void SystemAudioCaptor::capture_loop() {
     hr = m_audio_client->GetService(__uuidof(IAudioCaptureClient),
                                      reinterpret_cast<void**>(&m_capture_client));
     if (FAILED(hr) || !m_capture_client) {
-        qDebug() << "SystemAudioCaptor: GetService(IAudioCaptureClient) failed:" << hr;
         cleanup_wasapi();
         CoUninitialize();
         return;
@@ -152,20 +137,16 @@ void SystemAudioCaptor::capture_loop() {
     // Start the audio client
     hr = m_audio_client->Start();
     if (FAILED(hr)) {
-        qDebug() << "SystemAudioCaptor: IAudioClient::Start failed:" << hr;
         cleanup_wasapi();
         CoUninitialize();
         return;
     }
-
-    qDebug() << "SystemAudioCaptor: WASAPI loopback capture started";
 
     // ===== Capture loop =====
     while (is_capturing.load()) {
         UINT32 packet_len = 0;
         hr = m_capture_client->GetNextPacketSize(&packet_len);
         if (FAILED(hr)) {
-            qDebug() << "SystemAudioCaptor: GetNextPacketSize failed:" << hr;
             break;
         }
 
@@ -180,7 +161,6 @@ void SystemAudioCaptor::capture_loop() {
 
         hr = m_capture_client->GetBuffer(&data, &frames_avail, &flags, nullptr, nullptr);
         if (FAILED(hr)) {
-            qDebug() << "SystemAudioCaptor: GetBuffer failed:" << hr;
             break;
         }
 
@@ -215,8 +195,6 @@ void SystemAudioCaptor::capture_loop() {
     if (m_audio_client) {
         m_audio_client->Stop();
     }
-
-    qDebug() << "SystemAudioCaptor: WASAPI capture loop ended";
 
     cleanup_wasapi();
     CoUninitialize();

@@ -118,12 +118,9 @@ void AudioManager::start_all() {
     if ((m_system_audio && m_system_audio->is_running()) ||
         (m_mic_audio && m_mic_audio->is_running())) {
         m_level_emit_timer->start(16); // 改为 60Hz（16ms）
-        qDebug() << "AudioManager: 启动电平更新定时器";
 
         // 立即发射初始电平值
         emit levels_updated(0.0f, 0.0f);
-        } else {
-            qDebug() << "AudioManager: 无可用音频设备，不启动定时器";
         }
 }
 
@@ -198,17 +195,4 @@ void AudioManager::calculate_level_from_frame(const AVFrame* frame, std::atomic<
     }
 
     level_store.store(smoothed);
-
-    static int sys_counter = 0;
-    static int mic_counter = 0;
-
-    if (&level_store == &m_system_level) {
-        if (++sys_counter <= 5) {
-            qDebug() << "AudioManager[SYS] rms:" << rms << "level:" << smoothed;
-        }
-    } else {
-        if (++mic_counter <= 5) {
-            qDebug() << "AudioManager[MIC] rms:" << rms << "level:" << smoothed;
-        }
-    }
 }

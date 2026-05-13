@@ -4,7 +4,6 @@ MicAudioCaptor::MicAudioCaptor() {
     m_device_name = "audio=麦克风 (Lian ll)";
 
     init_ctx();
-    qDebug() << "MicAudioCaptor initialized with device:" << m_device_name << m_initialized;
 }
 
 const char* MicAudioCaptor::get_input_format_name() const {

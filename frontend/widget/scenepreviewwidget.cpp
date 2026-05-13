@@ -61,7 +61,6 @@ void ScenePreviewWidget::add_test_source() {
     m_sources_storage.push_back(std::move(rect1));
     m_sources_storage.push_back(std::move(rect2));
 
-    qDebug() << "添加了" << m_scene.get_sources().size() << "个测试源";
 }
 
 void ScenePreviewWidget::add_screen_capture_source(int screen_index) {
@@ -247,25 +246,6 @@ QPointF ScenePreviewWidget::screen_to_canvas(const QPointF &screen_pos) const {
     return QPointF(logicX, logicY);
 }
 
-void ScenePreviewWidget::calculate_pos(QPointF point_f) {
-    const qreal dpr = devicePixelRatio();
-    const qreal physX = point_f.x() * dpr;
-    const qreal physY = point_f.y() * dpr;
-
-    const double logicX = (physX - m_viewX) / m_viewW * CANVAS_W;
-    const double logicY = (physY - m_viewY) / m_viewH * CANVAS_H;
-
-    const int distToLeft = qRound(logicX);
-    const int distToTop = qRound(logicY);
-    const int distToRight = qRound(CANVAS_W - logicX);
-    const int distToBottom = qRound(CANVAS_H - logicY);
-
-    qDebug() << QString("逻辑坐标: (%1, %2)  左:%3 上:%4 右:%5 下:%6")
-            .arg(logicX, 0, 'f', 1)
-            .arg(logicY, 0, 'f', 1)
-            .arg(distToLeft).arg(distToTop)
-            .arg(distToRight).arg(distToBottom);
-}
 
 void ScenePreviewWidget::update_cursor() {
     Qt::CursorShape shape = m_scene.get_cursor_for_current_pos();
