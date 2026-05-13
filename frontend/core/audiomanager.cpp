@@ -12,14 +12,9 @@ AudioManager::AudioManager(QObject *parent)
         if (self) {
             auto frame = self->m_system_audio->try_pop_frame();
             if (frame.has_value()) {
-                static int sys_cb_count = 0;
-                if (++sys_cb_count % 20 == 0) {
-                    qDebug() << "DEBUG: system callback triggered, count:" << sys_cb_count;
-                }
-
                 self->calculate_level_from_frame(frame.value().get(), self->m_system_level);
 
-                // ✅ 添加信号发射，与麦克风保持一致
+                // 立即发射信号（不等待定时器）
                 QMetaObject::invokeMethod(self, [self]() {
                     if (self) {
                         emit self->levels_updated(
@@ -55,6 +50,11 @@ AudioManager::AudioManager(QObject *parent)
     m_level_emit_timer = new QTimer(this);
     connect(m_level_emit_timer, &QTimer::timeout, this, [this]() {
         emit levels_updated(m_system_level.load(), m_mic_level.load());
+    });
+
+    // ✅ 添加：启动后立即发射一次初始电平
+    QTimer::singleShot(100, this, [this]() {
+        emit levels_updated(0.0f, 0.0f);
     });
 }
 
@@ -108,6 +108,10 @@ AudioManager::~AudioManager() {
 }
 
 void AudioManager::start_all() {
+    // 重置电平值
+    m_system_level.store(0.0f);
+    m_mic_level.store(0.0f);
+
     if (m_system_audio) m_system_audio->start();
     if (m_mic_audio) m_mic_audio->start();
 
@@ -115,9 +119,12 @@ void AudioManager::start_all() {
         (m_mic_audio && m_mic_audio->is_running())) {
         m_level_emit_timer->start(16); // 改为 60Hz（16ms）
         qDebug() << "AudioManager: 启动电平更新定时器";
-    } else {
-        qDebug() << "AudioManager: 无可用音频设备，不启动定时器";
-    }
+
+        // 立即发射初始电平值
+        emit levels_updated(0.0f, 0.0f);
+        } else {
+            qDebug() << "AudioManager: 无可用音频设备，不启动定时器";
+        }
 }
 
 void AudioManager::stop_all() {
@@ -128,8 +135,11 @@ void AudioManager::stop_all() {
 
 void AudioManager::calculate_level_from_frame(const AVFrame* frame, std::atomic<float>& level_store) {
     if (!frame || frame->nb_samples <= 0) {
+        // 没有新帧时，缓慢衰减（而不是立即降到0）
         float current = level_store.load();
-        level_store.store(current * 0.8f);
+        float decayed = current * 0.95f;  // 缓慢衰减
+        if (decayed < 0.01f) decayed = 0.0f;
+        level_store.store(decayed);
         return;
     }
 
@@ -155,31 +165,45 @@ void AudioManager::calculate_level_from_frame(const AVFrame* frame, std::atomic<
 
     if (sample_count == 0) return;
 
+    // 计算 RMS (Root Mean Square)
     float rms = std::sqrt(sum / sample_count);
-    if (rms < 1e-10f) rms = 1e-10f;
 
-    float db = 20.0f * std::log10(rms);
-    float level = std::clamp(std::sqrt(rms * 10.0f), 0.0f, 1.0f);
+    // 将 RMS 值转换为 0-1 范围的电平值
+    // 使用更自然的映射：rms^0.5 让低音量区域更敏感
+    float level = std::min(1.0f, std::sqrt(rms) * 1.5f);
 
+    // 确保最小值不为0（避免完全静音时跳动）
+    if (level < 0.005f) level = 0.0f;
+
+    // 平滑处理：快速上升，缓慢下降
     float current = level_store.load();
-    float smoothed = current * 0.4f + level * 0.6f;
+    float smoothed;
+    if (level > current) {
+        // 上升：快速响应 (attack)
+        smoothed = current * 0.3f + level * 0.7f;
+    } else {
+        // 下降：缓慢衰减 (release)
+        smoothed = current * 0.8f + level * 0.2f;
+    }
+
     level_store.store(smoothed);
 
-    // ✅ 修改：分别用两个计数器，避免相互干扰
+    // 调试输出（前5帧）
     static int sys_counter = 0;
     static int mic_counter = 0;
 
+    // 判断是系统音频还是麦克风
     if (&level_store == &m_system_level) {
-        if (++sys_counter <= 5) {  // 前5帧系统音频都打印
+        if (++sys_counter <= 5) {
             qDebug() << "AudioManager[SYS] format:" << frame->format
                      << "samples:" << samples << "channels:" << channels
-                     << "rms:" << rms << "db:" << db << "level:" << smoothed;
+                     << "rms:" << rms << "level:" << smoothed;
         }
     } else {
-        if (++mic_counter <= 5) {  // 前5帧麦克风都打印
+        if (++mic_counter <= 5) {
             qDebug() << "AudioManager[MIC] format:" << frame->format
                      << "samples:" << samples << "channels:" << channels
-                     << "rms:" << rms << "db:" << db << "level:" << smoothed;
+                     << "rms:" << rms << "level:" << smoothed;
         }
     }
 }
