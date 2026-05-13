@@ -1,8 +1,3 @@
-#define _WIN32_WINNT _WIN32_WINNT_WIN10
-#include <windows.h>
-#include <mmdeviceapi.h>
-#include <audioclient.h>
-
 #include "systemaudiocaptor.h"
 
 // GUID definitions for WASAPI format subtypes (avoids dependency on ksmedia.h)

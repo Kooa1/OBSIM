@@ -1,6 +1,12 @@
 #ifndef OBSIM_SYSTEMAUDIOCAPTOR_H
 #define OBSIM_SYSTEMAUDIOCAPTOR_H
 
+#define _WIN32_WINNT _WIN32_WINNT_WIN10
+
+#include <windows.h>
+#include <mmdeviceapi.h>
+#include <audioclient.h>
+
 #include <QDebug>
 
 #include "audiocaptor.h"
