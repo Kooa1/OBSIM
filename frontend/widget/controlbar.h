@@ -155,6 +155,7 @@ class SourceNameDialog : public QDialog {
 public:
     explicit SourceNameDialog(const QVector<DisplayInfo> &displays = {},
                               const QVector<CameraInfo> &cameras = {},
+                              bool is_camera_type = false,
                               QWidget *parent = nullptr);
 
     QString source_name() const { return m_name_edit->text().trimmed(); }

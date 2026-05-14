@@ -74,7 +74,7 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
             cameras = dm.get_all_cameras();
         }
 
-        SourceNameDialog name_dialog(displays, cameras);
+        SourceNameDialog name_dialog(displays, cameras, type == QStringLiteral("摄像头采集"));
         if (name_dialog.exec() == QDialog::Accepted) {
             QString name = name_dialog.source_name();
             if (name.isEmpty()) return;
@@ -88,17 +88,17 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
                     config.width = displays[idx].geometry.width();
                     config.height = displays[idx].geometry.height();
                     emit display_capture_requested(config, name);
+                    m_source_list->addItem(name + " (" + type + ")");
                 }
             } else {
                 int idx = name_dialog.selected_camera_index();
                 if (idx >= 0 && idx < cameras.size()) {
                     emit camera_capture_requested(
                         QString::fromStdString(cameras[idx].name), name);
-                } else {
-                    emit camera_capture_requested({}, name);
+                    m_source_list->addItem(name + " (" + type + ")");
                 }
+                // idx < 0 表示用户未选择有效摄像头，不创建采集源
             }
-            m_source_list->addItem(name + " (" + type + ")");
         }
     });
 }
@@ -270,7 +270,8 @@ SourceTypeDialog::SourceTypeDialog(QWidget *parent)
 // ==================== 输入源命名对话框 ====================
 
 SourceNameDialog::SourceNameDialog(const QVector<DisplayInfo> &displays,
-                                   const QVector<CameraInfo> &cameras, QWidget *parent)
+                                   const QVector<CameraInfo> &cameras,
+                                   bool is_camera_type, QWidget *parent)
         : QDialog(parent) {
     setWindowTitle("输入源名称");
     setMinimumWidth(350);
@@ -297,9 +298,10 @@ SourceNameDialog::SourceNameDialog(const QVector<DisplayInfo> &displays,
         layout->addWidget(m_display_combo);
     }
 
-    if (!cameras.isEmpty()) {
+    if (is_camera_type) {
         auto *camera_label = new QLabel("选择摄像头:");
         m_camera_combo = new QComboBox();
+        m_camera_combo->addItem("无", -1);
         for (const auto &c: cameras) {
             QString text = QString::fromStdString(c.name);
             if (c.is_default) {
@@ -312,6 +314,16 @@ SourceNameDialog::SourceNameDialog(const QVector<DisplayInfo> &displays,
     }
 
     auto *button_box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    QPushButton *ok_btn = button_box->button(QDialogButtonBox::Ok);
+
+    // 摄像头模式下默认"无"被选中，禁用确定按钮
+    if (is_camera_type) {
+        ok_btn->setEnabled(false);
+        connect(m_camera_combo, &QComboBox::currentIndexChanged, this, [this, ok_btn]() {
+            ok_btn->setEnabled(m_camera_combo->currentData().toInt() >= 0);
+        });
+    }
+
     connect(button_box, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(button_box, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
