@@ -315,13 +315,20 @@ SourceNameDialog::SourceNameDialog(const QVector<DisplayInfo> &displays,
 
     auto *button_box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     QPushButton *ok_btn = button_box->button(QDialogButtonBox::Ok);
+    ok_btn->setEnabled(false);
 
-    // 摄像头模式下默认"无"被选中，禁用确定按钮
+    // 名称文本变化时更新确定按钮状态
+    auto update_ok_btn = [this, ok_btn, is_camera_type]() {
+        bool name_valid = !m_name_edit->text().trimmed().isEmpty();
+        bool camera_valid = !is_camera_type ||
+                            (m_camera_combo && m_camera_combo->currentData().toInt() >= 0);
+        ok_btn->setEnabled(name_valid && camera_valid);
+    };
+
+    connect(m_name_edit, &QLineEdit::textChanged, this, update_ok_btn);
+
     if (is_camera_type) {
-        ok_btn->setEnabled(false);
-        connect(m_camera_combo, &QComboBox::currentIndexChanged, this, [this, ok_btn]() {
-            ok_btn->setEnabled(m_camera_combo->currentData().toInt() >= 0);
-        });
+        connect(m_camera_combo, &QComboBox::currentIndexChanged, this, update_ok_btn);
     }
 
     connect(button_box, &QDialogButtonBox::accepted, this, &QDialog::accept);
