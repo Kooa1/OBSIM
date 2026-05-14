@@ -2,8 +2,8 @@
 // Created by 66 on 2026/4/26.
 //
 
-#ifndef OBSIM_DISPLAYMANAGER_H
-#define OBSIM_DISPLAYMANAGER_H
+#ifndef OBSIM_DEVICEMANAGER_H
+#define OBSIM_DEVICEMANAGER_H
 
 #include "PCH.h"
 
@@ -19,11 +19,11 @@ struct DisplayInfo {
     qreal refresh_rate; // 刷新率
 };
 
-class DisplayManager : public QObject {
+class DeviceManager : public QObject {
     Q_OBJECT
 
 public:
-    explicit DisplayManager(QObject *parent = nullptr);
+    explicit DeviceManager(QObject *parent = nullptr);
 
     // 静态方法：直接运行示例
     static void run();
@@ -48,4 +48,4 @@ private:
 };
 
 
-#endif //OBSIM_DISPLAYMANAGER_H
+#endif //OBSIM_DEVICEMANAGER_H

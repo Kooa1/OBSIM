@@ -2,17 +2,17 @@
 // Created by 66 on 2026/4/26.
 //
 
-#include "displaymanager.h"
+#include "devicemanager.h"
 
-DisplayManager::DisplayManager(QObject *parent) : QObject(parent) {
+DeviceManager::DeviceManager(QObject *parent) : QObject(parent) {
 }
 
-void DisplayManager::run() {
-    // 创建 DisplayManager 实例
-    DisplayManager display_manager;
+void DeviceManager::run() {
+    // 创建 DeviceManager 实例
+    DeviceManager device_manager;
 
     // 获取所有显示器信息
-    QVector<DisplayInfo> displays = display_manager.get_all_displays();
+    QVector<DisplayInfo> displays = device_manager.get_all_displays();
 
     for (const DisplayInfo &info: displays) {
         if (info.is_primary) {
@@ -27,13 +27,13 @@ void DisplayManager::run() {
     }
 
     // 获取主屏幕信息
-    DisplayInfo primary = display_manager.get_primary_display();
+    DisplayInfo primary = device_manager.get_primary_display();
 
     // 获取屏幕数量
-    int screen_count = display_manager.get_display_count();
+    int screen_count = device_manager.get_display_count();
 }
 
-QVector<DisplayInfo> DisplayManager::get_all_displays() const {
+QVector<DisplayInfo> DeviceManager::get_all_displays() const {
     QVector<DisplayInfo> displays;
     QList<QScreen *> screens = QGuiApplication::screens();
     QScreen *primary_screen = QGuiApplication::primaryScreen();
@@ -46,11 +46,11 @@ QVector<DisplayInfo> DisplayManager::get_all_displays() const {
     return displays;
 }
 
-int DisplayManager::get_display_count() const {
+int DeviceManager::get_display_count() const {
     return QGuiApplication::screens().size();
 }
 
-DisplayInfo DisplayManager::get_primary_display() const {
+DisplayInfo DeviceManager::get_primary_display() const {
     QScreen *primary_screen = QGuiApplication::primaryScreen();
     QList<QScreen *> screens = QGuiApplication::screens();
 
@@ -63,7 +63,7 @@ DisplayInfo DisplayManager::get_primary_display() const {
     return DisplayInfo{}; // 返回空结构体
 }
 
-DisplayInfo DisplayManager::get_display(int index) const {
+DisplayInfo DeviceManager::get_display(int index) const {
     QList<QScreen *> screens = QGuiApplication::screens();
     if (index < 0 || index >= screens.size()) {
         return DisplayInfo{};
@@ -76,7 +76,7 @@ DisplayInfo DisplayManager::get_display(int index) const {
     return convert_to_display_info(screen, index, is_primary);
 }
 
-bool DisplayManager::is_primary_screen(int index) const {
+bool DeviceManager::is_primary_screen(int index) const {
     QList<QScreen *> screens = QGuiApplication::screens();
     if (index < 0 || index >= screens.size()) {
         return false;
@@ -84,7 +84,7 @@ bool DisplayManager::is_primary_screen(int index) const {
     return (screens[index] == QGuiApplication::primaryScreen());
 }
 
-DisplayInfo DisplayManager::convert_to_display_info(QScreen *screen, int index, bool is_primary) const {
+DisplayInfo DeviceManager::convert_to_display_info(QScreen *screen, int index, bool is_primary) const {
     DisplayInfo info;
     info.index = index;
     info.name = screen->name().toStdString();

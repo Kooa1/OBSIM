@@ -6,7 +6,7 @@
 #include <QWidget>
 
 #include "../utils/PCH.h"
-#include "../utils/displaymanager.h"
+#include "../utils/devicemanager.h"
 
 struct CaptorConfig;
 

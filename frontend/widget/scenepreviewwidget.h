@@ -14,7 +14,7 @@
 #include "core/videocaptor.h"
 #include "core/screencapturesource.h"
 #include "core/cameracapturesource.h"
-#include "utils/displaymanager.h"
+#include "utils/devicemanager.h"
 
 
 class ScenePreviewWidget : public QOpenGLWidget {
@@ -30,7 +30,9 @@ public:
     void add_screen_capture_source(const CaptorConfig &config);
 
     void add_camera_capture_source();
+
     void remove_source(int index);
+
     void select_source_at(int index);
 
 signals:

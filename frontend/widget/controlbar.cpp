@@ -4,7 +4,7 @@
 // ==================== 场景控制块 ====================
 
 SceneControlBlock::SceneControlBlock(QWidget *parent)
-    : ControlBlock("场景", parent) {
+        : ControlBlock("场景", parent) {
     m_scene_list = new QListWidget();
     m_scene_list->setAlternatingRowColors(true);
 
@@ -29,7 +29,7 @@ SceneControlBlock::SceneControlBlock(QWidget *parent)
 // ==================== 输入源控制块 ====================
 
 SourceControlBlock::SourceControlBlock(QWidget *parent)
-    : ControlBlock("输入源", parent) {
+        : ControlBlock("输入源", parent) {
     m_source_list = new QListWidget();
     m_source_list->setAlternatingRowColors(true);
 
@@ -64,7 +64,7 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
         QString type = type_dialog.selected_type();
         QVector<DisplayInfo> displays;
         if (type == QStringLiteral("显示屏采集")) {
-            DisplayManager dm;
+            DeviceManager dm;
             displays = dm.get_all_displays();
         }
 
@@ -95,7 +95,7 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
 // ==================== 混音控制块 ====================
 
 AudioMixerBlock::AudioMixerBlock(QWidget *parent)
-    : ControlBlock("混音器", parent) {
+        : ControlBlock("混音器", parent) {
     m_tracks_layout = new QVBoxLayout();
     m_tracks_layout->setSpacing(6);
     m_content_layout->addLayout(m_tracks_layout);
@@ -140,16 +140,16 @@ AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString 
 
     // 动态颜色样式：低电平绿色，中电平黄色，高电平红色
     tw.level_meter->setStyleSheet(
-        "QProgressBar {"
-        "  background-color: #2a2a2a;"
-        "  border: 1px solid #555;"
-        "  border-radius: 2px;"
-        "}"
-        "QProgressBar::chunk {"
-        "  background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
-        "    stop:0 #4CAF50, stop:0.6 #FFEB3B, stop:0.85 #FF9800, stop:1 #F44336);"
-        "  border-radius: 1px;"
-        "}"
+            "QProgressBar {"
+            "  background-color: #2a2a2a;"
+            "  border: 1px solid #555;"
+            "  border-radius: 2px;"
+            "}"
+            "QProgressBar::chunk {"
+            "  background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
+            "    stop:0 #4CAF50, stop:0.6 #FFEB3B, stop:0.85 #FF9800, stop:1 #F44336);"
+            "  border-radius: 1px;"
+            "}"
     );
 
     layout->addLayout(top_row);
@@ -209,7 +209,7 @@ void AudioMixerBlock::update_track_level(const QString &name, float level) {
 // ==================== 直播录制块 ====================
 
 StreamRecordBlock::StreamRecordBlock(QWidget *parent)
-    : ControlBlock("直播 / 录制", parent) {
+        : ControlBlock("直播 / 录制", parent) {
     m_btn_start_stream = new QPushButton("🔴 开始直播");
     m_btn_start_record = new QPushButton("⏺ 开始录制");
     m_btn_settings = new QPushButton("⚙ 设置");
@@ -230,7 +230,7 @@ StreamRecordBlock::StreamRecordBlock(QWidget *parent)
 // ==================== 输入源类型选择对话框 ====================
 
 SourceTypeDialog::SourceTypeDialog(QWidget *parent)
-    : QDialog(parent) {
+        : QDialog(parent) {
     setWindowTitle("选择输入源类型");
     setMinimumWidth(280);
 
@@ -258,7 +258,7 @@ SourceTypeDialog::SourceTypeDialog(QWidget *parent)
 // ==================== 输入源命名对话框 ====================
 
 SourceNameDialog::SourceNameDialog(const QVector<DisplayInfo> &displays, QWidget *parent)
-    : QDialog(parent) {
+        : QDialog(parent) {
     setWindowTitle("输入源名称");
     setMinimumWidth(350);
 
@@ -273,7 +273,7 @@ SourceNameDialog::SourceNameDialog(const QVector<DisplayInfo> &displays, QWidget
     if (!displays.isEmpty()) {
         auto *display_label = new QLabel("选择显示器:");
         m_display_combo = new QComboBox();
-        for (const auto &d : displays) {
+        for (const auto &d: displays) {
             QString text = QString::fromStdString(d.name);
             if (d.is_primary) {
                 text = "主屏幕: " + text;

@@ -12,7 +12,7 @@ ScenePreviewWidget::ScenePreviewWidget(QWidget *parent)
     // 保存 QPointer 用于跨线程安全
     m_self_guard = this;
 
-    DisplayManager::run();
+    DeviceManager::run();
 
     // 测试源
     // add_test_source();
