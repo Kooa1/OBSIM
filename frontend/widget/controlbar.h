@@ -141,7 +141,7 @@ class SourceTypeDialog : public QDialog {
 public:
     explicit SourceTypeDialog(QWidget *parent = nullptr);
 
-    QString selectedType() const { return m_selected_type; }
+    QString selected_type() const { return m_selected_type; }
 
 private:
     QString m_selected_type;
@@ -155,8 +155,8 @@ class SourceNameDialog : public QDialog {
 public:
     explicit SourceNameDialog(const QVector<DisplayInfo> &displays = {}, QWidget *parent = nullptr);
 
-    QString sourceName() const { return m_name_edit->text().trimmed(); }
-    int selectedDisplayIndex() const;
+    QString source_name() const { return m_name_edit->text().trimmed(); }
+    int selected_display_index() const;
 
 private:
     QLineEdit *m_name_edit;

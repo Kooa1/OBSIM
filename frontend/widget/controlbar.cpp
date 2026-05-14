@@ -61,7 +61,7 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
         SourceTypeDialog type_dialog;
         if (type_dialog.exec() != QDialog::Accepted) return;
 
-        QString type = type_dialog.selectedType();
+        QString type = type_dialog.selected_type();
         QVector<DisplayInfo> displays;
         if (type == QStringLiteral("显示屏采集")) {
             DisplayManager dm;
@@ -70,11 +70,11 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
 
         SourceNameDialog name_dialog(displays);
         if (name_dialog.exec() == QDialog::Accepted) {
-            QString name = name_dialog.sourceName();
+            QString name = name_dialog.source_name();
             if (name.isEmpty()) return;
 
             if (type == QStringLiteral("显示屏采集")) {
-                int idx = name_dialog.selectedDisplayIndex();
+                int idx = name_dialog.selected_display_index();
                 if (idx >= 0 && idx < displays.size()) {
                     CaptorConfig config;
                     config.offset_x = displays[idx].geometry.x();
@@ -292,7 +292,7 @@ SourceNameDialog::SourceNameDialog(const QVector<DisplayInfo> &displays, QWidget
     layout->addWidget(button_box);
 }
 
-int SourceNameDialog::selectedDisplayIndex() const {
+int SourceNameDialog::selected_display_index() const {
     if (m_display_combo) {
         return m_display_combo->currentData().toInt();
     }
