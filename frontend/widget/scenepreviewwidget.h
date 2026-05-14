@@ -55,8 +55,6 @@ private:
 
     QPointF screen_to_canvas(const QPointF &screen_pos) const;
 
-    void calculate_pos(QPointF point_f);
-
     void update_cursor();
 
     void ensure_mosaic_list(int w, int h);
