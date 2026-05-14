@@ -4,8 +4,25 @@
 
 #include "camera.h"
 
-Camera::Camera() {
+Camera::Camera(std::string device_description)
+    : m_device_description(std::move(device_description)) {
     av_log_set_level(AV_LOG_INFO);
+
+    // 构建设备 URL
+    if (m_device_description.empty()) {
+#ifdef _WIN32
+        m_device_url = "video=USB Video Device";
+#else
+        m_device_url = "0";
+#endif
+    } else {
+#ifdef _WIN32
+        m_device_url = "video=" + m_device_description;
+#else
+        m_device_url = m_device_description;
+#endif
+    }
+
     init_ctx();
 }
 
@@ -18,11 +35,7 @@ const char* Camera::get_input_format_name() const {
 }
 
 const char* Camera::get_device_name() const {
-#ifdef _WIN32
-    return "video=USB Video Device";
-#else
-    return "0";
-#endif
+    return m_device_url.c_str();
 }
 
 void Camera::setup_options(AVDictionary** opts) {

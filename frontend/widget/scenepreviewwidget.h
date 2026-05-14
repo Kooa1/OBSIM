@@ -29,7 +29,7 @@ public:
 
     void add_screen_capture_source(const CaptorConfig &config);
 
-    void add_camera_capture_source();
+    void add_camera_capture_source(std::string device_description = "");
 
     void remove_source(int index);
 

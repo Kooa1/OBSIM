@@ -44,7 +44,7 @@ private:
                               double screen_occupancy_ratio = 0.78);
 
     void on_display_capture_requested(const CaptorConfig &config, const QString &name);
-    void on_camera_capture_requested(const QString &name);
+    void on_camera_capture_requested(const QString &device_desc, const QString &name);
     void on_source_remove_requested(int index);
     void on_source_list_selection_changed(int row);
     void on_canvas_selection_changed(int index);

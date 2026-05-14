@@ -68,7 +68,13 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
             displays = dm.get_all_displays();
         }
 
-        SourceNameDialog name_dialog(displays);
+        QVector<CameraInfo> cameras;
+        if (type == QStringLiteral("摄像头采集")) {
+            DeviceManager dm;
+            cameras = dm.get_all_cameras();
+        }
+
+        SourceNameDialog name_dialog(displays, cameras);
         if (name_dialog.exec() == QDialog::Accepted) {
             QString name = name_dialog.source_name();
             if (name.isEmpty()) return;
@@ -84,7 +90,13 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
                     emit display_capture_requested(config, name);
                 }
             } else {
-                emit camera_capture_requested(name);
+                int idx = name_dialog.selected_camera_index();
+                if (idx >= 0 && idx < cameras.size()) {
+                    emit camera_capture_requested(
+                        QString::fromStdString(cameras[idx].name), name);
+                } else {
+                    emit camera_capture_requested({}, name);
+                }
             }
             m_source_list->addItem(name + " (" + type + ")");
         }
@@ -257,7 +269,8 @@ SourceTypeDialog::SourceTypeDialog(QWidget *parent)
 
 // ==================== 输入源命名对话框 ====================
 
-SourceNameDialog::SourceNameDialog(const QVector<DisplayInfo> &displays, QWidget *parent)
+SourceNameDialog::SourceNameDialog(const QVector<DisplayInfo> &displays,
+                                   const QVector<CameraInfo> &cameras, QWidget *parent)
         : QDialog(parent) {
     setWindowTitle("输入源名称");
     setMinimumWidth(350);
@@ -284,6 +297,20 @@ SourceNameDialog::SourceNameDialog(const QVector<DisplayInfo> &displays, QWidget
         layout->addWidget(m_display_combo);
     }
 
+    if (!cameras.isEmpty()) {
+        auto *camera_label = new QLabel("选择摄像头:");
+        m_camera_combo = new QComboBox();
+        for (const auto &c: cameras) {
+            QString text = QString::fromStdString(c.name);
+            if (c.is_default) {
+                text = "默认: " + text;
+            }
+            m_camera_combo->addItem(text, c.index);
+        }
+        layout->addWidget(camera_label);
+        layout->addWidget(m_camera_combo);
+    }
+
     auto *button_box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     connect(button_box, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(button_box, &QDialogButtonBox::rejected, this, &QDialog::reject);
@@ -295,6 +322,13 @@ SourceNameDialog::SourceNameDialog(const QVector<DisplayInfo> &displays, QWidget
 int SourceNameDialog::selected_display_index() const {
     if (m_display_combo) {
         return m_display_combo->currentData().toInt();
+    }
+    return -1;
+}
+
+int SourceNameDialog::selected_camera_index() const {
+    if (m_camera_combo) {
+        return m_camera_combo->currentData().toInt();
     }
     return -1;
 }

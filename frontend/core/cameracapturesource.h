@@ -5,7 +5,7 @@
 
 class CameraCaptureSource : public VideoSource {
 public:
-    CameraCaptureSource();
+    explicit CameraCaptureSource(std::string device_description = "");
     ~CameraCaptureSource() override = default;
     const char* source_type_name() const override { return "Camera"; }
 };

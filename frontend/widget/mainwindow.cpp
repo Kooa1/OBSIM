@@ -62,9 +62,9 @@ void MainWindow::on_display_capture_requested(const CaptorConfig &config, const 
     }
 }
 
-void MainWindow::on_camera_capture_requested(const QString &name) {
+void MainWindow::on_camera_capture_requested(const QString &device_desc, const QString &name) {
     if (scene_preview_widget) {
-        scene_preview_widget->add_camera_capture_source();
+        scene_preview_widget->add_camera_capture_source(device_desc.toStdString());
     }
 }
 

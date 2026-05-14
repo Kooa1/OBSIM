@@ -66,7 +66,7 @@ public:
 
 signals:
     void display_capture_requested(const CaptorConfig &config, const QString &name);
-    void camera_capture_requested(const QString &name);
+    void camera_capture_requested(const QString &device_desc, const QString &name);
     void source_remove_requested(int index);
     void source_list_selection_changed(int row);
 
@@ -153,14 +153,18 @@ class SourceNameDialog : public QDialog {
     Q_OBJECT
 
 public:
-    explicit SourceNameDialog(const QVector<DisplayInfo> &displays = {}, QWidget *parent = nullptr);
+    explicit SourceNameDialog(const QVector<DisplayInfo> &displays = {},
+                              const QVector<CameraInfo> &cameras = {},
+                              QWidget *parent = nullptr);
 
     QString source_name() const { return m_name_edit->text().trimmed(); }
     int selected_display_index() const;
+    int selected_camera_index() const;
 
 private:
     QLineEdit *m_name_edit;
     QComboBox *m_display_combo = nullptr;
+    QComboBox *m_camera_combo = nullptr;
 };
 
 

@@ -1,8 +1,8 @@
 #include "cameracapturesource.h"
 #include "camera.h"
 
-CameraCaptureSource::CameraCaptureSource()
-    : VideoSource(std::make_unique<Camera>())
+CameraCaptureSource::CameraCaptureSource(std::string device_description)
+    : VideoSource(std::make_unique<Camera>(std::move(device_description)))
 {
     base_width  = 1920.0f;
     base_height = 1080.0f;

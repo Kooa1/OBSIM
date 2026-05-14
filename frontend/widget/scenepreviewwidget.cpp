@@ -82,8 +82,8 @@ void ScenePreviewWidget::add_screen_capture_source(const CaptorConfig &config) {
     m_sources_storage.push_back(std::move(src));
 }
 
-void ScenePreviewWidget::add_camera_capture_source() {
-    auto src = std::make_unique<CameraCaptureSource>();
+void ScenePreviewWidget::add_camera_capture_source(std::string device_description) {
+    auto src = std::make_unique<CameraCaptureSource>(std::move(device_description));
 
     QPointer<ScenePreviewWidget> self = m_self_guard;
     src->set_frame_ready_callback([self]() {
