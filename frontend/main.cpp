@@ -13,17 +13,6 @@ extern "C" {
 #include <libavutil/log.h>
 }
 
-// void init_OBS() {
-//     // 应用启动
-//     if (!obs_startup("en-US", nullptr, nullptr)) {
-//         qCritical() << "Failed to initialize libobs";
-//         return;
-//     }
-//
-//     // 加载 OpenGL 渲染模块（必须）
-//     obs_load_all_modules(); // 加载所有插件模块
-// }
-
 void init_FFMPEG() {
     avdevice_register_all();
     av_log_set_level(AV_LOG_ERROR);
@@ -37,7 +26,6 @@ int main(int argc, char *argv[]) {
 
     QApplication a(argc, argv);
 
-    // init_OBS();
     auto main_window = new MainWindow();
 
     // return QApplication::exec();

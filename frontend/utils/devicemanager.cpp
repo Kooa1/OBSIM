@@ -3,6 +3,8 @@
 //
 
 #include "devicemanager.h"
+#include <QMediaDevices>
+#include <QCameraDevice>
 
 DeviceManager::DeviceManager(QObject *parent) : QObject(parent) {
 }
@@ -31,6 +33,18 @@ void DeviceManager::run() {
 
     // 获取屏幕数量
     int screen_count = device_manager.get_display_count();
+
+    // 获取所有摄像头信息
+    QVector<CameraInfo> cameras = device_manager.get_all_cameras();
+
+    for (const CameraInfo &cam: cameras) {
+        qDebug() << "摄像头:" << cam.index;
+        qDebug() << "  名称:" << cam.name.c_str();
+        qDebug() << "  默认设备:" << (cam.is_default ? "是" : "否");
+    }
+
+    // 获取摄像头数量
+    int camera_count = device_manager.get_camera_count();
 }
 
 QVector<DisplayInfo> DeviceManager::get_all_displays() const {
@@ -46,8 +60,29 @@ QVector<DisplayInfo> DeviceManager::get_all_displays() const {
     return displays;
 }
 
+QVector<CameraInfo> DeviceManager::get_all_cameras() const {
+    QVector<CameraInfo> cameras;
+    QList<QCameraDevice> devices = QMediaDevices::videoInputs();
+    QByteArray default_id = QMediaDevices::defaultVideoInput().id();
+
+    for (int i = 0; i < devices.size(); ++i) {
+        CameraInfo info;
+        info.index = i;
+        info.name = devices[i].description().toStdString();
+        info.id = devices[i].id();
+        info.is_default = (devices[i].id() == default_id);
+        cameras.append(info);
+    }
+
+    return cameras;
+}
+
 int DeviceManager::get_display_count() const {
     return QGuiApplication::screens().size();
+}
+
+int DeviceManager::get_camera_count() const {
+    return QMediaDevices::videoInputs().size();
 }
 
 DisplayInfo DeviceManager::get_primary_display() const {
@@ -74,6 +109,21 @@ DisplayInfo DeviceManager::get_display(int index) const {
     bool is_primary = (screen == primary_screen);
 
     return convert_to_display_info(screen, index, is_primary);
+}
+
+CameraInfo DeviceManager::get_camera(int index) const {
+    QList<QCameraDevice> devices = QMediaDevices::videoInputs();
+    if (index < 0 || index >= devices.size()) {
+        return CameraInfo{};
+    }
+
+    CameraInfo info;
+    info.index = index;
+    info.name = devices[index].description().toStdString();
+    info.id = devices[index].id();
+    info.is_default = (devices[index].id() == QMediaDevices::defaultVideoInput().id());
+
+    return info;
 }
 
 bool DeviceManager::is_primary_screen(int index) const {
