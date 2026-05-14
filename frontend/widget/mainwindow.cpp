@@ -50,6 +50,10 @@ void MainWindow::connect_signal() {
             this, &MainWindow::on_camera_capture_requested);
     connect(control_bar->source_control(), &SourceControlBlock::source_remove_requested,
             this, &MainWindow::on_source_remove_requested);
+    connect(control_bar->source_control(), &SourceControlBlock::source_list_selection_changed,
+            this, &MainWindow::on_source_list_selection_changed);
+    connect(scene_preview_widget, &ScenePreviewWidget::canvas_selection_changed,
+            this, &MainWindow::on_canvas_selection_changed);
 }
 
 void MainWindow::on_display_capture_requested(const CaptorConfig &config, const QString &name) {
@@ -67,6 +71,18 @@ void MainWindow::on_camera_capture_requested(const QString &name) {
 void MainWindow::on_source_remove_requested(int index) {
     if (scene_preview_widget) {
         scene_preview_widget->remove_source(index);
+    }
+}
+
+void MainWindow::on_source_list_selection_changed(int row) {
+    if (scene_preview_widget) {
+        scene_preview_widget->select_source_at(row);
+    }
+}
+
+void MainWindow::on_canvas_selection_changed(int index) {
+    if (control_bar && control_bar->source_control()) {
+        control_bar->source_control()->source_list()->setCurrentRow(index);
     }
 }
 

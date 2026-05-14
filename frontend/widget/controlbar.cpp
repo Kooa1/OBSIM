@@ -45,6 +45,11 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
     m_content_layout->addWidget(m_source_list);
     m_content_layout->addLayout(btn_layout);
 
+    connect(m_source_list, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
+        int row = m_source_list->row(item);
+        emit source_list_selection_changed(row);
+    });
+
     connect(btn_del, &QPushButton::clicked, this, [this]() {
         int row = m_source_list->currentRow();
         if (row < 0) return;

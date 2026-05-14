@@ -98,6 +98,13 @@ void ScenePreviewWidget::add_camera_capture_source() {
     m_sources_storage.push_back(std::move(src));
 }
 
+void ScenePreviewWidget::select_source_at(int index) {
+    if (index < 0 || index >= static_cast<int>(m_sources_storage.size())) return;
+    m_scene.set_selected_source(m_sources_storage[index].get());
+    m_scene.on_mouse_release();
+    update();
+}
+
 void ScenePreviewWidget::remove_source(int index) {
     if (index < 0 || index >= static_cast<int>(m_sources_storage.size())) return;
 
@@ -107,12 +114,16 @@ void ScenePreviewWidget::remove_source(int index) {
     }
 
     Source *src = m_sources_storage[index].get();
-    if (m_scene.selected_source() == src) {
+    bool was_selected = (m_scene.selected_source() == src);
+    if (was_selected) {
         m_scene.clear_selection();
     }
     m_scene.remove_source(src);
     m_sources_storage.erase(m_sources_storage.begin() + index);
     update();
+    if (was_selected) {
+        emit canvas_selection_changed(-1);
+    }
 }
 
 void ScenePreviewWidget::setup_viewport_and_clear() {
@@ -334,10 +345,24 @@ void ScenePreviewWidget::paintGL() {
 
 void ScenePreviewWidget::mousePressEvent(QMouseEvent *event) {
     QPointF canvas_pos = screen_to_canvas(event->position());
+    Source *old_sel = m_scene.selected_source();
     bool handled = m_scene.on_mouse_press(canvas_pos);
     if (handled) {
         update();
         update_cursor();
+    }
+    Source *new_sel = m_scene.selected_source();
+    if (old_sel != new_sel) {
+        int idx = -1;
+        if (new_sel) {
+            for (size_t i = 0; i < m_sources_storage.size(); i++) {
+                if (m_sources_storage[i].get() == new_sel) {
+                    idx = static_cast<int>(i);
+                    break;
+                }
+            }
+        }
+        emit canvas_selection_changed(idx);
     }
 }
 

@@ -31,6 +31,10 @@ public:
 
     void add_camera_capture_source();
     void remove_source(int index);
+    void select_source_at(int index);
+
+signals:
+    void canvas_selection_changed(int index);
 
 private:
     void rendering_view();
