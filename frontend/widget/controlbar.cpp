@@ -213,14 +213,17 @@ StreamRecordBlock::StreamRecordBlock(QWidget *parent)
     m_btn_start_stream = new QPushButton("🔴 开始直播");
     m_btn_start_record = new QPushButton("⏺ 开始录制");
     m_btn_settings = new QPushButton("⚙ 设置");
+    m_btn_exit = new QPushButton("✕ 退出");
 
     m_content_layout->addWidget(m_btn_start_stream);
     m_content_layout->addWidget(m_btn_start_record);
     m_content_layout->addStretch();
     m_content_layout->addWidget(m_btn_settings);
+    m_content_layout->addWidget(m_btn_exit);
 
     connect(m_btn_start_stream, &QPushButton::clicked, this, &StreamRecordBlock::start_stream_clicked);
     connect(m_btn_start_record, &QPushButton::clicked, this, &StreamRecordBlock::start_record_clicked);
+    connect(m_btn_exit, &QPushButton::clicked, qApp, &QApplication::quit);
 }
 
 

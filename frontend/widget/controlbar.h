@@ -130,6 +130,7 @@ private:
     QPushButton *m_btn_start_stream;
     QPushButton *m_btn_start_record;
     QPushButton *m_btn_settings;
+    QPushButton *m_btn_exit;
 };
 
 

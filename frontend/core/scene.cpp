@@ -28,6 +28,9 @@ void Scene::remove_source(Source *source) {
     if (m_selected_source == source) {
         m_selected_source = nullptr;
     }
+    if (m_hovered_source == source) {
+        m_hovered_source = nullptr;
+    }
 }
 
 void Scene::move_to_top(Source *source) {
