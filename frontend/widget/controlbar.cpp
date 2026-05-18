@@ -1,5 +1,9 @@
 #include "controlbar.h"
+#include "../core/textsource.h"
 #include "../core/videocaptor.h"
+
+#include <QColorDialog>
+#include <QFontComboBox>
 
 // ==================== 场景控制块 ====================
 
@@ -62,6 +66,20 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
         if (type_dialog.exec() != QDialog::Accepted) return;
 
         QString type = type_dialog.selected_type();
+
+        if (type == QStringLiteral("文字源")) {
+            TextSourceDialog text_dialog;
+            if (text_dialog.exec() == QDialog::Accepted) {
+                QString name = text_dialog.source_name();
+                QString content = text_dialog.text_content();
+                if (name.isEmpty() || content.isEmpty()) return;
+                emit text_source_requested(content, text_dialog.selected_font(),
+                                           text_dialog.selected_color(), name);
+                m_source_list->addItem(name + " (" + type + ")");
+            }
+            return;
+        }
+
         QVector<DisplayInfo> displays;
         if (type == QStringLiteral("显示屏采集")) {
             DeviceManager dm;
@@ -239,6 +257,112 @@ StreamRecordBlock::StreamRecordBlock(QWidget *parent)
 }
 
 
+// ==================== 文字源配置对话框 ====================
+
+TextSourceDialog::TextSourceDialog(QWidget *parent)
+        : QDialog(parent), m_color(Qt::white) {
+    setWindowTitle("添加文字源");
+    setMinimumWidth(420);
+
+    auto *layout = new QVBoxLayout(this);
+    layout->setSpacing(8);
+
+    auto *name_label = new QLabel("输入源名称:");
+    m_name_edit = new QLineEdit();
+    m_name_edit->setPlaceholderText("请输入文字源名称");
+    layout->addWidget(name_label);
+    layout->addWidget(m_name_edit);
+
+    auto *content_label = new QLabel("文字内容:");
+    m_text_content = new QPlainTextEdit();
+    m_text_content->setPlaceholderText("请输入要显示的文字内容");
+    m_text_content->setFixedHeight(80);
+    layout->addWidget(content_label);
+    layout->addWidget(m_text_content);
+
+    auto *font_layout = new QHBoxLayout();
+
+    auto *font_group = new QGroupBox("字体");
+    auto *font_vbox = new QVBoxLayout(font_group);
+    m_font_combo = new QFontComboBox();
+    m_font_combo->setCurrentFont(QFont("Arial"));
+    font_vbox->addWidget(m_font_combo);
+    font_layout->addWidget(font_group);
+
+    auto *right_group = new QGroupBox("大小 / 颜色");
+    auto *right_grid = new QVBoxLayout(right_group);
+
+    auto *size_layout = new QHBoxLayout();
+    size_layout->addWidget(new QLabel("大小:"));
+    m_size_spin = new QSpinBox();
+    m_size_spin->setRange(8, 300);
+    m_size_spin->setValue(48);
+    size_layout->addWidget(m_size_spin);
+    right_grid->addLayout(size_layout);
+
+    auto *color_layout = new QHBoxLayout();
+    color_layout->addWidget(new QLabel("颜色:"));
+    m_color_btn = new QPushButton();
+    m_color_btn->setFixedSize(40, 28);
+    m_color_btn->setStyleSheet(
+        QString("background-color: %1; border: 1px solid #888;")
+            .arg(m_color.name()));
+    color_layout->addWidget(m_color_btn);
+    color_layout->addStretch();
+    right_grid->addLayout(color_layout);
+
+    font_layout->addWidget(right_group);
+    layout->addLayout(font_layout);
+
+    auto *button_box = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    QPushButton *ok_btn = button_box->button(QDialogButtonBox::Ok);
+    ok_btn->setEnabled(false);
+
+    auto update_ok_btn = [this, ok_btn]() {
+        bool name_valid = !m_name_edit->text().trimmed().isEmpty();
+        bool content_valid = !m_text_content->toPlainText().trimmed().isEmpty();
+        ok_btn->setEnabled(name_valid && content_valid);
+    };
+    connect(m_name_edit, &QLineEdit::textChanged, this, update_ok_btn);
+    connect(m_text_content, &QPlainTextEdit::textChanged, this, update_ok_btn);
+
+    connect(m_color_btn, &QPushButton::clicked, this, [this]() {
+        QColor c = QColorDialog::getColor(m_color, this, "选择字体颜色");
+        if (c.isValid()) {
+            m_color = c;
+            m_color_btn->setStyleSheet(
+                QString("background-color: %1; border: 1px solid #888;")
+                    .arg(m_color.name()));
+        }
+    });
+
+    connect(button_box, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(button_box, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    layout->addStretch();
+    layout->addWidget(button_box);
+}
+
+QString TextSourceDialog::source_name() const {
+    return m_name_edit->text().trimmed();
+}
+
+QString TextSourceDialog::text_content() const {
+    return m_text_content->toPlainText().trimmed();
+}
+
+QFont TextSourceDialog::selected_font() const {
+    QFont font = m_font_combo->currentFont();
+    font.setPointSize(m_size_spin->value());
+    return font;
+}
+
+QColor TextSourceDialog::selected_color() const {
+    return m_color;
+}
+
+
 // ==================== 输入源类型选择对话框 ====================
 
 SourceTypeDialog::SourceTypeDialog(QWidget *parent)
@@ -248,11 +372,17 @@ SourceTypeDialog::SourceTypeDialog(QWidget *parent)
 
     auto *layout = new QVBoxLayout(this);
 
+    auto *btn_text = new QPushButton("文字源");
     auto *btn_camera = new QPushButton("摄像头采集");
     auto *btn_display = new QPushButton("显示屏采集");
+    btn_text->setFixedHeight(48);
     btn_camera->setFixedHeight(48);
     btn_display->setFixedHeight(48);
 
+    connect(btn_text, &QPushButton::clicked, this, [this]() {
+        m_selected_type = QStringLiteral("文字源");
+        accept();
+    });
     connect(btn_camera, &QPushButton::clicked, this, [this]() {
         m_selected_type = QStringLiteral("摄像头采集");
         accept();
@@ -262,6 +392,7 @@ SourceTypeDialog::SourceTypeDialog(QWidget *parent)
         accept();
     });
 
+    layout->addWidget(btn_text);
     layout->addWidget(btn_camera);
     layout->addWidget(btn_display);
 }

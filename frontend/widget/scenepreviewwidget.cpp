@@ -98,6 +98,19 @@ void ScenePreviewWidget::add_camera_capture_source(std::string device_descriptio
     m_sources_storage.push_back(std::move(src));
 }
 
+void ScenePreviewWidget::add_text_source(const QString &text, const QFont &font, const QColor &color) {
+    auto src = std::make_unique<TextSource>();
+    src->set_text(text);
+    src->set_font(font);
+    src->set_color(color);
+    src->pos_x = 200.0f;
+    src->pos_y = 200.0f;
+
+    m_scene.add_source(src.get());
+    m_sources_storage.push_back(std::move(src));
+    update();
+}
+
 void ScenePreviewWidget::select_source_at(int index) {
     if (index < 0 || index >= static_cast<int>(m_sources_storage.size())) return;
     m_scene.set_selected_source(m_sources_storage[index].get());
