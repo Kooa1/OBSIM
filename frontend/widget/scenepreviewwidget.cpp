@@ -25,7 +25,7 @@ ScenePreviewWidget::~ScenePreviewWidget() {
 
     makeCurrent();
     // 卸载所有源的 OpenGL 资源
-    for (Source *src : m_scene.get_sources()) {
+    for (Source *src: m_scene.get_sources()) {
         src->unload_resources();
     }
     delete_mosaic_list();
@@ -62,7 +62,6 @@ void ScenePreviewWidget::add_test_source() {
 
     m_sources_storage.push_back(std::move(rect1));
     m_sources_storage.push_back(std::move(rect2));
-
 }
 
 void ScenePreviewWidget::add_screen_capture_source(const CaptorConfig &config) {
@@ -103,6 +102,16 @@ void ScenePreviewWidget::add_text_source(const QString &text, const QFont &font,
     src->set_text(text);
     src->set_font(font);
     src->set_color(color);
+    src->pos_x = 200.0f;
+    src->pos_y = 200.0f;
+
+    m_scene.add_source(src.get());
+    m_sources_storage.push_back(std::move(src));
+    update();
+}
+
+void ScenePreviewWidget::add_image_source(const QString &file_path) {
+    auto src = std::make_unique<ImageSource>(file_path);
     src->pos_x = 200.0f;
     src->pos_y = 200.0f;
 
@@ -229,7 +238,7 @@ void ScenePreviewWidget::render_all_sources_with_clip() {
     glEnable(GL_SCISSOR_TEST);
     glScissor(m_viewX, h - (m_viewY + m_viewH), m_viewW, m_viewH);
 
-    for (Source *source : m_scene.get_sources()) {
+    for (Source *source: m_scene.get_sources()) {
         if (!source || !source->visible) continue;
         QRectF bounds = source->get_bounding_rect();
         if (bounds.width() <= 0 || bounds.height() <= 0) continue;
@@ -273,7 +282,7 @@ void ScenePreviewWidget::rendering_view() {
 }
 
 void ScenePreviewWidget::update_all_video_sources() {
-    for (Source *src : m_scene.get_sources()) {
+    for (Source *src: m_scene.get_sources()) {
         src->update_frame();
     }
 }
@@ -340,7 +349,7 @@ void ScenePreviewWidget::delete_mosaic_list() {
 
 void ScenePreviewWidget::initializeGL() {
     QOpenGLWidget::initializeGL();
-    for (Source *src : m_scene.get_sources()) {
+    for (Source *src: m_scene.get_sources()) {
         src->load_resources();
     }
 }

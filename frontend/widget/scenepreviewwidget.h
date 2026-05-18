@@ -15,6 +15,7 @@
 #include "core/screencapturesource.h"
 #include "core/cameracapturesource.h"
 #include "core/textsource.h"
+#include "core/imagesource.h"
 #include "utils/devicemanager.h"
 
 
@@ -33,6 +34,8 @@ public:
     void add_camera_capture_source(std::string device_description = "");
 
     void add_text_source(const QString &text, const QFont &font, const QColor &color);
+
+    void add_image_source(const QString &file_path);
 
     void remove_source(int index);
 

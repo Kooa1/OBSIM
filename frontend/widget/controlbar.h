@@ -66,9 +66,15 @@ public:
 
 signals:
     void display_capture_requested(const CaptorConfig &config, const QString &name);
+
     void camera_capture_requested(const QString &device_desc, const QString &name);
+
     void text_source_requested(const QString &text, const QFont &font, const QColor &color, const QString &name);
+
+    void image_source_requested(const QString &file_path, const QString &name);
+
     void source_remove_requested(int index);
+
     void source_list_selection_changed(int row);
 
 private:
@@ -143,8 +149,11 @@ public:
     explicit TextSourceDialog(QWidget *parent = nullptr);
 
     QString source_name() const;
+
     QString text_content() const;
+
     QFont selected_font() const;
+
     QColor selected_color() const;
 
 private:
@@ -154,6 +163,22 @@ private:
     QSpinBox *m_size_spin;
     QPushButton *m_color_btn;
     QColor m_color;
+};
+
+
+// ==================== 图片源配置对话框 ====================
+class ImageSourceDialog : public QDialog {
+    Q_OBJECT
+
+public:
+    explicit ImageSourceDialog(QWidget *parent = nullptr);
+
+    QString source_name() const;
+    QString file_path() const;
+
+private:
+    QLineEdit *m_name_edit;
+    QLineEdit *m_path_edit;
 };
 
 
@@ -182,7 +207,9 @@ public:
                               QWidget *parent = nullptr);
 
     QString source_name() const { return m_name_edit->text().trimmed(); }
+
     int selected_display_index() const;
+
     int selected_camera_index() const;
 
 private:

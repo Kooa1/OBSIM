@@ -50,6 +50,8 @@ void MainWindow::connect_signal() {
             this, &MainWindow::on_camera_capture_requested);
     connect(control_bar->source_control(), &SourceControlBlock::text_source_requested,
             this, &MainWindow::on_text_source_requested);
+    connect(control_bar->source_control(), &SourceControlBlock::image_source_requested,
+            this, &MainWindow::on_image_source_requested);
     connect(control_bar->source_control(), &SourceControlBlock::source_remove_requested,
             this, &MainWindow::on_source_remove_requested);
     connect(control_bar->source_control(), &SourceControlBlock::source_list_selection_changed,
@@ -73,6 +75,12 @@ void MainWindow::on_camera_capture_requested(const QString &device_desc, const Q
 void MainWindow::on_text_source_requested(const QString &text, const QFont &font, const QColor &color, const QString &name) {
     if (scene_preview_widget) {
         scene_preview_widget->add_text_source(text, font, color);
+    }
+}
+
+void MainWindow::on_image_source_requested(const QString &file_path, const QString &name) {
+    if (scene_preview_widget) {
+        scene_preview_widget->add_image_source(file_path);
     }
 }
 

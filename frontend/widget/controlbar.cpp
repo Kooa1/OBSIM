@@ -4,6 +4,7 @@
 
 #include <QColorDialog>
 #include <QFontComboBox>
+#include <QFileDialog>
 
 // ==================== 场景控制块 ====================
 
@@ -75,6 +76,18 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
                 if (name.isEmpty() || content.isEmpty()) return;
                 emit text_source_requested(content, text_dialog.selected_font(),
                                            text_dialog.selected_color(), name);
+                m_source_list->addItem(name + " (" + type + ")");
+            }
+            return;
+        }
+
+        if (type == QStringLiteral("图片源")) {
+            ImageSourceDialog img_dialog;
+            if (img_dialog.exec() == QDialog::Accepted) {
+                QString name = img_dialog.source_name();
+                QString path = img_dialog.file_path();
+                if (name.isEmpty() || path.isEmpty()) return;
+                emit image_source_requested(path, name);
                 m_source_list->addItem(name + " (" + type + ")");
             }
             return;
@@ -363,6 +376,72 @@ QColor TextSourceDialog::selected_color() const {
 }
 
 
+// ==================== 图片源配置对话框 ====================
+
+ImageSourceDialog::ImageSourceDialog(QWidget *parent)
+        : QDialog(parent) {
+    setWindowTitle("添加图片源");
+    setMinimumWidth(420);
+
+    auto *layout = new QVBoxLayout(this);
+    layout->setSpacing(8);
+
+    auto *name_label = new QLabel("输入源名称:");
+    m_name_edit = new QLineEdit();
+    m_name_edit->setPlaceholderText("请输入图片源名称");
+    layout->addWidget(name_label);
+    layout->addWidget(m_name_edit);
+
+    auto *path_label = new QLabel("图片路径:");
+    auto *path_layout = new QHBoxLayout();
+    m_path_edit = new QLineEdit();
+    m_path_edit->setPlaceholderText("请选择图片文件");
+    m_path_edit->setReadOnly(true);
+    auto *browse_btn = new QPushButton("浏览...");
+    browse_btn->setFixedWidth(80);
+    path_layout->addWidget(m_path_edit);
+    path_layout->addWidget(browse_btn);
+    layout->addWidget(path_label);
+    layout->addLayout(path_layout);
+
+    connect(browse_btn, &QPushButton::clicked, this, [this]() {
+        QString path = QFileDialog::getOpenFileName(this, "选择图片",
+                                                     QString(),
+                                                     "图片文件 (*.png *.jpg *.jpeg *.bmp *.gif *.webp)");
+        if (!path.isEmpty()) {
+            m_path_edit->setText(path);
+        }
+    });
+
+    auto *button_box = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    QPushButton *ok_btn = button_box->button(QDialogButtonBox::Ok);
+    ok_btn->setEnabled(false);
+
+    auto update_ok_btn = [this, ok_btn]() {
+        bool name_valid = !m_name_edit->text().trimmed().isEmpty();
+        bool path_valid = !m_path_edit->text().trimmed().isEmpty();
+        ok_btn->setEnabled(name_valid && path_valid);
+    };
+    connect(m_name_edit, &QLineEdit::textChanged, this, update_ok_btn);
+    connect(m_path_edit, &QLineEdit::textChanged, this, update_ok_btn);
+
+    connect(button_box, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(button_box, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    layout->addStretch();
+    layout->addWidget(button_box);
+}
+
+QString ImageSourceDialog::source_name() const {
+    return m_name_edit->text().trimmed();
+}
+
+QString ImageSourceDialog::file_path() const {
+    return m_path_edit->text().trimmed();
+}
+
+
 // ==================== 输入源类型选择对话框 ====================
 
 SourceTypeDialog::SourceTypeDialog(QWidget *parent)
@@ -373,14 +452,20 @@ SourceTypeDialog::SourceTypeDialog(QWidget *parent)
     auto *layout = new QVBoxLayout(this);
 
     auto *btn_text = new QPushButton("文字源");
+    auto *btn_image = new QPushButton("图片源");
     auto *btn_camera = new QPushButton("摄像头采集");
     auto *btn_display = new QPushButton("显示屏采集");
     btn_text->setFixedHeight(48);
+    btn_image->setFixedHeight(48);
     btn_camera->setFixedHeight(48);
     btn_display->setFixedHeight(48);
 
     connect(btn_text, &QPushButton::clicked, this, [this]() {
         m_selected_type = QStringLiteral("文字源");
+        accept();
+    });
+    connect(btn_image, &QPushButton::clicked, this, [this]() {
+        m_selected_type = QStringLiteral("图片源");
         accept();
     });
     connect(btn_camera, &QPushButton::clicked, this, [this]() {
@@ -393,6 +478,7 @@ SourceTypeDialog::SourceTypeDialog(QWidget *parent)
     });
 
     layout->addWidget(btn_text);
+    layout->addWidget(btn_image);
     layout->addWidget(btn_camera);
     layout->addWidget(btn_display);
 }

@@ -5,9 +5,8 @@
 
 TextSource::TextSource()
     : m_text("Text")
-    , m_font("Arial", 48)
-    , m_color(255, 255, 255)
-{
+      , m_font("Arial", 48)
+      , m_color(255, 255, 255) {
     QSize size = calculate_text_size();
     base_width = static_cast<float>(size.width());
     base_height = static_cast<float>(size.height());
@@ -55,17 +54,21 @@ void TextSource::render() {
     this->glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     glBegin(GL_QUADS);
-    glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, 0.0f);
-    glTexCoord2f(1.0f, 0.0f); glVertex2f(base_width, 0.0f);
-    glTexCoord2f(1.0f, 1.0f); glVertex2f(base_width, base_height);
-    glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f, base_height);
+    glTexCoord2f(0.0f, 0.0f);
+    glVertex2f(0.0f, 0.0f);
+    glTexCoord2f(1.0f, 0.0f);
+    glVertex2f(base_width, 0.0f);
+    glTexCoord2f(1.0f, 1.0f);
+    glVertex2f(base_width, base_height);
+    glTexCoord2f(0.0f, 1.0f);
+    glVertex2f(0.0f, base_height);
     glEnd();
 
     this->glDisable(GL_BLEND);
     this->glDisable(GL_TEXTURE_2D);
 }
 
-void TextSource::set_text(const QString& text) {
+void TextSource::set_text(const QString &text) {
     if (m_text != text) {
         m_text = text;
         QSize size = calculate_text_size();
@@ -75,7 +78,7 @@ void TextSource::set_text(const QString& text) {
     }
 }
 
-void TextSource::set_font(const QFont& font) {
+void TextSource::set_font(const QFont &font) {
     m_font = font;
     QSize size = calculate_text_size();
     base_width = static_cast<float>(size.width());
@@ -83,7 +86,7 @@ void TextSource::set_font(const QFont& font) {
     m_dirty = true;
 }
 
-void TextSource::set_color(const QColor& color) {
+void TextSource::set_color(const QColor &color) {
     m_color = color;
     m_dirty = true;
 }
@@ -109,9 +112,7 @@ void TextSource::rebuild_texture() {
     if (w <= 0 || h <= 0) return;
 
     QImage image(w, h, QImage::Format_ARGB32_Premultiplied);
-    image.fill(Qt::transparent);
-
-    {
+    image.fill(Qt::transparent); {
         QPainter painter(&image);
         painter.setRenderHint(QPainter::Antialiasing);
         painter.setFont(m_font);

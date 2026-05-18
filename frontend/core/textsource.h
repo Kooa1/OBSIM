@@ -13,20 +13,29 @@
 class TextSource : public Source, protected QOpenGLFunctions {
 public:
     TextSource();
+
     ~TextSource() override;
 
     void load_resources() override;
-    void unload_resources() override;
-    void render() override;
-    const char* source_type_name() const override { return "Text"; }
 
-    void set_text(const QString& text);
-    void set_font(const QFont& font);
-    void set_color(const QColor& color);
+    void unload_resources() override;
+
+    void render() override;
+
+    const char *source_type_name() const override { return "Text"; }
+
+    void set_text(const QString &text);
+
+    void set_font(const QFont &font);
+
+    void set_color(const QColor &color);
 
 private:
     void rebuild_texture();
+
     QSize calculate_text_size() const;
+
+private:
 
     QString m_text;
     QFont m_font;
