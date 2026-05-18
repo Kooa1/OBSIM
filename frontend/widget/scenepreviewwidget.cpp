@@ -148,6 +148,24 @@ void ScenePreviewWidget::remove_source(int index) {
     }
 }
 
+void ScenePreviewWidget::move_source_up(int index) {
+    if (index < 0 || index + 1 >= static_cast<int>(m_sources_storage.size())) return;
+
+    Source *src = m_sources_storage[index].get();
+    m_scene.move_up(src);
+    std::swap(m_sources_storage[index], m_sources_storage[index + 1]);
+    update();
+}
+
+void ScenePreviewWidget::move_source_down(int index) {
+    if (index <= 0 || index >= static_cast<int>(m_sources_storage.size())) return;
+
+    Source *src = m_sources_storage[index].get();
+    m_scene.move_down(src);
+    std::swap(m_sources_storage[index], m_sources_storage[index - 1]);
+    update();
+}
+
 void ScenePreviewWidget::setup_viewport_and_clear() {
     const int w = this->width() * devicePixelRatio();
     const int h = this->height() * devicePixelRatio();

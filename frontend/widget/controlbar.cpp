@@ -40,26 +40,48 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
 
     auto *btn_layout = new QHBoxLayout();
     auto *btn_add = new QPushButton("＋");
+    auto *btn_up = new QPushButton("↑");
+    auto *btn_down = new QPushButton("↓");
     auto *btn_del = new QPushButton("－");
     btn_add->setFixedSize(28, 28);
+    btn_up->setFixedSize(28, 28);
+    btn_down->setFixedSize(28, 28);
     btn_del->setFixedSize(28, 28);
     btn_layout->addStretch();
     btn_layout->addWidget(btn_add);
+    btn_layout->addWidget(btn_up);
+    btn_layout->addWidget(btn_down);
     btn_layout->addWidget(btn_del);
 
     m_content_layout->addWidget(m_source_list);
     m_content_layout->addLayout(btn_layout);
 
-    connect(m_source_list, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
+    auto list_row_to_scene = [this](int list_row) {
+        return m_source_list->count() - 1 - list_row;
+    };
+
+    connect(m_source_list, &QListWidget::itemClicked, this, [this, list_row_to_scene](QListWidgetItem *item) {
         int row = m_source_list->row(item);
-        emit source_list_selection_changed(row);
+        emit source_list_selection_changed(list_row_to_scene(row));
     });
 
-    connect(btn_del, &QPushButton::clicked, this, [this]() {
-        int row = m_source_list->currentRow();
-        if (row < 0) return;
-        delete m_source_list->takeItem(row);
-        emit source_remove_requested(row);
+    connect(btn_del, &QPushButton::clicked, this, [this, list_row_to_scene]() {
+        int list_row = m_source_list->currentRow();
+        if (list_row < 0) return;
+        delete m_source_list->takeItem(list_row);
+        emit source_remove_requested(list_row_to_scene(list_row));
+    });
+
+    connect(btn_up, &QPushButton::clicked, this, [this, list_row_to_scene]() {
+        int list_row = m_source_list->currentRow();
+        if (list_row <= 0) return;
+        emit source_move_up_requested(list_row_to_scene(list_row));
+    });
+
+    connect(btn_down, &QPushButton::clicked, this, [this, list_row_to_scene]() {
+        int list_row = m_source_list->currentRow();
+        if (list_row < 0 || list_row >= m_source_list->count() - 1) return;
+        emit source_move_down_requested(list_row_to_scene(list_row));
     });
 
     connect(btn_add, &QPushButton::clicked, this, [this]() {
@@ -76,7 +98,7 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
                 if (name.isEmpty() || content.isEmpty()) return;
                 emit text_source_requested(content, text_dialog.selected_font(),
                                            text_dialog.selected_color(), name);
-                m_source_list->addItem(name + " (" + type + ")");
+                m_source_list->insertItem(0,name + " (" + type + ")");
             }
             return;
         }
@@ -88,7 +110,7 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
                 QString path = img_dialog.file_path();
                 if (name.isEmpty() || path.isEmpty()) return;
                 emit image_source_requested(path, name);
-                m_source_list->addItem(name + " (" + type + ")");
+                m_source_list->insertItem(0,name + " (" + type + ")");
             }
             return;
         }
@@ -119,14 +141,14 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
                     config.width = displays[idx].geometry.width();
                     config.height = displays[idx].geometry.height();
                     emit display_capture_requested(config, name);
-                    m_source_list->addItem(name + " (" + type + ")");
+                    m_source_list->insertItem(0,name + " (" + type + ")");
                 }
             } else {
                 int idx = name_dialog.selected_camera_index();
                 if (idx >= 0 && idx < cameras.size()) {
                     emit camera_capture_requested(
                         QString::fromStdString(cameras[idx].name), name);
-                    m_source_list->addItem(name + " (" + type + ")");
+                    m_source_list->insertItem(0,name + " (" + type + ")");
                 }
                 // idx < 0 表示用户未选择有效摄像头，不创建采集源
             }

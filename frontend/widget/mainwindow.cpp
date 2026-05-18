@@ -54,6 +54,10 @@ void MainWindow::connect_signal() {
             this, &MainWindow::on_image_source_requested);
     connect(control_bar->source_control(), &SourceControlBlock::source_remove_requested,
             this, &MainWindow::on_source_remove_requested);
+    connect(control_bar->source_control(), &SourceControlBlock::source_move_up_requested,
+            this, &MainWindow::on_source_move_up_requested);
+    connect(control_bar->source_control(), &SourceControlBlock::source_move_down_requested,
+            this, &MainWindow::on_source_move_down_requested);
     connect(control_bar->source_control(), &SourceControlBlock::source_list_selection_changed,
             this, &MainWindow::on_source_list_selection_changed);
     connect(scene_preview_widget, &ScenePreviewWidget::canvas_selection_changed,
@@ -90,15 +94,45 @@ void MainWindow::on_source_remove_requested(int index) {
     }
 }
 
+void MainWindow::on_source_move_up_requested(int scene_idx) {
+    if (scene_preview_widget) {
+        scene_preview_widget->move_source_up(scene_idx);
+        QListWidget *list = control_bar->source_control()->source_list();
+        int N = list->count();
+        int list_row = N - 1 - scene_idx;
+        if (list_row > 0) {
+            QListWidgetItem *item = list->takeItem(list_row);
+            list->insertItem(list_row - 1, item);
+            list->setCurrentRow(list_row - 1);
+        }
+    }
+}
+
+void MainWindow::on_source_move_down_requested(int scene_idx) {
+    if (scene_preview_widget) {
+        scene_preview_widget->move_source_down(scene_idx);
+        QListWidget *list = control_bar->source_control()->source_list();
+        int N = list->count();
+        int list_row = N - 1 - scene_idx;
+        if (list_row < N - 1) {
+            QListWidgetItem *item = list->takeItem(list_row);
+            list->insertItem(list_row + 1, item);
+            list->setCurrentRow(list_row + 1);
+        }
+    }
+}
+
 void MainWindow::on_source_list_selection_changed(int row) {
     if (scene_preview_widget) {
         scene_preview_widget->select_source_at(row);
     }
 }
 
-void MainWindow::on_canvas_selection_changed(int index) {
+void MainWindow::on_canvas_selection_changed(int scene_idx) {
     if (control_bar && control_bar->source_control()) {
-        control_bar->source_control()->source_list()->setCurrentRow(index);
+        QListWidget *list = control_bar->source_control()->source_list();
+        int list_row = list->count() - 1 - scene_idx;
+        list->setCurrentRow(list_row);
     }
 }
 

@@ -75,6 +75,10 @@ signals:
 
     void source_remove_requested(int index);
 
+    void source_move_up_requested(int row);
+
+    void source_move_down_requested(int row);
+
     void source_list_selection_changed(int row);
 
 private:

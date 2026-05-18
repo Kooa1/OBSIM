@@ -41,6 +41,9 @@ public:
 
     void select_source_at(int index);
 
+    void move_source_up(int index);
+    void move_source_down(int index);
+
 signals:
     void canvas_selection_changed(int index);
 

@@ -48,6 +48,8 @@ private:
     void on_text_source_requested(const QString &text, const QFont &font, const QColor &color, const QString &name);
     void on_image_source_requested(const QString &file_path, const QString &name);
     void on_source_remove_requested(int index);
+    void on_source_move_up_requested(int row);
+    void on_source_move_down_requested(int row);
     void on_source_list_selection_changed(int row);
     void on_canvas_selection_changed(int index);
 
