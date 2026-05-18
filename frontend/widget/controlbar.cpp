@@ -303,12 +303,12 @@ TextSourceDialog::TextSourceDialog(QWidget *parent)
     auto *color_layout = new QHBoxLayout();
     color_layout->addWidget(new QLabel("颜色:"));
     m_color_btn = new QPushButton();
-    m_color_btn->setFixedSize(40, 28);
+    m_color_btn->setFixedHeight(28);
+    m_color_btn->setMinimumWidth(60);
     m_color_btn->setStyleSheet(
-        QString("background-color: %1; border: 1px solid #888;")
+        QString("background-color: %1; border: 1px solid #888; border-radius: 3px;")
             .arg(m_color.name()));
     color_layout->addWidget(m_color_btn);
-    color_layout->addStretch();
     right_grid->addLayout(color_layout);
 
     font_layout->addWidget(right_group);
