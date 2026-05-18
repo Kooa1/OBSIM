@@ -12,40 +12,47 @@ static QImage load_image_qt(const QString &filePath) {
 static QImage load_image_ffmpeg(const QString &filePath) {
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly)) return {};
-    QByteArray fileData = file.readAll();
-    int bufSize = fileData.size();
-    if (bufSize <= 0) return {};
+    QByteArray file_data = file.readAll();
+    int buffer_size = file_data.size();
+    if (buffer_size <= 0) return {};
 
-    uint8_t *avioBuf = static_cast<uint8_t *>(av_malloc(bufSize));
+    uint8_t *avioBuf = static_cast<uint8_t *>(av_malloc(buffer_size));
     if (!avioBuf) return {};
-    memcpy(avioBuf, fileData.constData(), bufSize);
+    memcpy(avioBuf, file_data.constData(), buffer_size);
 
-    AVIOContext *avio = avio_alloc_context(avioBuf, bufSize, 0, nullptr, nullptr, nullptr, nullptr);
-    if (!avio) { av_free(avioBuf); return {}; }
+    AVIOContext *avio = avio_alloc_context(avioBuf, buffer_size, 0, nullptr, nullptr, nullptr, nullptr);
+    if (!avio) {
+        av_free(avioBuf);
+        return {};
+    }
 
     AVFormatContext *rawCtx = avformat_alloc_context();
-    if (!rawCtx) { av_free(avioBuf); av_freep(&avio); return {}; }
+    if (!rawCtx) {
+        av_free(avioBuf);
+        av_freep(&avio);
+        return {};
+    }
     rawCtx->pb = avio;
 
     if (avformat_open_input(&rawCtx, "", nullptr, nullptr) < 0) return {};
 
-    AVFormatContextPtr fmtCtx(rawCtx, [](AVFormatContext *ctx) {
+    AVFormatContextPtr av_format_context(rawCtx, [](AVFormatContext *ctx) {
         if (ctx) avformat_close_input(&ctx);
     });
 
-    avformat_find_stream_info(fmtCtx.get(), nullptr);
+    avformat_find_stream_info(av_format_context.get(), nullptr);
 
-    int streamIdx = av_find_best_stream(fmtCtx.get(), AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
-    if (streamIdx < 0) return {};
+    int stream_idx = av_find_best_stream(av_format_context.get(), AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
+    if (stream_idx < 0) return {};
 
     const AVCodec *decoder = avcodec_find_decoder(
-        fmtCtx->streams[streamIdx]->codecpar->codec_id);
+        av_format_context->streams[stream_idx]->codecpar->codec_id);
     if (!decoder) return {};
 
-    AVCodecContextPtr decCtx(avcodec_alloc_context3(decoder));
-    if (!decCtx) return {};
-    avcodec_parameters_to_context(decCtx.get(), fmtCtx->streams[streamIdx]->codecpar);
-    if (avcodec_open2(decCtx.get(), decoder, nullptr) < 0) return {};
+    AVCodecContextPtr av_codec_context(avcodec_alloc_context3(decoder));
+    if (!av_codec_context) return {};
+    avcodec_parameters_to_context(av_codec_context.get(), av_format_context->streams[stream_idx]->codecpar);
+    if (avcodec_open2(av_codec_context.get(), decoder, nullptr) < 0) return {};
 
     AVPacketPtr pkt(av_packet_alloc(), [](AVPacket *p) { av_packet_free(&p); });
     AVFramePtr frame(av_frame_alloc(), [](AVFrame *f) { av_frame_free(&f); });
@@ -54,12 +61,11 @@ static QImage load_image_ffmpeg(const QString &filePath) {
     QImage result;
     bool success = false;
 
-    if (av_read_frame(fmtCtx.get(), pkt.get()) >= 0 &&
-        avcodec_send_packet(decCtx.get(), pkt.get()) >= 0 &&
-        avcodec_receive_frame(decCtx.get(), frame.get()) >= 0)
-    {
+    if (av_read_frame(av_format_context.get(), pkt.get()) >= 0 &&
+        avcodec_send_packet(av_codec_context.get(), pkt.get()) >= 0 &&
+        avcodec_receive_frame(av_codec_context.get(), frame.get()) >= 0) {
         SwsContextPtr sws(sws_getContext(
-            frame->width, frame->height, decCtx->pix_fmt,
+            frame->width, frame->height, av_codec_context->pix_fmt,
             frame->width, frame->height, AV_PIX_FMT_RGBA,
             SWS_BILINEAR, nullptr, nullptr, nullptr));
 
@@ -67,8 +73,7 @@ static QImage load_image_ffmpeg(const QString &filePath) {
             uint8_t *dstData[4] = {nullptr};
             int dstLinesize[4] = {0};
             if (av_image_alloc(dstData, dstLinesize, frame->width, frame->height,
-                               AV_PIX_FMT_RGBA, 1) >= 0)
-            {
+                               AV_PIX_FMT_RGBA, 1) >= 0) {
                 sws_scale(sws.get(), frame->data, frame->linesize, 0, frame->height,
                           dstData, dstLinesize);
 
