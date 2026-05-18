@@ -1,4 +1,41 @@
 #include "imagesource.h"
+#include "../utils/ffmpegfactory.h"
+
+#include <QFile>
+
+extern "C" {
+#include <libavutil/imgutils.h>
+};
+
+struct MemContext {
+    const QByteArray &data;
+    int pos = 0;
+};
+
+static int read_mem_cb(void *opaque, uint8_t *buf, int buf_size) {
+    auto *ctx = static_cast<MemContext *>(opaque);
+    int remaining = ctx->data.size() - ctx->pos;
+    if (remaining <= 0) return AVERROR_EOF;
+    int n = std::min(buf_size, remaining);
+    memcpy(buf, ctx->data.constData() + ctx->pos, n);
+    ctx->pos += n;
+    return n;
+}
+
+static int64_t seek_mem_cb(void *opaque, int64_t offset, int whence) {
+    auto *ctx = static_cast<MemContext *>(opaque);
+    int64_t new_pos;
+    switch (whence) {
+        case SEEK_SET: new_pos = offset; break;
+        case SEEK_CUR: new_pos = ctx->pos + offset; break;
+        case SEEK_END: new_pos = ctx->data.size() + offset; break;
+        case AVSEEK_SIZE: return ctx->data.size();
+        default: return -1;
+    }
+    if (new_pos < 0 || new_pos > ctx->data.size()) return -1;
+    ctx->pos = static_cast<int>(new_pos);
+    return new_pos;
+}
 
 static QImage load_image_qt(const QString &filePath) {
     QFile file(filePath);
@@ -13,46 +50,41 @@ static QImage load_image_ffmpeg(const QString &filePath) {
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly)) return {};
     QByteArray file_data = file.readAll();
-    int buffer_size = file_data.size();
-    if (buffer_size <= 0) return {};
+    int buf_size = file_data.size();
+    if (buf_size <= 0) return {};
 
-    uint8_t *avioBuf = static_cast<uint8_t *>(av_malloc(buffer_size));
-    if (!avioBuf) return {};
-    memcpy(avioBuf, file_data.constData(), buffer_size);
+    MemContext mem_ctx{file_data, 0};
 
-    AVIOContext *avio = avio_alloc_context(avioBuf, buffer_size, 0, nullptr, nullptr, nullptr, nullptr);
-    if (!avio) {
-        av_free(avioBuf);
-        return {};
-    }
+    uint8_t *internal_buf = static_cast<uint8_t *>(av_malloc(4096));
+    if (!internal_buf) return {};
 
-    AVFormatContext *rawCtx = avformat_alloc_context();
-    if (!rawCtx) {
-        av_free(avioBuf);
-        av_freep(&avio);
-        return {};
-    }
-    rawCtx->pb = avio;
+    AVIOContext *avio = avio_alloc_context(internal_buf, 4096, 0, &mem_ctx,
+                                           read_mem_cb, nullptr, seek_mem_cb);
+    if (!avio) { av_free(internal_buf); return {}; }
 
-    if (avformat_open_input(&rawCtx, "", nullptr, nullptr) < 0) return {};
+    AVFormatContext *raw_ctx = avformat_alloc_context();
+    if (!raw_ctx) { av_free(internal_buf); av_freep(&avio); return {}; }
+    raw_ctx->pb = avio;
 
-    AVFormatContextPtr av_format_context(rawCtx, [](AVFormatContext *ctx) {
+    if (avformat_open_input(&raw_ctx, "", nullptr, nullptr) < 0) return {};
+
+    AVFormatContextPtr fmt_ctx(raw_ctx, [](AVFormatContext *ctx) {
         if (ctx) avformat_close_input(&ctx);
     });
 
-    avformat_find_stream_info(av_format_context.get(), nullptr);
+    avformat_find_stream_info(fmt_ctx.get(), nullptr);
 
-    int stream_idx = av_find_best_stream(av_format_context.get(), AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
+    int stream_idx = av_find_best_stream(fmt_ctx.get(), AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
     if (stream_idx < 0) return {};
 
     const AVCodec *decoder = avcodec_find_decoder(
-        av_format_context->streams[stream_idx]->codecpar->codec_id);
+        fmt_ctx->streams[stream_idx]->codecpar->codec_id);
     if (!decoder) return {};
 
-    AVCodecContextPtr av_codec_context(avcodec_alloc_context3(decoder));
-    if (!av_codec_context) return {};
-    avcodec_parameters_to_context(av_codec_context.get(), av_format_context->streams[stream_idx]->codecpar);
-    if (avcodec_open2(av_codec_context.get(), decoder, nullptr) < 0) return {};
+    AVCodecContextPtr dec_ctx(avcodec_alloc_context3(decoder));
+    if (!dec_ctx) return {};
+    avcodec_parameters_to_context(dec_ctx.get(), fmt_ctx->streams[stream_idx]->codecpar);
+    if (avcodec_open2(dec_ctx.get(), decoder, nullptr) < 0) return {};
 
     AVPacketPtr pkt(av_packet_alloc(), [](AVPacket *p) { av_packet_free(&p); });
     AVFramePtr frame(av_frame_alloc(), [](AVFrame *f) { av_frame_free(&f); });
@@ -61,25 +93,27 @@ static QImage load_image_ffmpeg(const QString &filePath) {
     QImage result;
     bool success = false;
 
-    if (av_read_frame(av_format_context.get(), pkt.get()) >= 0 &&
-        avcodec_send_packet(av_codec_context.get(), pkt.get()) >= 0 &&
-        avcodec_receive_frame(av_codec_context.get(), frame.get()) >= 0) {
+    if (av_read_frame(fmt_ctx.get(), pkt.get()) >= 0 &&
+        avcodec_send_packet(dec_ctx.get(), pkt.get()) >= 0 &&
+        avcodec_receive_frame(dec_ctx.get(), frame.get()) >= 0)
+    {
         SwsContextPtr sws(sws_getContext(
-            frame->width, frame->height, av_codec_context->pix_fmt,
+            frame->width, frame->height, dec_ctx->pix_fmt,
             frame->width, frame->height, AV_PIX_FMT_RGBA,
             SWS_BILINEAR, nullptr, nullptr, nullptr));
 
         if (sws) {
-            uint8_t *dstData[4] = {nullptr};
-            int dstLinesize[4] = {0};
-            if (av_image_alloc(dstData, dstLinesize, frame->width, frame->height,
-                               AV_PIX_FMT_RGBA, 1) >= 0) {
+            uint8_t *dst_data[4] = {nullptr};
+            int dst_linesize[4] = {0};
+            if (av_image_alloc(dst_data, dst_linesize, frame->width, frame->height,
+                               AV_PIX_FMT_RGBA, 1) >= 0)
+            {
                 sws_scale(sws.get(), frame->data, frame->linesize, 0, frame->height,
-                          dstData, dstLinesize);
+                          dst_data, dst_linesize);
 
-                result = QImage(dstData[0], frame->width, frame->height,
-                                dstLinesize[0], QImage::Format_RGBA8888,
-                                [](void *ptr) { av_freep(&ptr); }, dstData[0]);
+                result = QImage(dst_data[0], frame->width, frame->height,
+                                dst_linesize[0], QImage::Format_RGBA8888,
+                                [](void *ptr) { av_freep(&ptr); }, dst_data[0]);
                 success = true;
             }
         }
