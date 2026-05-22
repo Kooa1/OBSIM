@@ -128,7 +128,6 @@ void VideoCaptor::init_sws_ctx() {
 
 // ========== 采集循环 ==========
 void VideoCaptor::capture_loop() {
-    // 回退为每次循环分配独立 AVPacket，避免别名 shared_ptr 导致数据失效
     while (is_capturing.load()) {
         AVPacketPtr av_packet(av_packet_alloc(), AVPacketDeleter());
         int ret = av_read_frame(av_format_context.get(), av_packet.get());

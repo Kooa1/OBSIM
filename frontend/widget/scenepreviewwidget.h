@@ -5,7 +5,7 @@
 #include <QtOpenGLWidgets/QOpenGLWidget>
 #include <QMouseEvent>
 #include <QPointer>
-#include <atomic>
+#include <QTimer>
 #include <memory>
 
 #include "core/source.h"
@@ -100,6 +100,7 @@ private:
     Scene m_scene;
 
     QPointer<ScenePreviewWidget> m_self_guard; // 跨线程安全引用
+    QTimer *m_render_timer = nullptr;           // 60fps 渲染定时器
 };
 
 #endif

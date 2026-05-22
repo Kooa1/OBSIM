@@ -2,22 +2,23 @@
 
 ScenePreviewWidget::ScenePreviewWidget(QWidget *parent)
     : QOpenGLWidget(parent) {
-    // 请求模板缓冲
+    setAttribute(Qt::WA_OpaquePaintEvent);
+
     QSurfaceFormat fmt = format();
     fmt.setStencilBufferSize(8);
+    fmt.setSwapInterval(1);
     setFormat(fmt);
 
     setMouseTracking(true);
 
-    // 保存 QPointer 用于跨线程安全
     m_self_guard = this;
 
-    DeviceManager::run();
-
-    // 测试源
-    // add_test_source();
-    // add_screen_capture_source(0);
-    // add_camera_capture_source();
+    m_render_timer = new QTimer(this);
+    connect(m_render_timer, &QTimer::timeout, this, [this]() {
+        update();
+    });
+    m_render_timer->setTimerType(Qt::PreciseTimer);
+    m_render_timer->start(16); // 60fps
 }
 
 ScenePreviewWidget::~ScenePreviewWidget() {
@@ -66,33 +67,14 @@ void ScenePreviewWidget::add_test_source() {
 
 void ScenePreviewWidget::add_screen_capture_source(const CaptorConfig &config) {
     auto src = std::make_unique<ScreenCaptureSource>(config);
-
-    // ✅ 使用 QPointer + invokeMethod 安全跨线程投递
-    QPointer<ScenePreviewWidget> self = m_self_guard;
-    src->set_frame_ready_callback([self]() {
-        if (self) {
-            QMetaObject::invokeMethod(self, [self]() {
-                self->update();
-            }, Qt::QueuedConnection);
-        }
-    });
-
+    // 采集线程仅推帧到队列，由 m_render_timer 定时驱动 paintGL 拉取
     m_scene.add_source(src.get());
     m_sources_storage.push_back(std::move(src));
 }
 
 void ScenePreviewWidget::add_camera_capture_source(std::string device_description) {
     auto src = std::make_unique<CameraCaptureSource>(std::move(device_description));
-
-    QPointer<ScenePreviewWidget> self = m_self_guard;
-    src->set_frame_ready_callback([self]() {
-        if (self) {
-            QMetaObject::invokeMethod(self, [self]() {
-                self->update();
-            }, Qt::QueuedConnection);
-        }
-    });
-
+    // 采集线程仅推帧到队列，由 m_render_timer 定时驱动 paintGL 拉取
     m_scene.add_source(src.get());
     m_sources_storage.push_back(std::move(src));
 }
@@ -107,7 +89,6 @@ void ScenePreviewWidget::add_text_source(const QString &text, const QFont &font,
 
     m_scene.add_source(src.get());
     m_sources_storage.push_back(std::move(src));
-    update();
 }
 
 void ScenePreviewWidget::add_image_source(const QString &file_path) {
@@ -117,14 +98,12 @@ void ScenePreviewWidget::add_image_source(const QString &file_path) {
 
     m_scene.add_source(src.get());
     m_sources_storage.push_back(std::move(src));
-    update();
 }
 
 void ScenePreviewWidget::select_source_at(int index) {
     if (index < 0 || index >= static_cast<int>(m_sources_storage.size())) return;
     m_scene.set_selected_source(m_sources_storage[index].get());
     m_scene.on_mouse_release();
-    update();
 }
 
 void ScenePreviewWidget::remove_source(int index) {
@@ -142,7 +121,6 @@ void ScenePreviewWidget::remove_source(int index) {
     }
     m_scene.remove_source(src);
     m_sources_storage.erase(m_sources_storage.begin() + index);
-    update();
     if (was_selected) {
         emit canvas_selection_changed(-1);
     }
@@ -154,7 +132,6 @@ void ScenePreviewWidget::move_source_up(int index) {
     Source *src = m_sources_storage[index].get();
     m_scene.move_up(src);
     std::swap(m_sources_storage[index], m_sources_storage[index + 1]);
-    update();
 }
 
 void ScenePreviewWidget::move_source_down(int index) {
@@ -163,7 +140,6 @@ void ScenePreviewWidget::move_source_down(int index) {
     Source *src = m_sources_storage[index].get();
     m_scene.move_down(src);
     std::swap(m_sources_storage[index], m_sources_storage[index - 1]);
-    update();
 }
 
 void ScenePreviewWidget::setup_viewport_and_clear() {
@@ -386,11 +362,8 @@ void ScenePreviewWidget::paintGL() {
 void ScenePreviewWidget::mousePressEvent(QMouseEvent *event) {
     QPointF canvas_pos = screen_to_canvas(event->position());
     Source *old_sel = m_scene.selected_source();
-    bool handled = m_scene.on_mouse_press(canvas_pos);
-    if (handled) {
-        update();
-        update_cursor();
-    }
+    m_scene.on_mouse_press(canvas_pos);
+    update_cursor();
     Source *new_sel = m_scene.selected_source();
     if (old_sel != new_sel) {
         int idx = -1;
@@ -408,16 +381,12 @@ void ScenePreviewWidget::mousePressEvent(QMouseEvent *event) {
 
 void ScenePreviewWidget::mouseMoveEvent(QMouseEvent *event) {
     QPointF canvas_pos = screen_to_canvas(event->position());
-    bool needs_update = m_scene.on_mouse_move(canvas_pos);
-    if (needs_update) {
-        update();
-    }
+    m_scene.on_mouse_move(canvas_pos);
     update_cursor();
 }
 
 void ScenePreviewWidget::mouseReleaseEvent(QMouseEvent *event) {
     Q_UNUSED(event);
     m_scene.on_mouse_release();
-    update();
     update_cursor();
 }
