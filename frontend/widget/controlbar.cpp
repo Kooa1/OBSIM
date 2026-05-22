@@ -68,8 +68,9 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
     connect(btn_del, &QPushButton::clicked, this, [this, list_row_to_scene]() {
         int list_row = m_source_list->currentRow();
         if (list_row < 0) return;
+        int scene_idx = list_row_to_scene(list_row);
         delete m_source_list->takeItem(list_row);
-        emit source_remove_requested(list_row_to_scene(list_row));
+        emit source_remove_requested(scene_idx);
     });
 
     connect(btn_up, &QPushButton::clicked, this, [this, list_row_to_scene]() {
