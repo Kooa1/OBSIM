@@ -1,4 +1,5 @@
 #include "controlbar.h"
+#include "settingsdialog.h"
 #include "../core/textsource.h"
 #include "../core/videocaptor.h"
 
@@ -289,6 +290,12 @@ StreamRecordBlock::StreamRecordBlock(QWidget *parent)
 
     connect(m_btn_start_stream, &QPushButton::clicked, this, &StreamRecordBlock::start_stream_clicked);
     connect(m_btn_start_record, &QPushButton::clicked, this, &StreamRecordBlock::start_record_clicked);
+    connect(m_btn_settings, &QPushButton::clicked, this, [this]() {
+        SettingsDialog dlg(this);
+        if (dlg.exec() == QDialog::Accepted) {
+            qDebug() << "录像输出路径:" << dlg.record_output_path();
+        }
+    });
     connect(m_btn_exit, &QPushButton::clicked, qApp, &QApplication::quit);
 }
 
