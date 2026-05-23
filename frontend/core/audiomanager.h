@@ -18,6 +18,7 @@
 #include "audiocaptor.h"
 #include "systemaudiocaptor.h"
 #include "micaudiocaptor.h"
+#include "../utils/datasafequeue.h"
 
 class AudioManager : public QObject {
     Q_OBJECT
@@ -36,6 +37,15 @@ public:
     float get_system_audio_level() const { return m_system_level.load(); }
     float get_mic_audio_level() const { return m_mic_level.load(); }
 
+    // 录音队列管理
+    void enable_recording();
+
+    void disable_recording();
+
+    DataSafeQueue<AVFramePtr> *system_record_queue() const { return m_system_record_queue.get(); }
+
+    DataSafeQueue<AVFramePtr> *mic_record_queue() const { return m_mic_record_queue.get(); }
+
 private:
     void calculate_level_from_frame(const AVFrame *frame, std::atomic<float> &level_store);
 
@@ -47,6 +57,9 @@ private:
     std::atomic<float> m_mic_level{0.0f};
 
     QTimer *m_level_emit_timer = nullptr;
+
+    std::unique_ptr<DataSafeQueue<AVFramePtr>> m_system_record_queue;
+    std::unique_ptr<DataSafeQueue<AVFramePtr>> m_mic_record_queue;
 
 signals:
     void levels_updated(float system_level, float mic_level);

@@ -176,6 +176,9 @@ void AudioCaptor::receive_frame(AVPacketPtr obj_packet) {
             continue; // ref_frame 和 raw_frame 自动释放
         }
 
+        // 推送录音队列（如果启用）
+        push_to_record_queue(ref_frame);
+
         // ✅ 移动语义：将智能指针移入队列，零拷贝交出所有权
         queue->push_no_wait(std::move(ref_frame));
 
@@ -185,6 +188,14 @@ void AudioCaptor::receive_frame(AVPacketPtr obj_packet) {
         notify_frame_ready();
     }
     // packet 和 raw_frame 均在各自作用域结束时自动释放
+}
+
+void AudioCaptor::push_to_record_queue(const AVFramePtr &frame) {
+    if (!record_queue || !frame) return;
+    AVFramePtr record_ref(av_frame_alloc(), AVFrameDeleter());
+    if (record_ref && av_frame_ref(record_ref.get(), frame.get()) >= 0) {
+        record_queue->push_no_wait(std::move(record_ref));
+    }
 }
 
 void AudioCaptor::notify_frame_ready() {

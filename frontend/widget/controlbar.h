@@ -4,6 +4,7 @@
 #include <algorithm>
 
 #include <QWidget>
+#include <QStandardPaths>
 
 #include "../utils/PCH.h"
 #include "../utils/devicemanager.h"
@@ -132,16 +133,24 @@ class StreamRecordBlock : public ControlBlock {
 public:
     explicit StreamRecordBlock(QWidget *parent = nullptr);
 
+    QString output_path() const { return m_output_path; }
+
+    bool is_recording() const { return m_recording; }
+
 signals:
     void start_stream_clicked();
 
-    void start_record_clicked();
+    void recording_started(const QString &output_path);
+
+    void recording_stopped();
 
 private:
     QPushButton *m_btn_start_stream;
     QPushButton *m_btn_start_record;
     QPushButton *m_btn_settings;
     QPushButton *m_btn_exit;
+    QString m_output_path;
+    bool m_recording = false;
 };
 
 

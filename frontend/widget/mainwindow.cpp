@@ -27,9 +27,13 @@ bool MainWindow::init_UI() {
     m_audio_manager = std::make_unique<AudioManager>(this);
     m_audio_manager->start_all();
 
+    // 初始化录制器
+    m_recoder = std::make_unique<Recoder>();
+
     init_layout();
     connect_audio_signals();
     connect_signal();
+    connect_recorder_signals();
     return true;
 }
 
@@ -39,6 +43,55 @@ void MainWindow::connect_audio_signals() {
     connect(m_audio_manager.get(), &AudioManager::levels_updated,
             control_bar, &ControlBar::update_audio_levels);
 
+}
+
+void MainWindow::connect_recorder_signals() {
+    if (!control_bar || !scene_preview_widget) return;
+
+    connect(control_bar->stream_record(), &StreamRecordBlock::recording_started,
+            this, &MainWindow::on_recording_started);
+    connect(control_bar->stream_record(), &StreamRecordBlock::recording_stopped,
+            this, &MainWindow::on_recording_stopped);
+}
+
+void MainWindow::on_recording_started(const QString &output_path) {
+    if (!m_recoder || !scene_preview_widget || !m_audio_manager) return;
+
+    QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd_HH-mm-ss");
+    QString file_path = output_path + "/recording_" + timestamp + ".mp4";
+
+    // 启用音频录制队列
+    m_audio_manager->enable_recording();
+
+    // 启动录制器
+    m_recoder->start(file_path,
+                     static_cast<int>(ScenePreviewWidget::CANVAS_W),
+                     static_cast<int>(ScenePreviewWidget::CANVAS_H),
+                     30,
+                     m_audio_manager->system_record_queue(),
+                     m_audio_manager->mic_record_queue());
+
+    // 设置 OpenGL 帧捕获回调
+    scene_preview_widget->set_frame_capture_callback(
+        [this](const uint8_t *data, int stride, int w, int h) {
+            if (m_recoder && m_recoder->is_recording()) {
+                m_recoder->feed_frame(data, stride, w, h);
+            }
+        });
+
+    av_log(nullptr, AV_LOG_INFO, "recording started: %s\n", file_path.toUtf8().constData());
+}
+
+void MainWindow::on_recording_stopped() {
+    if (!m_recoder || !scene_preview_widget) return;
+
+    scene_preview_widget->set_frame_capture_callback(nullptr);
+
+    m_recoder->stop();
+
+    m_audio_manager->disable_recording();
+
+    av_log(nullptr, AV_LOG_INFO, "recording stopped\n");
 }
 
 void MainWindow::connect_signal() {

@@ -164,7 +164,7 @@ void SystemAudioCaptor::capture_loop() {
             break;
         }
 
-        if (frames_avail > 0) {
+                if (frames_avail > 0) {
             AVFramePtr frame(av_frame_alloc(), AVFrameDeleter());
             if (frame) {
                 frame->format = m_av_sample_fmt;
@@ -181,6 +181,9 @@ void SystemAudioCaptor::capture_loop() {
                         memcpy(frame->data[0], data, data_size);
                     }
                     frame->linesize[0] = data_size;
+
+                    // 推送录音队列（如果启用）
+                    push_to_record_queue(frame);
 
                     queue->push_no_wait(std::move(frame));
                     notify_frame_ready();

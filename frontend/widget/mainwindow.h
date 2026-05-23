@@ -9,12 +9,15 @@
 
 #include <QSplitter>
 #include <QHBoxLayout>
+#include <QDateTime>
 
 #include "scenepreviewwidget.h"
 #include "settingbar.h"
 #include "controlbar.h"
+#include "settingsdialog.h"
 
 #include "../core/audiomanager.h"
+#include "../core/recoder.h"
 
 struct CaptorConfig;
 
@@ -37,6 +40,8 @@ private:
 
     void connect_signal();
 
+    void connect_recorder_signals();
+
     void center_on_primary_screen(QWidget *window);
 
     void adjust_window_screen(QWidget *window = nullptr,
@@ -53,6 +58,9 @@ private:
     void on_source_list_selection_changed(int row);
     void on_canvas_selection_changed(int index);
 
+    void on_recording_started(const QString &output_path);
+    void on_recording_stopped();
+
 protected:
     void showEvent(QShowEvent *event) override;
 
@@ -68,6 +76,7 @@ private:
     ControlBar *control_bar = nullptr;
 
     std::unique_ptr<AudioManager> m_audio_manager;
+    std::unique_ptr<Recoder> m_recoder;
 };
 
 #endif //MAINWINDOW_H

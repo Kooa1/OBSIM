@@ -6,6 +6,7 @@
 #include <QMouseEvent>
 #include <QPointer>
 #include <QTimer>
+#include <functional>
 #include <memory>
 
 #include "core/source.h"
@@ -43,6 +44,13 @@ public:
 
     void move_source_up(int index);
     void move_source_down(int index);
+
+    // 录制帧捕获回调（data: BGRA, stride: width*4）
+    using FrameCaptureCallback = std::function<void(const uint8_t *data, int stride, int w, int h)>;
+    void set_frame_capture_callback(FrameCaptureCallback cb) { m_frame_capture_callback = std::move(cb); }
+
+    static constexpr float CANVAS_W = 1920.0f;
+    static constexpr float CANVAS_H = 1080.0f;
 
 signals:
     void canvas_selection_changed(int index);
@@ -84,9 +92,6 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
 
 private:
-    static constexpr float CANVAS_W = 1920.0f;
-    static constexpr float CANVAS_H = 1080.0f;
-
     int m_viewX = 0;
     int m_viewY = 0;
     int m_viewW = 1920;
@@ -101,6 +106,10 @@ private:
 
     QPointer<ScenePreviewWidget> m_self_guard; // 跨线程安全引用
     QTimer *m_render_timer = nullptr;           // 60fps 渲染定时器
+
+    FrameCaptureCallback m_frame_capture_callback;
+    std::chrono::steady_clock::time_point m_last_capture_time;
+    int m_capture_fps = 30;
 };
 
 #endif

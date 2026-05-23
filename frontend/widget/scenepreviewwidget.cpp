@@ -1,5 +1,9 @@
 #include "scenepreviewwidget.h"
 
+#include <vector>
+#include <algorithm>
+#include <chrono>
+
 ScenePreviewWidget::ScenePreviewWidget(QWidget *parent)
     : QOpenGLWidget(parent) {
     setAttribute(Qt::WA_OpaquePaintEvent);
@@ -357,6 +361,30 @@ void ScenePreviewWidget::resizeGL(int w, int h) {
 void ScenePreviewWidget::paintGL() {
     update_all_video_sources();
     rendering_view();
+
+    // 录制帧捕获（按设定帧率节流）
+    if (m_frame_capture_callback) {
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - m_last_capture_time).count();
+        if (elapsed >= 1000 / m_capture_fps) {
+            m_last_capture_time = now;
+            int w = m_viewW;
+            int h = m_viewH;
+            if (w <= 0 || h <= 0) return;
+            int stride = w * 4;
+            std::vector<uint8_t> pixels(stride * h);
+            glReadPixels(m_viewX, m_viewY, w, h, GL_BGRA, GL_UNSIGNED_BYTE, pixels.data());
+            // OpenGL 读出的图像是上下颠倒的，需要翻转
+            std::vector<uint8_t> flipped(stride * h);
+            for (int y = 0; y < h; ++y) {
+                memcpy(flipped.data() + y * stride,
+                       pixels.data() + (h - 1 - y) * stride,
+                       stride);
+            }
+            m_frame_capture_callback(flipped.data(), stride, w, h);
+        }
+    }
 }
 
 void ScenePreviewWidget::mousePressEvent(QMouseEvent *event) {

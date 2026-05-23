@@ -130,6 +130,20 @@ void AudioManager::stop_all() {
     if (m_mic_audio) m_mic_audio->stop();
 }
 
+void AudioManager::enable_recording() {
+    m_system_record_queue = std::make_unique<DataSafeQueue<AVFramePtr>>(120);
+    m_mic_record_queue = std::make_unique<DataSafeQueue<AVFramePtr>>(120);
+    if (m_system_audio) m_system_audio->set_record_queue(m_system_record_queue.get());
+    if (m_mic_audio) m_mic_audio->set_record_queue(m_mic_record_queue.get());
+}
+
+void AudioManager::disable_recording() {
+    if (m_system_audio) m_system_audio->set_record_queue(nullptr);
+    if (m_mic_audio) m_mic_audio->set_record_queue(nullptr);
+    m_system_record_queue.reset();
+    m_mic_record_queue.reset();
+}
+
 void AudioManager::calculate_level_from_frame(const AVFrame* frame, std::atomic<float>& level_store) {
     if (!frame || frame->nb_samples <= 0) {
         float current = level_store.load();

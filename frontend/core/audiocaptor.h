@@ -40,6 +40,8 @@ public:
 
     bool is_running() const { return is_capturing.load(); }
 
+    void set_record_queue(DataSafeQueue<AVFramePtr> *q) { record_queue = q; }
+
 protected:
     virtual void init_ctx();
 
@@ -48,6 +50,9 @@ protected:
     void receive_frame(AVPacketPtr packet);
 
     void notify_frame_ready();
+
+    // 推送帧到录音队列（如果存在）
+    void push_to_record_queue(const AVFramePtr &frame);
 
     // ===== 子类必须实现 =====
     virtual const char *get_input_format_name() const = 0;
@@ -60,6 +65,7 @@ protected:
     // ===== 成员变量（protected 允许子类访问） =====
     bool m_initialized = false;
     std::unique_ptr<DataSafeQueue<AVFramePtr>> queue;
+    DataSafeQueue<AVFramePtr> *record_queue = nullptr;
     std::atomic_bool is_capturing{false};
     std::thread cap_thread;
     FrameReadyCallback frame_ready_callback;

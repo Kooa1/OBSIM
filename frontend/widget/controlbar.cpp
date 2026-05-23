@@ -277,6 +277,7 @@ void AudioMixerBlock::update_track_level(const QString &name, float level) {
 
 StreamRecordBlock::StreamRecordBlock(QWidget *parent)
         : ControlBlock("直播 / 录制", parent) {
+    m_output_path = QStandardPaths::writableLocation(QStandardPaths::MoviesLocation);
     m_btn_start_stream = new QPushButton("🔴 开始直播");
     m_btn_start_record = new QPushButton("⏺ 开始录制");
     m_btn_settings = new QPushButton("⚙ 设置");
@@ -289,11 +290,22 @@ StreamRecordBlock::StreamRecordBlock(QWidget *parent)
     m_content_layout->addWidget(m_btn_exit);
 
     connect(m_btn_start_stream, &QPushButton::clicked, this, &StreamRecordBlock::start_stream_clicked);
-    connect(m_btn_start_record, &QPushButton::clicked, this, &StreamRecordBlock::start_record_clicked);
+    connect(m_btn_start_record, &QPushButton::clicked, this, [this]() {
+        if (!m_recording) {
+            m_recording = true;
+            m_btn_start_record->setText("⏹ 停止录制");
+            emit recording_started(m_output_path);
+        } else {
+            m_recording = false;
+            m_btn_start_record->setText("⏺ 开始录制");
+            emit recording_stopped();
+        }
+    });
     connect(m_btn_settings, &QPushButton::clicked, this, [this]() {
         SettingsDialog dlg(this);
         if (dlg.exec() == QDialog::Accepted) {
-            qDebug() << "录像输出路径:" << dlg.record_output_path();
+            m_output_path = dlg.record_output_path();
+            qDebug() << "录像输出路径:" << m_output_path;
         }
     });
     connect(m_btn_exit, &QPushButton::clicked, qApp, &QApplication::quit);
