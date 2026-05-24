@@ -5,8 +5,8 @@
 #include <thread>
 #include <memory>
 #include <vector>
-#include <chrono>
 #include <queue>
+#include <deque>
 
 #include <QString>
 
@@ -46,6 +46,7 @@ public:
 
 private:
     void encoding_loop();
+
     bool init_audio_swr(SwrContext *&swr, const AVFrame *frame, int out_sample_rate);
     void encode_video_frame(AVFormatContext *fmt_ctx, AVPacket *pkt,
                             AVCodecContext *video_enc_ctx, AVStream *video_stream,
@@ -53,6 +54,37 @@ private:
     bool encode_audio_frame(AVFormatContext *fmt_ctx, AVPacket *pkt,
                             AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
                             AVFrame *audio_frame, int64_t &audio_pts);
+
+    bool setup_recording(AVFormatContext *&fmt_ctx,
+                         AVCodecContext *&video_enc_ctx, AVStream *&video_stream,
+                         AVCodecContext *&audio_enc_ctx, AVStream *&audio_stream,
+                         bool &has_audio, int &audio_frame_size,
+                         AVFrame *&yuv_frame, AVFrame *&audio_frame, AVPacket *&pkt);
+    void main_encode_loop(AVFormatContext *fmt_ctx, AVPacket *pkt,
+                          AVCodecContext *video_enc_ctx, AVStream *video_stream,
+                          AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
+                          SwsContext *&sws_ctx, SwrContext *sys_swr, SwrContext *mic_swr,
+                          AVFrame *yuv_frame, AVFrame *audio_frame,
+                          bool has_audio, int audio_frame_size,
+                          std::deque<float> *audio_fifo,
+                          std::deque<float> *sys_fifo,
+                          std::deque<float> *mic_fifo,
+                          int64_t &audio_clock, int64_t &video_pts, int64_t &audio_pts,
+                          int &audio_frames_received, int &audio_frames_encoded,
+                          int64_t &sys_silence_samples, int64_t &mic_silence_samples,
+                          int &last_capture_w, int &last_capture_h);
+    void drain_and_finalize(AVFormatContext *fmt_ctx, AVPacket *pkt,
+                            AVCodecContext *video_enc_ctx, AVStream *video_stream,
+                            AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
+                            SwsContext *&sws_ctx, SwrContext *sys_swr, SwrContext *mic_swr,
+                            AVFrame *yuv_frame, AVFrame *audio_frame,
+                            bool has_audio, int audio_frame_size,
+                            std::deque<float> *audio_fifo,
+                            std::deque<float> *sys_fifo,
+                            std::deque<float> *mic_fifo,
+                            int64_t &video_pts, int64_t &audio_pts,
+                            int &audio_frames_encoded,
+                            int &last_capture_w, int &last_capture_h);
 
     static constexpr int AUDIO_SAMPLE_RATE = 48000;
     static constexpr int AUDIO_CHANNELS = 2;
