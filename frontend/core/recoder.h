@@ -35,12 +35,15 @@ struct VideoFrame {
 class Recoder {
 public:
     Recoder();
+
     ~Recoder();
 
     void start(const QString &output_path, int canvas_w, int canvas_h, int fps = 30,
                DataSafeQueue<AVFramePtr> *system_audio_src = nullptr,
                DataSafeQueue<AVFramePtr> *mic_audio_src = nullptr);
+
     void stop();
+
     bool is_recording() const { return m_recording.load(); }
 
     void feed_frame(const uint8_t *data, int stride, int capture_w, int capture_h);
@@ -50,7 +53,9 @@ private:
 
     // --- encoder setup ---
     bool init_video_encoder();
+
     bool init_audio_encoder();
+
     bool open_output_and_allocate_frames();
 
     // --- audio processing ---
@@ -59,7 +64,9 @@ private:
                              std::deque<float> *fifo,
                              int64_t &silence_counter,
                              bool &did_work);
+
     size_t mix_audio_sources();
+
     void encode_audio_fifo();
 
     // --- video processing ---
@@ -67,14 +74,23 @@ private:
 
     // --- drain / flush ---
     void drain_video_queue();
+
     void flush_swr_and_mix_remaining();
+
     void drain_audio_fifo_remaining();
+
     void flush_encoders();
 
     // --- low-level helpers ---
     bool init_audio_swr(SwrContextPtr &swr, const AVFrame *frame);
+
     void encode_video_frame(int64_t pts);
+
     bool encode_audio_frame(int64_t audio_pts);
+
+    void clear_ctx();
+
+private:
 
     static constexpr int AUDIO_SAMPLE_RATE = 48000;
     static constexpr int AUDIO_CHANNELS = 2;
@@ -84,7 +100,7 @@ private:
 
     std::atomic<bool> m_recording{false};
     std::thread m_encode_thread;
-    std::unique_ptr<DataSafeQueue<VideoFrame>> m_video_queue;
+    std::unique_ptr<DataSafeQueue<VideoFrame> > m_video_queue;
 
     DataSafeQueue<AVFramePtr> *m_system_audio_src = nullptr;
     DataSafeQueue<AVFramePtr> *m_mic_audio_src = nullptr;

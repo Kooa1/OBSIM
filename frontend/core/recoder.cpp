@@ -200,10 +200,10 @@ bool Recoder::open_output_and_allocate_frames() {
 // =====================================================================
 
 void Recoder::handle_audio_source(DataSafeQueue<AVFramePtr> *src,
-                                   SwrContextPtr &swr,
-                                   std::deque<float> *fifo,
-                                   int64_t &silence_counter,
-                                   bool &did_work) {
+                                  SwrContextPtr &swr,
+                                  std::deque<float> *fifo,
+                                  int64_t &silence_counter,
+                                  bool &did_work) {
     while (!src->is_empty()) {
         auto frame = src->try_pop();
         if (!frame || !frame.value()) break;
@@ -545,6 +545,23 @@ bool Recoder::encode_audio_frame(int64_t audio_pts) {
     return true;
 }
 
+void Recoder::clear_ctx() {
+    m_video_enc_ctx.reset();
+    m_audio_enc_ctx.reset();
+    m_sws_ctx.reset();
+    m_sys_swr.reset();
+    m_mic_swr.reset();
+    m_yuv_frame.reset();
+    m_audio_frame.reset();
+    m_pkt.reset();
+    m_video_stream = nullptr;
+    m_audio_stream = nullptr;
+
+    for (auto &ch: m_audio_fifo) ch.clear();
+    for (auto &ch: m_sys_fifo) ch.clear();
+    for (auto &ch: m_mic_fifo) ch.clear();
+}
+
 // =====================================================================
 //  encoding_loop — orchestrates the full recording pipeline
 // =====================================================================
@@ -555,20 +572,7 @@ void Recoder::encoding_loop() {
 
     do {
         // ---- reset state ----
-        m_video_enc_ctx.reset();
-        m_audio_enc_ctx.reset();
-        m_sws_ctx.reset();
-        m_sys_swr.reset();
-        m_mic_swr.reset();
-        m_yuv_frame.reset();
-        m_audio_frame.reset();
-        m_pkt.reset();
-        m_video_stream = nullptr;
-        m_audio_stream = nullptr;
-
-        for (auto &ch : m_audio_fifo) ch.clear();
-        for (auto &ch : m_sys_fifo) ch.clear();
-        for (auto &ch : m_mic_fifo) ch.clear();
+        clear_ctx();
 
         m_audio_clock = 0;
         m_video_pts = 0;
@@ -643,21 +647,7 @@ void Recoder::encoding_loop() {
         av_log(nullptr, AV_LOG_ERROR, "recording failed\n");
 
     // ---- cleanup (smart pointers handle FFmpeg resources) ----
-    m_fmt_ctx.reset();
-    m_video_enc_ctx.reset();
-    m_audio_enc_ctx.reset();
-    m_sws_ctx.reset();
-    m_sys_swr.reset();
-    m_mic_swr.reset();
-    m_yuv_frame.reset();
-    m_audio_frame.reset();
-    m_pkt.reset();
-    m_video_stream = nullptr;
-    m_audio_stream = nullptr;
-
-    for (auto &ch : m_audio_fifo) ch.clear();
-    for (auto &ch : m_sys_fifo) ch.clear();
-    for (auto &ch : m_mic_fifo) ch.clear();
+    clear_ctx();
 
     if (m_video_queue) m_video_queue->clean_queue();
 }
