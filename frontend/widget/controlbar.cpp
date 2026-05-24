@@ -169,8 +169,8 @@ AudioMixerBlock::AudioMixerBlock(QWidget *parent)
     m_content_layout->addStretch();
 
     // 默认添加几条音轨
-    add_track("桌面音频", 0.5f);
-    add_track("麦克风", 0.5f);
+    add_track("桌面音频", 0.8f);
+    add_track("麦克风", 0.6f);
 }
 
 AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString &name, float volume) {

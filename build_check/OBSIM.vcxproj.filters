@@ -1,0 +1,186 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\build_check\OBSIM_autogen\mocs_compilation_Debug.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\audiocaptor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\audiomanager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\camera.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\cameracapturesource.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\filerecorder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\imagesource.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\mediaoutput.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\micaudiocaptor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\scene.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\screencaptor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\screencapturesource.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\source.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\streamrecorder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\systemaudiocaptor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\textsource.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\videocaptor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\videosource.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\utils\devicemanager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\widget\controlbar.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\widget\mainwindow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\widget\scenepreviewwidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\widget\settingbar.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\widget\settingsdialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\build_check\OBSIM_autogen\mocs_compilation_Release.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\build_check\OBSIM_autogen\mocs_compilation_MinSizeRel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\ProjectFiles\ClionProject\OBSIM\build_check\OBSIM_autogen\mocs_compilation_RelWithDebInfo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\audiocaptor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\audiomanager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\camera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\cameracapturesource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\filerecorder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\imagesource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\mediaoutput.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\micaudiocaptor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\scene.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\screencaptor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\screencapturesource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\source.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\streamrecorder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\systemaudiocaptor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\textsource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\videocaptor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\core\videosource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\test\testsource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\utils\PCH.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\utils\av_err2str_cxx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\utils\datasafequeue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\utils\devicemanager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\utils\ffmpegfactory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\widget\controlbar.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\widget\mainwindow.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\widget\scenepreviewwidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\widget\settingbar.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\ProjectFiles\ClionProject\OBSIM\frontend\widget\settingsdialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="D:\ProjectFiles\ClionProject\OBSIM\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{8601B819-C6DC-3D0F-87C0-E962504CB4F2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{405A8530-B26A-3A77-BFD1-19F5B1A726F1}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
