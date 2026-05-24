@@ -49,62 +49,32 @@ private:
     void encoding_loop();
 
     // --- encoder setup ---
-    bool init_video_encoder(AVFormatContext *fmt_ctx,
-                            AVCodecContext *&video_enc_ctx, AVStream *&video_stream);
-    bool init_audio_encoder(AVFormatContext *fmt_ctx,
-                            AVCodecContext *&audio_enc_ctx, AVStream *&audio_stream);
-    bool open_output_and_allocate_frames(AVFormatContext *fmt_ctx,
-                                         AVFrame *&yuv_frame, AVFrame *&audio_frame,
-                                         AVPacket *&pkt, AVCodecContext *audio_enc_ctx,
-                                         bool has_audio);
+    bool init_video_encoder();
+    bool init_audio_encoder();
+    bool open_output_and_allocate_frames();
 
     // --- audio processing ---
-    void handle_audio_source(SwrContext *&swr, DataSafeQueue<AVFramePtr> *src,
-                             std::deque<float> *fifo, int64_t &silence_counter,
+    void handle_audio_source(DataSafeQueue<AVFramePtr> *src,
+                             SwrContextPtr &swr,
+                             std::deque<float> *fifo,
+                             int64_t &silence_counter,
                              bool &did_work);
-    size_t mix_audio_sources(std::deque<float> *sys_fifo, std::deque<float> *mic_fifo,
-                             std::deque<float> *audio_fifo,
-                             int64_t &audio_clock, int &frames_received);
-    void encode_audio_fifo(AVFormatContext *fmt_ctx, AVPacket *pkt,
-                           AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
-                           AVFrame *audio_frame, std::deque<float> *audio_fifo,
-                           int frame_size, int64_t &audio_pts, int &encoded_count);
+    size_t mix_audio_sources();
+    void encode_audio_fifo();
 
     // --- video processing ---
-    void handle_video_frame(SwsContext *&sws_ctx, AVFrame *yuv_frame,
-                            AVFormatContext *fmt_ctx, AVPacket *pkt,
-                            AVCodecContext *video_enc_ctx, AVStream *video_stream,
-                            AVCodecContext *audio_enc_ctx,
-                            const VideoFrame &video_data, int64_t &video_pts,
-                            int64_t audio_clock, bool has_audio,
-                            int &last_w, int &last_h);
+    void handle_video_frame(const VideoFrame &video_data);
 
     // --- drain / flush ---
-    void drain_video_queue(SwsContext *&sws_ctx, AVFrame *yuv_frame,
-                           AVFormatContext *fmt_ctx, AVPacket *pkt,
-                           AVCodecContext *video_enc_ctx, AVStream *video_stream,
-                           int64_t &video_pts, int &last_w, int &last_h);
-    void flush_swr_and_mix_remaining(SwrContext *sys_swr, SwrContext *mic_swr,
-                                     std::deque<float> *sys_fifo,
-                                     std::deque<float> *mic_fifo,
-                                     std::deque<float> *audio_fifo);
-    void drain_audio_fifo_remaining(AVFormatContext *fmt_ctx, AVPacket *pkt,
-                                    AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
-                                    AVFrame *audio_frame, std::deque<float> *audio_fifo,
-                                    int frame_size, int64_t &audio_pts,
-                                    int &encoded_count);
-    void flush_encoders(AVFormatContext *fmt_ctx, AVPacket *pkt,
-                        AVCodecContext *video_enc_ctx, AVStream *video_stream,
-                        AVCodecContext *audio_enc_ctx, AVStream *audio_stream);
+    void drain_video_queue();
+    void flush_swr_and_mix_remaining();
+    void drain_audio_fifo_remaining();
+    void flush_encoders();
 
     // --- low-level helpers ---
-    bool init_audio_swr(SwrContext *&swr, const AVFrame *frame, int out_sample_rate);
-    void encode_video_frame(AVFormatContext *fmt_ctx, AVPacket *pkt,
-                            AVCodecContext *video_enc_ctx, AVStream *video_stream,
-                            AVFrame *yuv_frame, int64_t pts);
-    bool encode_audio_frame(AVFormatContext *fmt_ctx, AVPacket *pkt,
-                            AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
-                            AVFrame *audio_frame, int64_t &audio_pts);
+    bool init_audio_swr(SwrContextPtr &swr, const AVFrame *frame);
+    void encode_video_frame(int64_t pts);
+    bool encode_audio_frame(int64_t audio_pts);
 
     static constexpr int AUDIO_SAMPLE_RATE = 48000;
     static constexpr int AUDIO_CHANNELS = 2;
@@ -123,6 +93,37 @@ private:
     int m_canvas_h = 0;
     int m_fps = 30;
     QString m_output_path;
+
+    // FFmpeg smart-pointer resources
+    AVFormatMuxPtr m_fmt_ctx;
+    AVCodecContextPtr m_video_enc_ctx;
+    AVCodecContextPtr m_audio_enc_ctx;
+    SwsContextPtr m_sws_ctx;
+    SwrContextPtr m_sys_swr;
+    SwrContextPtr m_mic_swr;
+    AVFramePtr m_yuv_frame;
+    AVFramePtr m_audio_frame;
+    AVPacketPtr m_pkt;
+
+    // Raw AVStream pointers (owned by AVFormatContext)
+    AVStream *m_video_stream = nullptr;
+    AVStream *m_audio_stream = nullptr;
+
+    // Encoding state
+    std::deque<float> m_audio_fifo[2];
+    std::deque<float> m_sys_fifo[2];
+    std::deque<float> m_mic_fifo[2];
+    int64_t m_audio_clock = 0;
+    int64_t m_video_pts = 0;
+    int64_t m_audio_pts = 0;
+    int m_audio_frames_received = 0;
+    int m_audio_frames_encoded = 0;
+    int64_t m_sys_silence_samples = 0;
+    int64_t m_mic_silence_samples = 0;
+    int m_last_capture_w = 0;
+    int m_last_capture_h = 0;
+    int m_audio_frame_size = 0;
+    bool m_has_audio = false;
 };
 
 #endif

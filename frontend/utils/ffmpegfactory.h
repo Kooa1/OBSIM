@@ -38,6 +38,16 @@ struct SwsContextDeleter {
     }
 };
 
+struct AVFormatMuxDeleter {
+    void operator()(AVFormatContext *context) const {
+        if (context) {
+            if (context->pb && !(context->oformat->flags & AVFMT_NOFILE))
+                avio_close(context->pb);
+            avformat_free_context(context);
+        }
+    }
+};
+
 struct AVPacketDeleter {
     void operator()(AVPacket *packet) const {
         if (packet) {
@@ -71,6 +81,7 @@ struct SwrContextDeleter {
 
 
 using AVFormatContextPtr = std::shared_ptr<AVFormatContext>;
+using AVFormatMuxPtr = std::unique_ptr<AVFormatContext, AVFormatMuxDeleter>;
 using AVCodecContextPtr = std::unique_ptr<AVCodecContext, AVCodecContextDeleter>;
 using SwsContextPtr = std::unique_ptr<struct SwsContext, SwsContextDeleter>;
 using AVPacketPtr = std::shared_ptr<AVPacket>;
