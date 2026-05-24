@@ -70,9 +70,27 @@ private:
                           std::deque<float> *sys_fifo,
                           std::deque<float> *mic_fifo,
                           int64_t &audio_clock, int64_t &video_pts, int64_t &audio_pts,
-                          int &audio_frames_received, int &audio_frames_encoded,
+                          int64_t &audio_frames_received, int64_t &audio_frames_encoded,
                           int64_t &sys_silence_samples, int64_t &mic_silence_samples,
                           int &last_capture_w, int &last_capture_h);
+
+    void process_audio_source(DataSafeQueue<AVFramePtr> *src, SwrContext *swr,
+                              int64_t &silence_counter, std::deque<float> *fifo,
+                              bool &did_work);
+    void mix_audio(std::deque<float> *sys_fifo, std::deque<float> *mic_fifo,
+                   std::deque<float> *audio_fifo, int64_t &audio_frames_received,
+                   int64_t &audio_clock, bool &did_work);
+    void process_video_frame(SwsContext *&sws_ctx, AVFrame *yuv_frame,
+                             AVFormatContext *fmt_ctx, AVPacket *pkt,
+                             AVCodecContext *video_enc_ctx, AVStream *video_stream,
+                             int64_t &video_pts, bool has_audio,
+                             AVCodecContext *audio_enc_ctx, int64_t audio_clock,
+                             int &last_capture_w, int &last_capture_h, bool &did_work);
+    void encode_audio_frames(AVFrame *audio_frame, std::deque<float> *audio_fifo,
+                             int audio_frame_size, AVFormatContext *fmt_ctx, AVPacket *pkt,
+                             AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
+                             int64_t &audio_pts, int64_t &audio_frames_encoded, bool &did_work);
+
     void drain_and_finalize(AVFormatContext *fmt_ctx, AVPacket *pkt,
                             AVCodecContext *video_enc_ctx, AVStream *video_stream,
                             AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
@@ -83,13 +101,34 @@ private:
                             std::deque<float> *sys_fifo,
                             std::deque<float> *mic_fifo,
                             int64_t &video_pts, int64_t &audio_pts,
-                            int &audio_frames_encoded,
+                            int64_t &audio_frames_encoded,
                             int &last_capture_w, int &last_capture_h);
+    void drain_video_frames(SwsContext *&sws_ctx, AVFrame *yuv_frame,
+                            AVFormatContext *fmt_ctx, AVPacket *pkt,
+                            AVCodecContext *video_enc_ctx, AVStream *video_stream,
+                            int64_t &video_pts, int &last_capture_w, int &last_capture_h);
+    void flush_resamplers_and_mix_residual(SwrContext *sys_swr, SwrContext *mic_swr,
+                                           std::deque<float> *sys_fifo, std::deque<float> *mic_fifo,
+                                           std::deque<float> *audio_fifo, bool has_audio);
+    void drain_audio_fifo_residual(AVFrame *audio_frame, std::deque<float> *audio_fifo,
+                                   int audio_frame_size, AVFormatContext *fmt_ctx,
+                                   AVPacket *pkt, AVCodecContext *audio_enc_ctx,
+                                   AVStream *audio_stream, int64_t &audio_pts,
+                                   int64_t &audio_frames_encoded, bool has_audio);
+    void flush_encoders_and_trailer(AVFormatContext *fmt_ctx, AVPacket *pkt,
+                                    AVCodecContext *video_enc_ctx, AVStream *video_stream,
+                                    AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
+                                    bool has_audio);
+    void cleanup_resources(AVFormatContext *&fmt_ctx, AVPacket *&pkt,
+                           AVFrame *&yuv_frame, AVFrame *&audio_frame,
+                           SwsContext *&sws_ctx, SwrContext *&sys_swr, SwrContext *&mic_swr,
+                           AVCodecContext *&video_enc_ctx, AVCodecContext *&audio_enc_ctx);
 
     static constexpr int AUDIO_SAMPLE_RATE = 48000;
     static constexpr int AUDIO_CHANNELS = 2;
     static constexpr AVSampleFormat AUDIO_FORMAT = AV_SAMPLE_FMT_FLTP;
     static constexpr int AUDIO_FRAME_SAMPLES = 1024;
+    static constexpr size_t MAX_FIFO_SIZE = 48000 * 10;
 
     std::atomic<bool> m_recording{false};
     std::thread m_encode_thread;

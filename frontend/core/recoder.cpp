@@ -279,6 +279,160 @@ bool Recoder::setup_recording(AVFormatContext *&fmt_ctx,
     return true;
 }
 
+void Recoder::process_audio_source(DataSafeQueue<AVFramePtr> *src, SwrContext *swr,
+                                   int64_t &silence_counter, std::deque<float> *fifo,
+                                   bool &did_work) {
+    while (!src->is_empty()) {
+        auto frame = src->try_pop();
+        if (!frame || !frame.value()) break;
+        did_work = true;
+        silence_counter = 0;
+
+        if (init_audio_swr(swr, frame.value().get(), AUDIO_SAMPLE_RATE)) {
+            AVFramePtr out(av_frame_alloc(), AVFrameDeleter());
+            if (!out) continue;
+            out->sample_rate = 48000;
+            av_channel_layout_default(&out->ch_layout, 2);
+            out->format = AV_SAMPLE_FMT_FLTP;
+            out->nb_samples = av_rescale_rnd(
+                swr_get_delay(swr, frame.value()->sample_rate) + frame.value()->nb_samples,
+                48000, frame.value()->sample_rate, AV_ROUND_UP);
+            if (av_frame_get_buffer(out.get(), 0) < 0) continue;
+
+            int converted = swr_convert(swr, out->data, out->nb_samples,
+                                        (const uint8_t **) frame.value()->data,
+                                        frame.value()->nb_samples);
+            if (converted > 0) {
+                if (fifo[0].size() + converted > MAX_FIFO_SIZE) {
+                    av_log(nullptr, AV_LOG_WARNING, "Audio FIFO overflow, dropping old samples\n");
+                    size_t drop = fifo[0].size() + converted - MAX_FIFO_SIZE;
+                    for (int ch = 0; ch < 2; ch++) {
+                        fifo[ch].erase(fifo[ch].begin(), fifo[ch].begin() + drop);
+                    }
+                }
+
+                float *d0 = (float *) out->data[0];
+                float *d1 = (float *) out->data[1];
+                for (int i = 0; i < converted; ++i) {
+                    fifo[0].push_back(d0[i] * 0.7f);
+                    fifo[1].push_back(d1[i] * 0.7f);
+                }
+            }
+        }
+    }
+}
+
+void Recoder::mix_audio(std::deque<float> *sys_fifo, std::deque<float> *mic_fifo,
+                        std::deque<float> *audio_fifo, int64_t &audio_frames_received,
+                        int64_t &audio_clock, bool &did_work) {
+    size_t mix_length = 0;
+    if (!sys_fifo[0].empty() && !mic_fifo[0].empty()) {
+        mix_length = std::min(sys_fifo[0].size(), mic_fifo[0].size());
+    } else if (!sys_fifo[0].empty()) {
+        mix_length = sys_fifo[0].size();
+        for (size_t i = 0; i < mix_length; i++) {
+            mic_fifo[0].push_back(0.0f);
+            mic_fifo[1].push_back(0.0f);
+        }
+    } else if (!mic_fifo[0].empty()) {
+        mix_length = mic_fifo[0].size();
+        for (size_t i = 0; i < mix_length; i++) {
+            sys_fifo[0].push_back(0.0f);
+            sys_fifo[1].push_back(0.0f);
+        }
+    }
+
+    if (mix_length > 0) {
+        did_work = true;
+        for (size_t i = 0; i < mix_length; i++) {
+            float mix_l = sys_fifo[0][i] + mic_fifo[0][i];
+            float mix_r = sys_fifo[1][i] + mic_fifo[1][i];
+            mix_l = tanhf(mix_l * 1.5f) / 1.5f;
+            mix_r = tanhf(mix_r * 1.5f) / 1.5f;
+            audio_fifo[0].push_back(mix_l);
+            audio_fifo[1].push_back(mix_r);
+        }
+
+        for (int ch = 0; ch < 2; ch++) {
+            sys_fifo[ch].erase(sys_fifo[ch].begin(), sys_fifo[ch].begin() + mix_length);
+            mic_fifo[ch].erase(mic_fifo[ch].begin(), mic_fifo[ch].begin() + mix_length);
+        }
+
+        audio_frames_received += mix_length;
+    }
+
+    audio_clock += mix_length;
+}
+
+void Recoder::process_video_frame(SwsContext *&sws_ctx, AVFrame *yuv_frame,
+                                  AVFormatContext *fmt_ctx, AVPacket *pkt,
+                                  AVCodecContext *video_enc_ctx, AVStream *video_stream,
+                                  int64_t &video_pts, bool has_audio,
+                                  AVCodecContext *audio_enc_ctx, int64_t audio_clock,
+                                  int &last_capture_w, int &last_capture_h,
+                                  bool &did_work) {
+    auto video_data = m_video_queue ? m_video_queue->try_pop() : std::nullopt;
+    if (!video_data) return;
+    did_work = true;
+
+    int cap_w = video_data->width;
+    int cap_h = video_data->height;
+
+    if (!sws_ctx || cap_w != last_capture_w || cap_h != last_capture_h) {
+        if (sws_ctx) sws_freeContext(sws_ctx);
+        sws_ctx = sws_getContext(cap_w, cap_h, AV_PIX_FMT_BGRA,
+                                 m_canvas_w, m_canvas_h, AV_PIX_FMT_YUV420P,
+                                 SWS_BILINEAR, nullptr, nullptr, nullptr);
+        last_capture_w = cap_w;
+        last_capture_h = cap_h;
+        if (!sws_ctx) {
+            av_log(nullptr, AV_LOG_ERROR, "sws_getContext failed\n");
+            return;
+        }
+    }
+
+    uint8_t *src_slice[1] = {video_data->data.data()};
+    int src_stride[1] = {video_data->stride};
+    sws_scale(sws_ctx, src_slice, src_stride, 0, cap_h,
+              yuv_frame->data, yuv_frame->linesize);
+
+    if (has_audio && audio_enc_ctx) {
+        video_pts = audio_clock * m_fps / AUDIO_SAMPLE_RATE;
+    } else {
+        video_pts++;
+    }
+
+    encode_video_frame(fmt_ctx, pkt, video_enc_ctx, video_stream, yuv_frame, video_pts);
+}
+
+void Recoder::encode_audio_frames(AVFrame *audio_frame, std::deque<float> *audio_fifo,
+                                  int audio_frame_size, AVFormatContext *fmt_ctx, AVPacket *pkt,
+                                  AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
+                                  int64_t &audio_pts, int64_t &audio_frames_encoded,
+                                  bool &did_work) {
+    if (!audio_frame) return;
+    while ((int) audio_fifo[0].size() >= audio_frame_size) {
+        did_work = true;
+        int take = audio_frame_size;
+        float *dst0 = (float *) audio_frame->data[0];
+        float *dst1 = (float *) audio_frame->data[1];
+
+        for (int j = 0; j < take; ++j) {
+            dst0[j] = audio_fifo[0][j];
+            dst1[j] = audio_fifo[1][j];
+        }
+
+        if (encode_audio_frame(fmt_ctx, pkt, audio_enc_ctx, audio_stream, audio_frame, audio_pts)) {
+            audio_pts += take;
+            audio_fifo[0].erase(audio_fifo[0].begin(), audio_fifo[0].begin() + take);
+            audio_fifo[1].erase(audio_fifo[1].begin(), audio_fifo[1].begin() + take);
+            audio_frames_encoded++;
+        } else {
+            break;
+        }
+    }
+}
+
 void Recoder::main_encode_loop(AVFormatContext *fmt_ctx, AVPacket *pkt,
                                AVCodecContext *video_enc_ctx, AVStream *video_stream,
                                AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
@@ -289,201 +443,28 @@ void Recoder::main_encode_loop(AVFormatContext *fmt_ctx, AVPacket *pkt,
                                std::deque<float> *sys_fifo,
                                std::deque<float> *mic_fifo,
                                int64_t &audio_clock, int64_t &video_pts, int64_t &audio_pts,
-                               int &audio_frames_received, int &audio_frames_encoded,
+                               int64_t &audio_frames_received, int64_t &audio_frames_encoded,
                                int64_t &sys_silence_samples, int64_t &mic_silence_samples,
                                int &last_capture_w, int &last_capture_h) {
-    static const size_t MAX_FIFO_SIZE = 48000 * 10;
-
     while (m_recording.load()) {
         bool did_work = false;
 
-        // --- 处理系统音频 ---
         if (has_audio && m_system_audio_src) {
-            while (!m_system_audio_src->is_empty()) {
-                auto sys_frame = m_system_audio_src->try_pop();
-                if (!sys_frame || !sys_frame.value()) break;
-                did_work = true;
-                sys_silence_samples = 0;
-
-                if (init_audio_swr(sys_swr, sys_frame.value().get(), AUDIO_SAMPLE_RATE)) {
-                    AVFramePtr out(av_frame_alloc(), AVFrameDeleter());
-                    if (!out) continue;
-                    out->sample_rate = 48000;
-                    av_channel_layout_default(&out->ch_layout, 2);
-                    out->format = AV_SAMPLE_FMT_FLTP;
-                    out->nb_samples = av_rescale_rnd(
-                        swr_get_delay(sys_swr, sys_frame.value()->sample_rate) + sys_frame.value()->nb_samples,
-                        48000, sys_frame.value()->sample_rate, AV_ROUND_UP);
-                    if (av_frame_get_buffer(out.get(), 0) < 0) continue;
-
-                    int converted = swr_convert(sys_swr, out->data, out->nb_samples,
-                                                (const uint8_t **) sys_frame.value()->data,
-                                                sys_frame.value()->nb_samples);
-                    if (converted > 0) {
-                        if (sys_fifo[0].size() + converted > MAX_FIFO_SIZE) {
-                            av_log(nullptr, AV_LOG_WARNING, "System audio FIFO overflow, dropping old samples\n");
-                            size_t drop = sys_fifo[0].size() + converted - MAX_FIFO_SIZE;
-                            for (int ch = 0; ch < 2; ch++) {
-                                sys_fifo[ch].erase(sys_fifo[ch].begin(),
-                                                   sys_fifo[ch].begin() + drop);
-                            }
-                        }
-
-                        float *d0 = (float *) out->data[0];
-                        float *d1 = (float *) out->data[1];
-                        for (int i = 0; i < converted; ++i) {
-                            sys_fifo[0].push_back(d0[i] * 0.7f);
-                            sys_fifo[1].push_back(d1[i] * 0.7f);
-                        }
-                    }
-                }
-            }
+            process_audio_source(m_system_audio_src, sys_swr, sys_silence_samples, sys_fifo, did_work);
         }
 
-        // --- 处理麦克风音频 ---
         if (has_audio && m_mic_audio_src) {
-            while (!m_mic_audio_src->is_empty()) {
-                auto mic_frame = m_mic_audio_src->try_pop();
-                if (!mic_frame || !mic_frame.value()) break;
-                did_work = true;
-                mic_silence_samples = 0;
-
-                if (init_audio_swr(mic_swr, mic_frame.value().get(), AUDIO_SAMPLE_RATE)) {
-                    AVFramePtr out(av_frame_alloc(), AVFrameDeleter());
-                    if (!out) continue;
-                    out->sample_rate = 48000;
-                    av_channel_layout_default(&out->ch_layout, 2);
-                    out->format = AV_SAMPLE_FMT_FLTP;
-                    out->nb_samples = av_rescale_rnd(
-                        swr_get_delay(mic_swr, mic_frame.value()->sample_rate) + mic_frame.value()->nb_samples,
-                        48000, mic_frame.value()->sample_rate, AV_ROUND_UP);
-                    if (av_frame_get_buffer(out.get(), 0) < 0) continue;
-
-                    int converted = swr_convert(mic_swr, out->data, out->nb_samples,
-                                                (const uint8_t **) mic_frame.value()->data,
-                                                mic_frame.value()->nb_samples);
-                    if (converted > 0) {
-                        if (mic_fifo[0].size() + converted > MAX_FIFO_SIZE) {
-                            av_log(nullptr, AV_LOG_WARNING, "Mic audio FIFO overflow, dropping old samples\n");
-                            size_t drop = mic_fifo[0].size() + converted - MAX_FIFO_SIZE;
-                            for (int ch = 0; ch < 2; ch++) {
-                                mic_fifo[ch].erase(mic_fifo[ch].begin(),
-                                                   mic_fifo[ch].begin() + drop);
-                            }
-                        }
-
-                        float *d0 = (float *) out->data[0];
-                        float *d1 = (float *) out->data[1];
-                        for (int i = 0; i < converted; ++i) {
-                            mic_fifo[0].push_back(d0[i] * 0.7f);
-                            mic_fifo[1].push_back(d1[i] * 0.7f);
-                        }
-                    }
-                }
-            }
+            process_audio_source(m_mic_audio_src, mic_swr, mic_silence_samples, mic_fifo, did_work);
         }
 
-        // --- 智能混合 ---
-        size_t mix_length = 0;
-        if (has_audio) {
-            if (!sys_fifo[0].empty() && !mic_fifo[0].empty()) {
-                mix_length = std::min(sys_fifo[0].size(), mic_fifo[0].size());
-            } else if (!sys_fifo[0].empty()) {
-                mix_length = sys_fifo[0].size();
-                for (size_t i = 0; i < mix_length; i++) {
-                    mic_fifo[0].push_back(0.0f);
-                    mic_fifo[1].push_back(0.0f);
-                }
-            } else if (!mic_fifo[0].empty()) {
-                mix_length = mic_fifo[0].size();
-                for (size_t i = 0; i < mix_length; i++) {
-                    sys_fifo[0].push_back(0.0f);
-                    sys_fifo[1].push_back(0.0f);
-                }
-            }
+        mix_audio(sys_fifo, mic_fifo, audio_fifo, audio_frames_received, audio_clock, did_work);
 
-            if (mix_length > 0) {
-                did_work = true;
-                for (size_t i = 0; i < mix_length; i++) {
-                    float mix_l = sys_fifo[0][i] + mic_fifo[0][i];
-                    float mix_r = sys_fifo[1][i] + mic_fifo[1][i];
-                    mix_l = tanhf(mix_l * 1.5f) / 1.5f;
-                    mix_r = tanhf(mix_r * 1.5f) / 1.5f;
-                    audio_fifo[0].push_back(mix_l);
-                    audio_fifo[1].push_back(mix_r);
-                }
+        process_video_frame(sws_ctx, yuv_frame, fmt_ctx, pkt, video_enc_ctx, video_stream,
+                            video_pts, has_audio, audio_enc_ctx, audio_clock,
+                            last_capture_w, last_capture_h, did_work);
 
-                for (int ch = 0; ch < 2; ch++) {
-                    sys_fifo[ch].erase(sys_fifo[ch].begin(),
-                                       sys_fifo[ch].begin() + mix_length);
-                    mic_fifo[ch].erase(mic_fifo[ch].begin(),
-                                       mic_fifo[ch].begin() + mix_length);
-                }
-
-                audio_frames_received += mix_length;
-            }
-
-            audio_clock += mix_length;
-        }
-
-        // --- 处理视频 ---
-        auto video_data = m_video_queue ? m_video_queue->try_pop() : std::nullopt;
-        if (video_data) {
-            did_work = true;
-
-            int cap_w = video_data->width;
-            int cap_h = video_data->height;
-
-            if (!sws_ctx || cap_w != last_capture_w || cap_h != last_capture_h) {
-                if (sws_ctx) sws_freeContext(sws_ctx);
-                sws_ctx = sws_getContext(cap_w, cap_h, AV_PIX_FMT_BGRA,
-                                         m_canvas_w, m_canvas_h, AV_PIX_FMT_YUV420P,
-                                         SWS_BILINEAR, nullptr, nullptr, nullptr);
-                last_capture_w = cap_w;
-                last_capture_h = cap_h;
-                if (!sws_ctx) {
-                    av_log(nullptr, AV_LOG_ERROR, "sws_getContext failed\n");
-                    continue;
-                }
-            }
-
-            uint8_t *src_slice[1] = {video_data->data.data()};
-            int src_stride[1] = {video_data->stride};
-            sws_scale(sws_ctx, src_slice, src_stride, 0, cap_h,
-                      yuv_frame->data, yuv_frame->linesize);
-
-            if (has_audio && audio_enc_ctx) {
-                video_pts = audio_clock * m_fps / AUDIO_SAMPLE_RATE;
-            } else {
-                video_pts++;
-            }
-
-            encode_video_frame(fmt_ctx, pkt, video_enc_ctx, video_stream, yuv_frame, video_pts);
-        }
-
-        // --- 编码音频帧 ---
-        if (has_audio && audio_frame) {
-            while ((int) audio_fifo[0].size() >= audio_frame_size) {
-                did_work = true;
-                int take = audio_frame_size;
-                float *dst0 = (float *) audio_frame->data[0];
-                float *dst1 = (float *) audio_frame->data[1];
-
-                for (int j = 0; j < take; ++j) {
-                    dst0[j] = audio_fifo[0][j];
-                    dst1[j] = audio_fifo[1][j];
-                }
-
-                if (encode_audio_frame(fmt_ctx, pkt, audio_enc_ctx, audio_stream, audio_frame, audio_pts)) {
-                    audio_pts += take;
-                    audio_fifo[0].erase(audio_fifo[0].begin(), audio_fifo[0].begin() + take);
-                    audio_fifo[1].erase(audio_fifo[1].begin(), audio_fifo[1].begin() + take);
-                    audio_frames_encoded++;
-                } else {
-                    break;
-                }
-            }
-        }
+        encode_audio_frames(audio_frame, audio_fifo, audio_frame_size, fmt_ctx, pkt,
+                            audio_enc_ctx, audio_stream, audio_pts, audio_frames_encoded, did_work);
 
         static int iter_counter = 0;
         if (++iter_counter % 150 == 0) {
@@ -500,19 +481,10 @@ void Recoder::main_encode_loop(AVFormatContext *fmt_ctx, AVPacket *pkt,
     }
 }
 
-void Recoder::drain_and_finalize(AVFormatContext *fmt_ctx, AVPacket *pkt,
+void Recoder::drain_video_frames(SwsContext *&sws_ctx, AVFrame *yuv_frame,
+                                 AVFormatContext *fmt_ctx, AVPacket *pkt,
                                  AVCodecContext *video_enc_ctx, AVStream *video_stream,
-                                 AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
-                                 SwsContext *&sws_ctx, SwrContext *sys_swr, SwrContext *mic_swr,
-                                 AVFrame *yuv_frame, AVFrame *audio_frame,
-                                 bool has_audio, int audio_frame_size,
-                                 std::deque<float> *audio_fifo,
-                                 std::deque<float> *sys_fifo,
-                                 std::deque<float> *mic_fifo,
-                                 int64_t &video_pts, int64_t &audio_pts,
-                                 int &audio_frames_encoded,
-                                 int &last_capture_w, int &last_capture_h) {
-    // ========== Drain remaining video frames ==========
+                                 int64_t &video_pts, int &last_capture_w, int &last_capture_h) {
     while (m_video_queue && !m_video_queue->is_empty()) {
         auto video_data = m_video_queue->try_pop();
         if (!video_data) break;
@@ -537,94 +509,106 @@ void Recoder::drain_and_finalize(AVFormatContext *fmt_ctx, AVPacket *pkt,
         encode_video_frame(fmt_ctx, pkt, video_enc_ctx, video_stream, yuv_frame, video_pts);
         video_pts++;
     }
+}
 
-    // ========== Flush SWR residual samples ==========
-    if (has_audio) {
-        auto flush_swr = [&](SwrContext *swr, std::deque<float> *fifo) {
-            if (!swr) return;
-            AVFramePtr flush_frame(av_frame_alloc(), AVFrameDeleter());
-            if (!flush_frame) return;
-            flush_frame->sample_rate = AUDIO_SAMPLE_RATE;
-            av_channel_layout_default(&flush_frame->ch_layout, AUDIO_CHANNELS);
-            flush_frame->format = AUDIO_FORMAT;
-            int delay_samples = swr_get_delay(swr, AUDIO_SAMPLE_RATE);
-            if (delay_samples <= 0) return;
-            flush_frame->nb_samples = delay_samples;
-            if (av_frame_get_buffer(flush_frame.get(), 0) < 0) return;
-            int converted = swr_convert(swr, flush_frame->data, flush_frame->nb_samples, nullptr, 0);
-            if (converted > 0) {
-                float *d0 = (float *) flush_frame->data[0];
-                float *d1 = (float *) flush_frame->data[1];
-                for (int i = 0; i < converted; ++i) {
-                    fifo[0].push_back(d0[i]);
-                    fifo[1].push_back(d1[i]);
-                }
+void Recoder::flush_resamplers_and_mix_residual(SwrContext *sys_swr, SwrContext *mic_swr,
+                                                std::deque<float> *sys_fifo, std::deque<float> *mic_fifo,
+                                                std::deque<float> *audio_fifo, bool has_audio) {
+    if (!has_audio) return;
+
+    auto flush_swr = [&](SwrContext *swr, std::deque<float> *fifo) {
+        if (!swr) return;
+        AVFramePtr flush_frame(av_frame_alloc(), AVFrameDeleter());
+        if (!flush_frame) return;
+        flush_frame->sample_rate = AUDIO_SAMPLE_RATE;
+        av_channel_layout_default(&flush_frame->ch_layout, AUDIO_CHANNELS);
+        flush_frame->format = AUDIO_FORMAT;
+        int delay_samples = swr_get_delay(swr, AUDIO_SAMPLE_RATE);
+        if (delay_samples <= 0) return;
+        flush_frame->nb_samples = delay_samples;
+        if (av_frame_get_buffer(flush_frame.get(), 0) < 0) return;
+        int converted = swr_convert(swr, flush_frame->data, flush_frame->nb_samples, nullptr, 0);
+        if (converted > 0) {
+            float *d0 = (float *) flush_frame->data[0];
+            float *d1 = (float *) flush_frame->data[1];
+            for (int i = 0; i < converted; ++i) {
+                fifo[0].push_back(d0[i]);
+                fifo[1].push_back(d1[i]);
             }
-        };
-
-        flush_swr(sys_swr, sys_fifo);
-        flush_swr(mic_swr, mic_fifo);
-
-        while (!sys_fifo[0].empty() || !mic_fifo[0].empty()) {
-            size_t max_len = std::max(sys_fifo[0].size(), mic_fifo[0].size());
-            while (sys_fifo[0].size() < max_len) {
-                sys_fifo[0].push_back(0.0f);
-                sys_fifo[1].push_back(0.0f);
-            }
-            while (mic_fifo[0].size() < max_len) {
-                mic_fifo[0].push_back(0.0f);
-                mic_fifo[1].push_back(0.0f);
-            }
-
-            for (size_t i = 0; i < max_len; i++) {
-                float mix_l = sys_fifo[0][i] + mic_fifo[0][i];
-                float mix_r = sys_fifo[1][i] + mic_fifo[1][i];
-                mix_l = tanhf(mix_l * 1.5f) / 1.5f;
-                mix_r = tanhf(mix_r * 1.5f) / 1.5f;
-                audio_fifo[0].push_back(mix_l);
-                audio_fifo[1].push_back(mix_r);
-            }
-
-            sys_fifo[0].clear();
-            sys_fifo[1].clear();
-            mic_fifo[0].clear();
-            mic_fifo[1].clear();
         }
-    }
+    };
 
-    // ========== Drain remaining FIFO audio after SWR flush ==========
-    if (has_audio && audio_frame && !audio_fifo[0].empty()) {
-        while (!audio_fifo[0].empty()) {
-            int remaining = (int) audio_fifo[0].size();
-            int take = std::min(remaining, audio_frame_size);
+    flush_swr(sys_swr, sys_fifo);
+    flush_swr(mic_swr, mic_fifo);
 
-            float *dst0 = (float *) audio_frame->data[0];
-            float *dst1 = (float *) audio_frame->data[1];
-
-            for (int j = 0; j < take; ++j) {
-                dst0[j] = audio_fifo[0][j];
-                dst1[j] = audio_fifo[1][j];
-            }
-
-            for (int j = take; j < audio_frame_size; ++j) {
-                dst0[j] = 0.0f;
-                dst1[j] = 0.0f;
-            }
-
-            if (encode_audio_frame(fmt_ctx, pkt, audio_enc_ctx, audio_stream, audio_frame, audio_pts)) {
-                audio_pts += take;
-                audio_fifo[0].erase(audio_fifo[0].begin(),
-                                    audio_fifo[0].begin() + std::min(take, (int) audio_fifo[0].size()));
-                audio_fifo[1].erase(audio_fifo[1].begin(),
-                                    audio_fifo[1].begin() + std::min(take, (int) audio_fifo[1].size()));
-                audio_frames_encoded++;
-            }
-
-            if (take < audio_frame_size) break;
+    while (!sys_fifo[0].empty() || !mic_fifo[0].empty()) {
+        size_t max_len = std::max(sys_fifo[0].size(), mic_fifo[0].size());
+        while (sys_fifo[0].size() < max_len) {
+            sys_fifo[0].push_back(0.0f);
+            sys_fifo[1].push_back(0.0f);
         }
-    }
+        while (mic_fifo[0].size() < max_len) {
+            mic_fifo[0].push_back(0.0f);
+            mic_fifo[1].push_back(0.0f);
+        }
 
-    // ========== Flush encoders ==========
+        for (size_t i = 0; i < max_len; i++) {
+            float mix_l = sys_fifo[0][i] + mic_fifo[0][i];
+            float mix_r = sys_fifo[1][i] + mic_fifo[1][i];
+            mix_l = tanhf(mix_l * 1.5f) / 1.5f;
+            mix_r = tanhf(mix_r * 1.5f) / 1.5f;
+            audio_fifo[0].push_back(mix_l);
+            audio_fifo[1].push_back(mix_r);
+        }
+
+        sys_fifo[0].clear();
+        sys_fifo[1].clear();
+        mic_fifo[0].clear();
+        mic_fifo[1].clear();
+    }
+}
+
+void Recoder::drain_audio_fifo_residual(AVFrame *audio_frame, std::deque<float> *audio_fifo,
+                                        int audio_frame_size, AVFormatContext *fmt_ctx,
+                                        AVPacket *pkt, AVCodecContext *audio_enc_ctx,
+                                        AVStream *audio_stream, int64_t &audio_pts,
+                                        int64_t &audio_frames_encoded, bool has_audio) {
+    if (!has_audio || !audio_frame || audio_fifo[0].empty()) return;
+
+    while (!audio_fifo[0].empty()) {
+        int remaining = (int) audio_fifo[0].size();
+        int take = std::min(remaining, audio_frame_size);
+
+        float *dst0 = (float *) audio_frame->data[0];
+        float *dst1 = (float *) audio_frame->data[1];
+
+        for (int j = 0; j < take; ++j) {
+            dst0[j] = audio_fifo[0][j];
+            dst1[j] = audio_fifo[1][j];
+        }
+
+        for (int j = take; j < audio_frame_size; ++j) {
+            dst0[j] = 0.0f;
+            dst1[j] = 0.0f;
+        }
+
+        if (encode_audio_frame(fmt_ctx, pkt, audio_enc_ctx, audio_stream, audio_frame, audio_pts)) {
+            audio_pts += take;
+            audio_fifo[0].erase(audio_fifo[0].begin(),
+                                audio_fifo[0].begin() + std::min(take, (int) audio_fifo[0].size()));
+            audio_fifo[1].erase(audio_fifo[1].begin(),
+                                audio_fifo[1].begin() + std::min(take, (int) audio_fifo[1].size()));
+            audio_frames_encoded++;
+        }
+
+        if (take < audio_frame_size) break;
+    }
+}
+
+void Recoder::flush_encoders_and_trailer(AVFormatContext *fmt_ctx, AVPacket *pkt,
+                                         AVCodecContext *video_enc_ctx, AVStream *video_stream,
+                                         AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
+                                         bool has_audio) {
     avcodec_send_frame(video_enc_ctx, nullptr);
     while (avcodec_receive_packet(video_enc_ctx, pkt) == 0) {
         av_packet_rescale_ts(pkt, video_enc_ctx->time_base, video_stream->time_base);
@@ -650,6 +634,30 @@ void Recoder::drain_and_finalize(AVFormatContext *fmt_ctx, AVPacket *pkt,
     av_write_trailer(fmt_ctx);
 }
 
+void Recoder::drain_and_finalize(AVFormatContext *fmt_ctx, AVPacket *pkt,
+                                 AVCodecContext *video_enc_ctx, AVStream *video_stream,
+                                 AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
+                                 SwsContext *&sws_ctx, SwrContext *sys_swr, SwrContext *mic_swr,
+                                 AVFrame *yuv_frame, AVFrame *audio_frame,
+                                 bool has_audio, int audio_frame_size,
+                                 std::deque<float> *audio_fifo,
+                                 std::deque<float> *sys_fifo,
+                                 std::deque<float> *mic_fifo,
+                                 int64_t &video_pts, int64_t &audio_pts,
+                                 int64_t &audio_frames_encoded,
+                                 int &last_capture_w, int &last_capture_h) {
+    drain_video_frames(sws_ctx, yuv_frame, fmt_ctx, pkt, video_enc_ctx, video_stream,
+                       video_pts, last_capture_w, last_capture_h);
+
+    flush_resamplers_and_mix_residual(sys_swr, mic_swr, sys_fifo, mic_fifo, audio_fifo, has_audio);
+
+    drain_audio_fifo_residual(audio_frame, audio_fifo, audio_frame_size, fmt_ctx, pkt,
+                              audio_enc_ctx, audio_stream, audio_pts, audio_frames_encoded, has_audio);
+
+    flush_encoders_and_trailer(fmt_ctx, pkt, video_enc_ctx, video_stream,
+                               audio_enc_ctx, audio_stream, has_audio);
+}
+
 void Recoder::encoding_loop() {
     AVFormatContext *fmt_ctx = nullptr;
     AVCodecContext *video_enc_ctx = nullptr;
@@ -669,7 +677,7 @@ void Recoder::encoding_loop() {
     int last_capture_h = m_canvas_h;
     int audio_frame_size = AUDIO_FRAME_SAMPLES;
     int64_t audio_clock = 0, video_pts = 0, audio_pts = 0;
-    int audio_frames_received = 0, audio_frames_encoded = 0;
+    int64_t audio_frames_received = 0, audio_frames_encoded = 0;
     int64_t sys_silence_samples = 0, mic_silence_samples = 0;
     std::deque<float> audio_fifo[2], sys_fifo[2], mic_fifo[2];
 
@@ -704,6 +712,17 @@ void Recoder::encoding_loop() {
     if (!success)
         av_log(nullptr, AV_LOG_ERROR, "recording failed\n");
 
+    cleanup_resources(fmt_ctx, pkt, yuv_frame, audio_frame,
+                      sws_ctx, sys_swr, mic_swr,
+                      video_enc_ctx, audio_enc_ctx);
+
+    if (m_video_queue) m_video_queue->clean_queue();
+}
+
+void Recoder::cleanup_resources(AVFormatContext *&fmt_ctx, AVPacket *&pkt,
+                                AVFrame *&yuv_frame, AVFrame *&audio_frame,
+                                SwsContext *&sws_ctx, SwrContext *&sys_swr, SwrContext *&mic_swr,
+                                AVCodecContext *&video_enc_ctx, AVCodecContext *&audio_enc_ctx) {
     av_packet_free(&pkt);
     av_frame_free(&yuv_frame);
     av_frame_free(&audio_frame);
@@ -716,6 +735,4 @@ void Recoder::encoding_loop() {
         if (fmt_ctx->pb) avio_close(fmt_ctx->pb);
         avformat_free_context(fmt_ctx);
     }
-
-    if (m_video_queue) m_video_queue->clean_queue();
 }
