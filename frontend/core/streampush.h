@@ -1,0 +1,22 @@
+#ifndef OBSIM_STREAMPUSH_H
+#define OBSIM_STREAMPUSH_H
+
+#include "recoder.h"
+
+class StreamPush : public Recoder {
+public:
+    StreamPush() = default;
+
+    void start(const QString &rtmp_url, int canvas_w, int canvas_h, int fps = 30,
+               DataSafeQueue<AVFramePtr> *system_audio_src = nullptr,
+               DataSafeQueue<AVFramePtr> *mic_audio_src = nullptr) override;
+
+protected:
+    AVFormatContext* create_format_context() override;
+    bool open_io(AVFormatContext *fmt_ctx) override;
+
+private:
+    QString m_rtmp_url;
+};
+
+#endif
