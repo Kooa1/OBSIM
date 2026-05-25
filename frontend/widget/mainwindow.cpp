@@ -48,6 +48,17 @@ void MainWindow::connect_audio_signals() {
     connect(m_audio_manager.get(), &AudioManager::levels_updated,
             control_bar, &ControlBar::update_audio_levels);
 
+    connect(control_bar->audio_mixer(), &AudioMixerBlock::track_volume_changed,
+            this, [this](const QString &name, float volume) {
+        if (name == "桌面音频") {
+            m_recoder->set_system_volume(volume);
+            m_stream_push->set_system_volume(volume);
+        } else if (name == "麦克风") {
+            m_recoder->set_mic_volume(volume);
+            m_stream_push->set_mic_volume(volume);
+        }
+    });
+
 }
 
 void MainWindow::connect_recorder_signals() {
@@ -74,7 +85,7 @@ void MainWindow::on_recording_started(const QString &output_path) {
     m_audio_manager->enable_recording();
 
     // 启动录制器
-    m_recoder->start(file_path,
+    m_recoder->start(file_path.toStdString(),
                      static_cast<int>(ScenePreviewWidget::CANVAS_W),
                      static_cast<int>(ScenePreviewWidget::CANVAS_H),
                      30,
@@ -109,7 +120,7 @@ void MainWindow::on_streaming_started(const QString &rtmp_url) {
 
     m_audio_manager->enable_recording();
 
-    m_stream_push->start(rtmp_url,
+    m_stream_push->start(rtmp_url.toStdString(),
                          static_cast<int>(ScenePreviewWidget::CANVAS_W),
                          static_cast<int>(ScenePreviewWidget::CANVAS_H),
                          30,

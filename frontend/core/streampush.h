@@ -12,16 +12,17 @@ class StreamPush : public Recoder {
 public:
     StreamPush() = default;
 
-    void start(const QString &rtmp_url, int canvas_w, int canvas_h, int fps = 30,
+    void start(const std::string &rtmp_url, int canvas_w, int canvas_h, int fps = 30,
                DataSafeQueue<AVFramePtr> *system_audio_src = nullptr,
                DataSafeQueue<AVFramePtr> *mic_audio_src = nullptr) override;
 
 protected:
     AVFormatOutputContextPtr create_format_context() override;
+
     bool open_io(AVFormatOutputContextPtr &fmt_ctx) override;
 
 private:
-    QString m_rtmp_url;
+    std::string m_rtmp_url;
 };
 
 #endif

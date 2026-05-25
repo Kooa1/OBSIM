@@ -6,7 +6,7 @@ Recoder::~Recoder() {
     stop();
 }
 
-void Recoder::start(const QString &output_path, int canvas_w, int canvas_h, int fps,
+void Recoder::start(const std::string &output_path, int canvas_w, int canvas_h, int fps,
                         DataSafeQueue<AVFramePtr> *system_audio_src,
                         DataSafeQueue<AVFramePtr> *mic_audio_src) {
     // 必须先更新音频队列指针，再调 stop()，否则 stop() 会访问已销毁的旧队列
@@ -317,12 +317,12 @@ void Recoder::process_system_audio() {
                         m_sys_fifo[ch].erase(m_sys_fifo[ch].begin(), m_sys_fifo[ch].begin() + drop);
                     }
                 }
-
                 float *d0 = (float *) out->data[0];
                 float *d1 = (float *) out->data[1];
+                float sys_vol = m_system_volume.load();
                 for (int i = 0; i < converted; ++i) {
-                    m_sys_fifo[0].push_back(d0[i] * 0.7f);
-                    m_sys_fifo[1].push_back(d1[i] * 0.7f);
+                    m_sys_fifo[0].push_back(d0[i] * sys_vol);
+                    m_sys_fifo[1].push_back(d1[i] * sys_vol);
                 }
             }
         }
@@ -361,9 +361,10 @@ void Recoder::process_mic_audio() {
 
                 float *d0 = (float *) out->data[0];
                 float *d1 = (float *) out->data[1];
+                float mic_vol = m_mic_volume.load();
                 for (int i = 0; i < converted; ++i) {
-                    m_mic_fifo[0].push_back(d0[i] * 0.7f);
-                    m_mic_fifo[1].push_back(d1[i] * 0.7f);
+                    m_mic_fifo[0].push_back(d0[i] * mic_vol);
+                    m_mic_fifo[1].push_back(d1[i] * mic_vol);
                 }
             }
         }

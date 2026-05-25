@@ -7,8 +7,6 @@
 #include <vector>
 #include <deque>
 
-#include <QString>
-
 #include "../utils/ffmpegfactory.h"
 #include "../utils/datasafequeue.h"
 #include "../utils/av_err2str_cxx.h"
@@ -34,41 +32,59 @@ struct VideoFrame {
 class Recoder {
 public:
     Recoder();
+
     virtual ~Recoder();
 
-    virtual void start(const QString &output_path, int canvas_w, int canvas_h, int fps = 30,
-               DataSafeQueue<AVFramePtr> *system_audio_src = nullptr,
-               DataSafeQueue<AVFramePtr> *mic_audio_src = nullptr);
+    virtual void start(const std::string &output_path, int canvas_w, int canvas_h, int fps = 30,
+                       DataSafeQueue<AVFramePtr> *system_audio_src = nullptr,
+                       DataSafeQueue<AVFramePtr> *mic_audio_src = nullptr);
+
     void stop();
+
     bool is_recording() const { return m_recording.load(); }
+
+    void set_system_volume(float vol) { m_system_volume.store(vol); }
+    void set_mic_volume(float vol) { m_mic_volume.store(vol); }
 
     void feed_frame(const uint8_t *data, int stride, int capture_w, int capture_h);
 
 protected:
     virtual AVFormatOutputContextPtr create_format_context() = 0;
+
     virtual bool open_io(AVFormatOutputContextPtr &fmt_ctx) = 0;
 
 private:
     void encoding_loop();
 
     bool init_audio_swr(SwrContextPtr &swr, const AVFrame *frame);
+
     void encode_video_frame(int64_t pts);
+
     bool encode_audio_frame();
 
     bool init_contexts();
+
     void main_encode_loop();
 
     void process_system_audio();
+
     void process_mic_audio();
+
     void mix_audio_streams();
+
     void process_video_frame();
+
     void encode_audio_frames_from_fifo();
 
     void drain_video_frames();
+
     void drain_audio_residual();
+
     void flush_encoders_and_write_trailer();
+
     void reset_state();
 
+private:
     static constexpr int AUDIO_SAMPLE_RATE = 48000;
     static constexpr int AUDIO_CHANNELS = 2;
     static constexpr AVSampleFormat AUDIO_FORMAT = AV_SAMPLE_FMT_FLTP;
@@ -77,7 +93,7 @@ private:
 
     std::atomic<bool> m_recording{false};
     std::thread m_encode_thread;
-    std::unique_ptr<DataSafeQueue<VideoFrame>> m_video_queue;
+    std::unique_ptr<DataSafeQueue<VideoFrame> > m_video_queue;
 
     DataSafeQueue<AVFramePtr> *m_system_audio_src = nullptr;
     DataSafeQueue<AVFramePtr> *m_mic_audio_src = nullptr;
@@ -114,6 +130,9 @@ private:
     std::deque<float> m_audio_fifo[2];
     std::deque<float> m_sys_fifo[2];
     std::deque<float> m_mic_fifo[2];
+
+    std::atomic<float> m_system_volume{0.7f};
+    std::atomic<float> m_mic_volume{0.7f};
 };
 
 #endif

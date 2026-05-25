@@ -7,7 +7,7 @@ class FileRecoder : public Recoder {
 public:
     FileRecoder() = default;
 
-    void start(const QString &output_path, int canvas_w, int canvas_h, int fps = 30,
+    void start(const std::string &output_path, int canvas_w, int canvas_h, int fps = 30,
                DataSafeQueue<AVFramePtr> *system_audio_src = nullptr,
                DataSafeQueue<AVFramePtr> *mic_audio_src = nullptr) override;
 
@@ -16,7 +16,7 @@ protected:
     bool open_io(AVFormatOutputContextPtr &fmt_ctx) override;
 
 private:
-    QString m_output_path;
+    std::string m_output_path;
 };
 
 #endif

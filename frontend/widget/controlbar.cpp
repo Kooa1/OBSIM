@@ -3,7 +3,7 @@
 // ==================== 场景控制块 ====================
 
 SceneControlBlock::SceneControlBlock(QWidget *parent)
-        : ControlBlock("场景", parent) {
+    : ControlBlock("场景", parent) {
     m_scene_list = new QListWidget();
     m_scene_list->setAlternatingRowColors(true);
 
@@ -28,7 +28,7 @@ SceneControlBlock::SceneControlBlock(QWidget *parent)
 // ==================== 输入源控制块 ====================
 
 SourceControlBlock::SourceControlBlock(QWidget *parent)
-        : ControlBlock("输入源", parent) {
+    : ControlBlock("输入源", parent) {
     m_source_list = new QListWidget();
     m_source_list->setAlternatingRowColors(true);
 
@@ -93,7 +93,7 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
                 if (name.isEmpty() || content.isEmpty()) return;
                 emit text_source_requested(content, text_dialog.selected_font(),
                                            text_dialog.selected_color(), name);
-                m_source_list->insertItem(0,name + " (" + type + ")");
+                m_source_list->insertItem(0, name + " (" + type + ")");
             }
             return;
         }
@@ -105,7 +105,7 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
                 QString path = img_dialog.file_path();
                 if (name.isEmpty() || path.isEmpty()) return;
                 emit image_source_requested(path, name);
-                m_source_list->insertItem(0,name + " (" + type + ")");
+                m_source_list->insertItem(0, name + " (" + type + ")");
             }
             return;
         }
@@ -136,14 +136,14 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
                     config.width = displays[idx].geometry.width();
                     config.height = displays[idx].geometry.height();
                     emit display_capture_requested(config, name);
-                    m_source_list->insertItem(0,name + " (" + type + ")");
+                    m_source_list->insertItem(0, name + " (" + type + ")");
                 }
             } else {
                 int idx = name_dialog.selected_camera_index();
                 if (idx >= 0 && idx < cameras.size()) {
                     emit camera_capture_requested(
                         QString::fromStdString(cameras[idx].name), name);
-                    m_source_list->insertItem(0,name + " (" + type + ")");
+                    m_source_list->insertItem(0, name + " (" + type + ")");
                 }
                 // idx < 0 表示用户未选择有效摄像头，不创建采集源
             }
@@ -155,15 +155,15 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
 // ==================== 混音控制块 ====================
 
 AudioMixerBlock::AudioMixerBlock(QWidget *parent)
-        : ControlBlock("混音器", parent) {
+    : ControlBlock("混音器", parent) {
     m_tracks_layout = new QVBoxLayout();
     m_tracks_layout->setSpacing(6);
     m_content_layout->addLayout(m_tracks_layout);
     m_content_layout->addStretch();
 
     // 默认添加几条音轨
-    add_track("桌面音频", 0.8f);
-    add_track("麦克风", 0.6f);
+    add_track("桌面音频", 0.3f);
+    add_track("麦克风", 0.3f);
 }
 
 AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString &name, float volume) {
@@ -200,16 +200,16 @@ AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString 
 
     // 动态颜色样式：低电平绿色，中电平黄色，高电平红色
     tw.level_meter->setStyleSheet(
-            "QProgressBar {"
-            "  background-color: #2a2a2a;"
-            "  border: 1px solid #555;"
-            "  border-radius: 2px;"
-            "}"
-            "QProgressBar::chunk {"
-            "  background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
-            "    stop:0 #4CAF50, stop:0.6 #FFEB3B, stop:0.85 #FF9800, stop:1 #F44336);"
-            "  border-radius: 1px;"
-            "}"
+        "QProgressBar {"
+        "  background-color: #2a2a2a;"
+        "  border: 1px solid #555;"
+        "  border-radius: 2px;"
+        "}"
+        "QProgressBar::chunk {"
+        "  background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
+        "    stop:0 #4CAF50, stop:0.6 #FFEB3B, stop:0.85 #FF9800, stop:1 #F44336);"
+        "  border-radius: 1px;"
+        "}"
     );
 
     layout->addLayout(top_row);
@@ -269,7 +269,7 @@ void AudioMixerBlock::update_track_level(const QString &name, float level) {
 // ==================== 直播录制块 ====================
 
 StreamRecordBlock::StreamRecordBlock(QWidget *parent)
-        : ControlBlock("直播 / 录制", parent) {
+    : ControlBlock("直播 / 录制", parent) {
     m_btn_start_stream = new QPushButton("🔴 开始直播");
     m_btn_start_record = new QPushButton("⏺ 开始录制");
     m_btn_settings = new QPushButton("⚙ 设置");
@@ -333,7 +333,7 @@ StreamRecordBlock::StreamRecordBlock(QWidget *parent)
 // ==================== 文字源配置对话框 ====================
 
 TextSourceDialog::TextSourceDialog(QWidget *parent)
-        : QDialog(parent), m_color(Qt::white) {
+    : QDialog(parent), m_color(Qt::white) {
     setWindowTitle("添加文字源");
     setMinimumWidth(420);
 
@@ -380,7 +380,7 @@ TextSourceDialog::TextSourceDialog(QWidget *parent)
     m_color_btn->setMinimumWidth(60);
     m_color_btn->setStyleSheet(
         QString("background-color: %1; border: 1px solid #888; border-radius: 3px;")
-            .arg(m_color.name()));
+        .arg(m_color.name()));
     color_layout->addWidget(m_color_btn);
     right_grid->addLayout(color_layout);
 
@@ -406,7 +406,7 @@ TextSourceDialog::TextSourceDialog(QWidget *parent)
             m_color = c;
             m_color_btn->setStyleSheet(
                 QString("background-color: %1; border: 1px solid #888;")
-                    .arg(m_color.name()));
+                .arg(m_color.name()));
         }
     });
 
@@ -439,7 +439,7 @@ QColor TextSourceDialog::selected_color() const {
 // ==================== 图片源配置对话框 ====================
 
 ImageSourceDialog::ImageSourceDialog(QWidget *parent)
-        : QDialog(parent) {
+    : QDialog(parent) {
     setWindowTitle("添加图片源");
     setMinimumWidth(420);
 
@@ -466,8 +466,8 @@ ImageSourceDialog::ImageSourceDialog(QWidget *parent)
 
     connect(browse_btn, &QPushButton::clicked, this, [this]() {
         QString path = QFileDialog::getOpenFileName(this, "选择图片",
-                                                     QString(),
-                                                     "图片文件 (*.png *.jpg *.jpeg *.bmp *.gif *.webp)");
+                                                    QString(),
+                                                    "图片文件 (*.png *.jpg *.jpeg *.bmp *.gif *.webp)");
         if (!path.isEmpty()) {
             m_path_edit->setText(path);
         }
@@ -505,7 +505,7 @@ QString ImageSourceDialog::file_path() const {
 // ==================== 输入源类型选择对话框 ====================
 
 SourceTypeDialog::SourceTypeDialog(QWidget *parent)
-        : QDialog(parent) {
+    : QDialog(parent) {
     setWindowTitle("选择输入源类型");
     setMinimumWidth(280);
 
@@ -549,7 +549,7 @@ SourceTypeDialog::SourceTypeDialog(QWidget *parent)
 SourceNameDialog::SourceNameDialog(const QVector<DisplayInfo> &displays,
                                    const QVector<CameraInfo> &cameras,
                                    bool is_camera_type, QWidget *parent)
-        : QDialog(parent) {
+    : QDialog(parent) {
     setWindowTitle("输入源名称");
     setMinimumWidth(350);
 
