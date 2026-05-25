@@ -60,7 +60,7 @@ void Recoder::feed_frame(const uint8_t *data, int stride, int capture_w, int cap
     m_video_queue->push_no_wait(std::move(frame));
 }
 
-bool Recoder::init_audio_swr(SwrContextPtr &swr, const AVFrame *frame, int out_sample_rate) {
+bool Recoder::init_audio_swr(SwrContextPtr &swr, const AVFrame *frame) {
     if (swr) return true;
 
     AVChannelLayout out_ch_layout;
@@ -68,82 +68,75 @@ bool Recoder::init_audio_swr(SwrContextPtr &swr, const AVFrame *frame, int out_s
 
     SwrContext *raw = nullptr;
     int ret = swr_alloc_set_opts2(&raw,
-                                  &out_ch_layout, AUDIO_FORMAT, out_sample_rate,
+                                  &out_ch_layout, AUDIO_FORMAT, AUDIO_SAMPLE_RATE,
                                   &frame->ch_layout, static_cast<AVSampleFormat>(frame->format), frame->sample_rate,
                                   0, nullptr);
+    SwrContextPtr tmp(raw);
     if (ret < 0 || !raw) {
         av_log(nullptr, AV_LOG_ERROR, "swr_alloc_set_opts2 failed: %s\n", av_error_cxx(ret).c_str());
         return false;
     }
 
-    if (swr_init(raw) < 0) {
+    if (swr_init(tmp.get()) < 0) {
         av_log(nullptr, AV_LOG_ERROR, "swr_init failed\n");
-        swr_free(&raw);
         return false;
     }
 
-    swr.reset(raw);
+    swr = std::move(tmp);
     return true;
 }
 
-void Recoder::encode_video_frame(AVFormatContext *fmt_ctx, AVPacket *pkt,
-                                     AVCodecContext *video_enc_ctx, AVStream *video_stream,
-                                     AVFrame *yuv_frame, int64_t pts) {
-    if (!pkt) return;
-    yuv_frame->pts = pts;
-    int ret = avcodec_send_frame(video_enc_ctx, yuv_frame);
+void Recoder::encode_video_frame(int64_t pts) {
+    if (!m_pkt) return;
+    m_yuv_frame->pts = pts;
+    int ret = avcodec_send_frame(m_video_enc_ctx.get(), m_yuv_frame.get());
     while (ret == AVERROR(EAGAIN)) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        ret = avcodec_send_frame(video_enc_ctx, yuv_frame);
+        ret = avcodec_send_frame(m_video_enc_ctx.get(), m_yuv_frame.get());
     }
     if (ret < 0) {
         av_log(nullptr, AV_LOG_ERROR, "video avcodec_send_frame failed: %s\n", av_error_cxx(ret).c_str());
         return;
     }
-    while (avcodec_receive_packet(video_enc_ctx, pkt) == 0) {
-        av_packet_rescale_ts(pkt, video_enc_ctx->time_base, video_stream->time_base);
-        pkt->stream_index = video_stream->index;
-        if (av_interleaved_write_frame(fmt_ctx, pkt) < 0) {
+    while (avcodec_receive_packet(m_video_enc_ctx.get(), m_pkt.get()) == 0) {
+        av_packet_rescale_ts(m_pkt.get(), m_video_enc_ctx->time_base, m_video_stream->time_base);
+        m_pkt->stream_index = m_video_stream->index;
+        if (av_interleaved_write_frame(m_fmt_ctx.get(), m_pkt.get()) < 0) {
             av_log(nullptr, AV_LOG_ERROR, "video av_interleaved_write_frame failed\n");
         }
-        av_packet_unref(pkt);
+        av_packet_unref(m_pkt.get());
     }
 }
 
-bool Recoder::encode_audio_frame(AVFormatContext *fmt_ctx, AVPacket *pkt,
-                                     AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
-                                     AVFrame *audio_frame, int64_t &audio_pts) {
-    if (!pkt) return false;
-    audio_frame->pts = audio_pts;
-    int ret = avcodec_send_frame(audio_enc_ctx, audio_frame);
+bool Recoder::encode_audio_frame() {
+    if (!m_pkt) return false;
+    m_audio_frame->pts = m_audio_pts;
+    int ret = avcodec_send_frame(m_audio_enc_ctx.get(), m_audio_frame.get());
     while (ret == AVERROR(EAGAIN)) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        ret = avcodec_send_frame(audio_enc_ctx, audio_frame);
+        ret = avcodec_send_frame(m_audio_enc_ctx.get(), m_audio_frame.get());
     }
     if (ret < 0) {
         av_log(nullptr, AV_LOG_ERROR, "audio avcodec_send_frame failed: %s\n", av_error_cxx(ret).c_str());
         return false;
     }
-    while (avcodec_receive_packet(audio_enc_ctx, pkt) == 0) {
-        av_packet_rescale_ts(pkt, audio_enc_ctx->time_base, audio_stream->time_base);
-        pkt->stream_index = audio_stream->index;
-        if (av_interleaved_write_frame(fmt_ctx, pkt) < 0) {
+    while (avcodec_receive_packet(m_audio_enc_ctx.get(), m_pkt.get()) == 0) {
+        av_packet_rescale_ts(m_pkt.get(), m_audio_enc_ctx->time_base, m_audio_stream->time_base);
+        m_pkt->stream_index = m_audio_stream->index;
+        if (av_interleaved_write_frame(m_fmt_ctx.get(), m_pkt.get()) < 0) {
             av_log(nullptr, AV_LOG_ERROR, "audio av_interleaved_write_frame failed\n");
         }
-        av_packet_unref(pkt);
+        av_packet_unref(m_pkt.get());
     }
     return true;
 }
 
 bool Recoder::init_contexts() {
-    AVFormatContext *raw_fmt = create_format_context();
-    if (!raw_fmt) {
+    m_fmt_ctx = create_format_context();
+    if (!m_fmt_ctx) {
         av_log(nullptr, AV_LOG_ERROR, "alloc output context failed\n");
         return false;
     }
-    m_fmt_ctx.reset(raw_fmt);
-
-    AVFormatContext *fmt_ctx = m_fmt_ctx.get();
 
     const AVCodec *vcodec = avcodec_find_encoder_by_name("libx264");
     if (!vcodec) vcodec = avcodec_find_encoder(AV_CODEC_ID_MPEG4);
@@ -152,34 +145,33 @@ bool Recoder::init_contexts() {
         return false;
     }
 
-    AVCodecContext *video_raw = avcodec_alloc_context3(vcodec);
-    if (!video_raw) return false;
-    video_raw->width = m_canvas_w;
-    video_raw->height = m_canvas_h;
-    video_raw->time_base = AVRational{1, m_fps};
-    video_raw->framerate = AVRational{m_fps, 1};
-    video_raw->pix_fmt = AV_PIX_FMT_YUV420P;
-    video_raw->bit_rate = 10'000'000;
-    video_raw->gop_size = m_fps * 2;
-    video_raw->max_b_frames = 0;
-    if (fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
-        video_raw->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+    AVCodecContextPtr video_ctx(avcodec_alloc_context3(vcodec));
+    if (!video_ctx) return false;
+    video_ctx->width = m_canvas_w;
+    video_ctx->height = m_canvas_h;
+    video_ctx->time_base = AVRational{1, m_fps};
+    video_ctx->framerate = AVRational{m_fps, 1};
+    video_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
+    video_ctx->bit_rate = 10'000'000;
+    video_ctx->gop_size = m_fps * 2;
+    video_ctx->max_b_frames = 0;
+    if (m_fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
+        video_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
     {
         AVDictionary *opts = nullptr;
         av_dict_set(&opts, "preset", "veryfast", 0);
         av_dict_set(&opts, "crf", "23", 0);
         av_dict_set(&opts, "tune", "zerolatency", 0);
-        int ret = avcodec_open2(video_raw, vcodec, &opts);
+        int ret = avcodec_open2(video_ctx.get(), vcodec, &opts);
         av_dict_free(&opts);
         if (ret < 0) {
             av_log(nullptr, AV_LOG_ERROR, "open video encoder failed: %s\n", av_error_cxx(ret).c_str());
-            avcodec_free_context(&video_raw);
             return false;
         }
     }
-    m_video_enc_ctx.reset(video_raw);
+    m_video_enc_ctx = std::move(video_ctx);
 
-    m_video_stream = avformat_new_stream(fmt_ctx, nullptr);
+    m_video_stream = avformat_new_stream(m_fmt_ctx.get(), nullptr);
     if (!m_video_stream) return false;
     m_video_stream->time_base = m_video_enc_ctx->time_base;
     m_video_stream->id = 0;
@@ -205,31 +197,30 @@ bool Recoder::init_contexts() {
             av_log(nullptr, AV_LOG_WARNING, "no audio encoder found, recording without audio\n");
             m_has_audio = false;
         } else {
-            AVCodecContext *audio_raw = avcodec_alloc_context3(acodec);
-            if (!audio_raw) return false;
-            audio_raw->sample_rate = AUDIO_SAMPLE_RATE;
-            av_channel_layout_default(&audio_raw->ch_layout, AUDIO_CHANNELS);
-            audio_raw->sample_fmt = acodec->sample_fmts ? acodec->sample_fmts[0] : AV_SAMPLE_FMT_FLTP;
-            audio_raw->bit_rate = 128'000;
-            audio_raw->time_base = AVRational{1, AUDIO_SAMPLE_RATE};
-            if (fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
-                audio_raw->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+            AVCodecContextPtr audio_ctx(avcodec_alloc_context3(acodec));
+            if (!audio_ctx) return false;
+            audio_ctx->sample_rate = AUDIO_SAMPLE_RATE;
+            av_channel_layout_default(&audio_ctx->ch_layout, AUDIO_CHANNELS);
+            audio_ctx->sample_fmt = acodec->sample_fmts ? acodec->sample_fmts[0] : AV_SAMPLE_FMT_FLTP;
+            audio_ctx->bit_rate = 128'000;
+            audio_ctx->time_base = AVRational{1, AUDIO_SAMPLE_RATE};
+            if (m_fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
+                audio_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
             AVDictionary *aopts = nullptr;
             av_dict_set(&aopts, "strict", "experimental", 0);
-            int a_ret = avcodec_open2(audio_raw, acodec, &aopts);
+            int a_ret = avcodec_open2(audio_ctx.get(), acodec, &aopts);
             av_dict_free(&aopts);
             if (a_ret < 0) {
                 av_log(nullptr, AV_LOG_ERROR, "open audio encoder failed: %s\n", av_error_cxx(a_ret).c_str());
-                avcodec_free_context(&audio_raw);
                 m_has_audio = false;
             } else {
-                m_audio_enc_ctx.reset(audio_raw);
+                m_audio_enc_ctx = std::move(audio_ctx);
             }
         }
 
         if (m_audio_enc_ctx) {
-            m_audio_stream = avformat_new_stream(fmt_ctx, nullptr);
+            m_audio_stream = avformat_new_stream(m_fmt_ctx.get(), nullptr);
             if (!m_audio_stream) return false;
             m_audio_stream->time_base = m_audio_enc_ctx->time_base;
             m_audio_stream->id = 1;
@@ -241,47 +232,40 @@ bool Recoder::init_contexts() {
         }
     }
 
-    if (!open_io(fmt_ctx)) {
+    if (!open_io(m_fmt_ctx)) {
         av_log(nullptr, AV_LOG_ERROR, "open output io failed\n");
         return false;
     }
 
-    if (avformat_write_header(fmt_ctx, nullptr) < 0) {
+    if (avformat_write_header(m_fmt_ctx.get(), nullptr) < 0) {
         av_log(nullptr, AV_LOG_ERROR, "write header failed\n");
         return false;
     }
 
-    AVFrame *yuv_raw = av_frame_alloc();
-    if (!yuv_raw) return false;
-    yuv_raw->width = m_canvas_w;
-    yuv_raw->height = m_canvas_h;
-    yuv_raw->format = AV_PIX_FMT_YUV420P;
-    if (av_frame_get_buffer(yuv_raw, 0) < 0) {
-        av_frame_free(&yuv_raw);
-        return false;
-    }
-    m_yuv_frame.reset(yuv_raw, AVFrameDeleter());
+    AVFramePtr yuv_frame(av_frame_alloc(), AVFrameDeleter());
+    if (!yuv_frame) return false;
+    yuv_frame->width = m_canvas_w;
+    yuv_frame->height = m_canvas_h;
+    yuv_frame->format = AV_PIX_FMT_YUV420P;
+    if (av_frame_get_buffer(yuv_frame.get(), 0) < 0) return false;
+    m_yuv_frame = std::move(yuv_frame);
 
-    AVPacket *pkt_raw = av_packet_alloc();
-    if (!pkt_raw) return false;
-    m_pkt.reset(pkt_raw, AVPacketDeleter());
+    m_pkt = AVPacketPtr(av_packet_alloc(), AVPacketDeleter());
+    if (!m_pkt) return false;
 
     m_audio_frame_size = AUDIO_FRAME_SAMPLES;
     if (m_audio_enc_ctx && m_audio_enc_ctx->frame_size > 0)
         m_audio_frame_size = m_audio_enc_ctx->frame_size;
 
     if (m_has_audio) {
-        AVFrame *audio_raw = av_frame_alloc();
-        if (!audio_raw) return false;
-        audio_raw->nb_samples = m_audio_frame_size;
-        audio_raw->format = m_audio_enc_ctx->sample_fmt;
-        audio_raw->sample_rate = AUDIO_SAMPLE_RATE;
-        av_channel_layout_default(&audio_raw->ch_layout, AUDIO_CHANNELS);
-        if (av_frame_get_buffer(audio_raw, 0) < 0) {
-            av_frame_free(&audio_raw);
-        } else {
-            m_audio_frame.reset(audio_raw, AVFrameDeleter());
-        }
+        AVFramePtr audio_frame(av_frame_alloc(), AVFrameDeleter());
+        if (!audio_frame) return false;
+        audio_frame->nb_samples = m_audio_frame_size;
+        audio_frame->format = m_audio_enc_ctx->sample_fmt;
+        audio_frame->sample_rate = AUDIO_SAMPLE_RATE;
+        av_channel_layout_default(&audio_frame->ch_layout, AUDIO_CHANNELS);
+        if (av_frame_get_buffer(audio_frame.get(), 0) < 0) return false;
+        m_audio_frame = std::move(audio_frame);
     }
 
     m_last_capture_w = m_canvas_w;
@@ -311,7 +295,7 @@ void Recoder::process_system_audio() {
 
         m_sys_silence_samples = 0;
 
-        if (init_audio_swr(m_sys_swr, frame.value().get(), AUDIO_SAMPLE_RATE)) {
+        if (init_audio_swr(m_sys_swr, frame.value().get())) {
             AVFramePtr out(av_frame_alloc(), AVFrameDeleter());
             if (!out) continue;
             out->sample_rate = 48000;
@@ -352,7 +336,7 @@ void Recoder::process_mic_audio() {
 
         m_mic_silence_samples = 0;
 
-        if (init_audio_swr(m_mic_swr, frame.value().get(), AUDIO_SAMPLE_RATE)) {
+        if (init_audio_swr(m_mic_swr, frame.value().get())) {
             AVFramePtr out(av_frame_alloc(), AVFrameDeleter());
             if (!out) continue;
             out->sample_rate = 48000;
@@ -455,9 +439,7 @@ void Recoder::process_video_frame() {
         m_video_pts++;
     }
 
-    encode_video_frame(m_fmt_ctx.get(), m_pkt.get(),
-                       m_video_enc_ctx.get(), m_video_stream,
-                       m_yuv_frame.get(), m_video_pts);
+    encode_video_frame(m_video_pts);
 }
 
 void Recoder::encode_audio_frames_from_fifo() {
@@ -472,9 +454,7 @@ void Recoder::encode_audio_frames_from_fifo() {
             dst1[j] = m_audio_fifo[1][j];
         }
 
-        if (encode_audio_frame(m_fmt_ctx.get(), m_pkt.get(),
-                               m_audio_enc_ctx.get(), m_audio_stream,
-                               m_audio_frame.get(), m_audio_pts)) {
+        if (encode_audio_frame()) {
             m_audio_pts += take;
             m_audio_fifo[0].erase(m_audio_fifo[0].begin(), m_audio_fifo[0].begin() + take);
             m_audio_fifo[1].erase(m_audio_fifo[1].begin(), m_audio_fifo[1].begin() + take);
@@ -556,9 +536,7 @@ void Recoder::drain_video_frames() {
         sws_scale(m_sws_ctx.get(), src_slice, src_stride, 0, cap_h,
                   m_yuv_frame->data, m_yuv_frame->linesize);
 
-        encode_video_frame(m_fmt_ctx.get(), m_pkt.get(),
-                           m_video_enc_ctx.get(), m_video_stream,
-                           m_yuv_frame.get(), m_video_pts);
+        encode_video_frame(m_video_pts);
         m_video_pts++;
     }
 }
@@ -567,18 +545,17 @@ void Recoder::drain_audio_residual() {
     if (!m_has_audio) return;
 
     auto flush_swr = [&](SwrContextPtr &swr, std::deque<float> *fifo) {
-        SwrContext *raw = swr.get();
-        if (!raw) return;
+        if (!swr) return;
         AVFramePtr flush_frame(av_frame_alloc(), AVFrameDeleter());
         if (!flush_frame) return;
         flush_frame->sample_rate = AUDIO_SAMPLE_RATE;
         av_channel_layout_default(&flush_frame->ch_layout, AUDIO_CHANNELS);
         flush_frame->format = AUDIO_FORMAT;
-        int delay_samples = swr_get_delay(raw, AUDIO_SAMPLE_RATE);
+        int delay_samples = swr_get_delay(swr.get(), AUDIO_SAMPLE_RATE);
         if (delay_samples <= 0) return;
         flush_frame->nb_samples = delay_samples;
         if (av_frame_get_buffer(flush_frame.get(), 0) < 0) return;
-        int converted = swr_convert(raw, flush_frame->data, flush_frame->nb_samples, nullptr, 0);
+        int converted = swr_convert(swr.get(), flush_frame->data, flush_frame->nb_samples, nullptr, 0);
         if (converted > 0) {
             float *d0 = (float *) flush_frame->data[0];
             float *d1 = (float *) flush_frame->data[1];
@@ -636,9 +613,7 @@ void Recoder::drain_audio_residual() {
                 dst1[j] = 0.0f;
             }
 
-            if (encode_audio_frame(m_fmt_ctx.get(), m_pkt.get(),
-                                   m_audio_enc_ctx.get(), m_audio_stream,
-                                   m_audio_frame.get(), m_audio_pts)) {
+            if (encode_audio_frame()) {
                 m_audio_pts += take;
                 m_audio_fifo[0].erase(m_audio_fifo[0].begin(),
                                       m_audio_fifo[0].begin() + std::min(take, (int) m_audio_fifo[0].size()));
@@ -653,32 +628,29 @@ void Recoder::drain_audio_residual() {
 }
 
 void Recoder::flush_encoders_and_write_trailer() {
-    AVFormatContext *fmt_ctx = m_fmt_ctx.get();
-    AVPacket *pkt = m_pkt.get();
-
     avcodec_send_frame(m_video_enc_ctx.get(), nullptr);
-    while (avcodec_receive_packet(m_video_enc_ctx.get(), pkt) == 0) {
-        av_packet_rescale_ts(pkt, m_video_enc_ctx->time_base, m_video_stream->time_base);
-        pkt->stream_index = m_video_stream->index;
-        if (av_interleaved_write_frame(fmt_ctx, pkt) < 0) {
+    while (avcodec_receive_packet(m_video_enc_ctx.get(), m_pkt.get()) == 0) {
+        av_packet_rescale_ts(m_pkt.get(), m_video_enc_ctx->time_base, m_video_stream->time_base);
+        m_pkt->stream_index = m_video_stream->index;
+        if (av_interleaved_write_frame(m_fmt_ctx.get(), m_pkt.get()) < 0) {
             av_log(nullptr, AV_LOG_ERROR, "video flush av_interleaved_write_frame failed\n");
         }
-        av_packet_unref(pkt);
+        av_packet_unref(m_pkt.get());
     }
 
     if (m_has_audio && m_audio_enc_ctx) {
         avcodec_send_frame(m_audio_enc_ctx.get(), nullptr);
-        while (avcodec_receive_packet(m_audio_enc_ctx.get(), pkt) == 0) {
-            av_packet_rescale_ts(pkt, m_audio_enc_ctx->time_base, m_audio_stream->time_base);
-            pkt->stream_index = m_audio_stream->index;
-            if (av_interleaved_write_frame(fmt_ctx, pkt) < 0) {
+        while (avcodec_receive_packet(m_audio_enc_ctx.get(), m_pkt.get()) == 0) {
+            av_packet_rescale_ts(m_pkt.get(), m_audio_enc_ctx->time_base, m_audio_stream->time_base);
+            m_pkt->stream_index = m_audio_stream->index;
+            if (av_interleaved_write_frame(m_fmt_ctx.get(), m_pkt.get()) < 0) {
                 av_log(nullptr, AV_LOG_ERROR, "audio flush av_interleaved_write_frame failed\n");
             }
-            av_packet_unref(pkt);
+            av_packet_unref(m_pkt.get());
         }
     }
 
-    av_write_trailer(fmt_ctx);
+    av_write_trailer(m_fmt_ctx.get());
 }
 
 void Recoder::reset_state() {

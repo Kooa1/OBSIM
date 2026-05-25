@@ -7,7 +7,7 @@ void StreamPush::start(const QString &rtmp_url, int canvas_w, int canvas_h, int 
     Recoder::start(rtmp_url, canvas_w, canvas_h, fps, system_audio_src, mic_audio_src);
 }
 
-AVFormatContext* StreamPush::create_format_context() {
+AVFormatOutputContextPtr StreamPush::create_format_context() {
     AVFormatContext *ctx = nullptr;
     int ret = avformat_alloc_output_context2(&ctx, nullptr, "flv",
                                              m_rtmp_url.toUtf8().constData());
@@ -15,10 +15,10 @@ AVFormatContext* StreamPush::create_format_context() {
         av_log(nullptr, AV_LOG_ERROR, "streampush: alloc flv output context failed: %s\n",
                av_error_cxx(ret).c_str());
     }
-    return ctx;
+    return AVFormatOutputContextPtr(ctx);
 }
 
-bool StreamPush::open_io(AVFormatContext *fmt_ctx) {
+bool StreamPush::open_io(AVFormatOutputContextPtr &fmt_ctx) {
     QByteArray url_bytes = m_rtmp_url.toUtf8();
     const char *url = url_bytes.constData();
     av_log(nullptr, AV_LOG_INFO, "streampush: connecting to %s\n", url);

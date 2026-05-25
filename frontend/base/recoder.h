@@ -45,19 +45,15 @@ public:
     void feed_frame(const uint8_t *data, int stride, int capture_w, int capture_h);
 
 protected:
-    virtual AVFormatContext* create_format_context() = 0;
-    virtual bool open_io(AVFormatContext *fmt_ctx) = 0;
+    virtual AVFormatOutputContextPtr create_format_context() = 0;
+    virtual bool open_io(AVFormatOutputContextPtr &fmt_ctx) = 0;
 
 private:
     void encoding_loop();
 
-    bool init_audio_swr(SwrContextPtr &swr, const AVFrame *frame, int out_sample_rate);
-    void encode_video_frame(AVFormatContext *fmt_ctx, AVPacket *pkt,
-                            AVCodecContext *video_enc_ctx, AVStream *video_stream,
-                            AVFrame *yuv_frame, int64_t pts);
-    bool encode_audio_frame(AVFormatContext *fmt_ctx, AVPacket *pkt,
-                            AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
-                            AVFrame *audio_frame, int64_t &audio_pts);
+    bool init_audio_swr(SwrContextPtr &swr, const AVFrame *frame);
+    void encode_video_frame(int64_t pts);
+    bool encode_audio_frame();
 
     bool init_contexts();
     void main_encode_loop();

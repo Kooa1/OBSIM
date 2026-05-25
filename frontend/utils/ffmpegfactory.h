@@ -88,6 +88,12 @@ using AVFramePtr = std::shared_ptr<AVFrame>;
 using AVStreamPtr = std::unique_ptr<AVStream, AVStreamDeleter>;
 using SwrContextPtr = std::unique_ptr<SwrContext, SwrContextDeleter>;
 
+inline AVFormatOutputContextPtr make_output_context(const char *filename, const char *fmt_name = nullptr) {
+    AVFormatContext *ctx = nullptr;
+    avformat_alloc_output_context2(&ctx, nullptr, fmt_name, filename);
+    return AVFormatOutputContextPtr(ctx);
+}
+
 inline AVStreamPtr get_stream_by_index(AVFormatContextPtr *avFormatContext, int stream_index) {
     if (!avFormatContext || stream_index < 0 ||
         stream_index >= static_cast<int>(avFormatContext->get()->nb_streams)) {

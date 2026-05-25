@@ -17,8 +17,8 @@ public:
                DataSafeQueue<AVFramePtr> *mic_audio_src = nullptr) override;
 
 protected:
-    AVFormatContext* create_format_context() override;
-    bool open_io(AVFormatContext *fmt_ctx) override;
+    AVFormatOutputContextPtr create_format_context() override;
+    bool open_io(AVFormatOutputContextPtr &fmt_ctx) override;
 
 private:
     QString m_rtmp_url;
