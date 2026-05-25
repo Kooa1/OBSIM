@@ -1,6 +1,10 @@
 #include "settingsdialog.h"
 #include "utils/configmanager.h"
 
+#include <QFutureWatcher>
+#include <QPointer>
+#include <QDesktopServices>
+
 SettingsDialog::SettingsDialog(QWidget *parent, int initial_page)
     : QDialog(parent) {
     setWindowTitle("设置");
@@ -50,12 +54,16 @@ void SettingsDialog::init_ui() {
     main_layout->addLayout(btn_layout);
 
     connect(ok_btn, &QPushButton::clicked, this, [this]() {
-        QSettings settings = app_settings();
-        settings.beginGroup("General");
-        settings.setValue("output_path", m_output_path_edit->text());
-        settings.setValue("stream_url", m_stream_url_edit->text().trimmed());
-        settings.endGroup();
-        settings.sync();
+        QString output_path = m_output_path_edit->text();
+        QString stream_url = m_stream_url_edit->text().trimmed();
+        AsyncSettings::async_save(
+            [output_path, stream_url](QSettings &settings) {
+                settings.beginGroup("General");
+                settings.setValue("output_path", output_path);
+                settings.setValue("stream_url", stream_url);
+                settings.endGroup();
+            }
+        );
         accept();
     });
     connect(cancel_btn, &QPushButton::clicked, this, &QDialog::reject);
@@ -71,23 +79,37 @@ void SettingsDialog::init_output_page() {
     layout->addWidget(title);
     layout->addSpacing(8);
 
-    auto *path_layout = new QHBoxLayout();
     m_output_path_edit = new QLineEdit();
-
-    QSettings settings = app_settings();
-    QString saved_path = settings.value("General/output_path",
-        QStandardPaths::writableLocation(QStandardPaths::MoviesLocation)).toString();
-    m_output_path_edit->setText(saved_path);
-
     m_output_path_edit->setReadOnly(true);
+    auto *browse_btn = new QPushButton(tr("浏览"));
+    auto *open_btn = new QPushButton(tr("打开"));
 
-    auto *browse_btn = new QPushButton("更改");
-    browse_btn->setFixedWidth(60);
-
-    path_layout->addWidget(m_output_path_edit);
+    auto *path_layout = new QHBoxLayout();
+    path_layout->addWidget(m_output_path_edit, 1);
     path_layout->addWidget(browse_btn);
+    path_layout->addWidget(open_btn);
     layout->addLayout(path_layout);
     layout->addStretch();
+
+    // Async load saved path
+    QFuture<QString> future =
+        AsyncSettings::async_load<QString>([](QSettings &settings) {
+            return settings.value("General/output_path",
+                QStandardPaths::writableLocation(QStandardPaths::MoviesLocation)).toString();
+        });
+
+    auto *watcher = new QFutureWatcher<QString>(this);
+    QPointer<SettingsDialog> guard(this);
+    connect(watcher, &QFutureWatcher<QString>::finished, this,
+            [this, guard, watcher]() {
+        if (!guard) {
+            watcher->deleteLater();
+            return;
+        }
+        m_output_path_edit->setText(watcher->result());
+        watcher->deleteLater();
+    });
+    watcher->setFuture(future);
 
     connect(browse_btn, &QPushButton::clicked, this, [this]() {
         QString dir = QFileDialog::getExistingDirectory(this, "选择录像输出路径",
@@ -95,6 +117,10 @@ void SettingsDialog::init_output_page() {
         if (!dir.isEmpty()) {
             m_output_path_edit->setText(dir);
         }
+    });
+
+    connect(open_btn, &QPushButton::clicked, this, [this]() {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(m_output_path_edit->text()));
     });
 
     m_page_stack->addWidget(page);
@@ -114,11 +140,25 @@ void SettingsDialog::init_streaming_page() {
     auto *url_label = new QLabel("推流地址:");
     m_stream_url_edit = new QLineEdit();
 
-    QSettings settings = app_settings();
-    QString saved_url = settings.value("General/stream_url", "").toString();
-    m_stream_url_edit->setText(saved_url);
-
     m_stream_url_edit->setPlaceholderText("rtmp://localhost/live/stream");
+
+    QFuture<QString> future =
+        AsyncSettings::async_load<QString>([](QSettings &settings) {
+            return settings.value("General/stream_url", "").toString();
+        });
+
+    auto *watcher = new QFutureWatcher<QString>(this);
+    QPointer<SettingsDialog> guard(this);
+    connect(watcher, &QFutureWatcher<QString>::finished, this,
+            [this, guard, watcher]() {
+        if (!guard) {
+            watcher->deleteLater();
+            return;
+        }
+        m_stream_url_edit->setText(watcher->result());
+        watcher->deleteLater();
+    });
+    watcher->setFuture(future);
     url_layout->addWidget(url_label);
     url_layout->addWidget(m_stream_url_edit, 1);
     layout->addLayout(url_layout);

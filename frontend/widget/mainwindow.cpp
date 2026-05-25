@@ -5,6 +5,8 @@
 #include "mainwindow.h"
 
 #include <QStandardPaths>
+#include <QFutureWatcher>
+#include <QPointer>
 
 #include "utils/configmanager.h"
 #include "core/screencapturesource.h"
@@ -155,116 +157,227 @@ void MainWindow::on_streaming_stopped() {
 }
 
 void MainWindow::load_settings() {
-    QSettings settings = app_settings();
-    settings.beginGroup("General");
+    struct GeneralData {
+        QString output_path;
+        QString stream_url;
+    };
 
-    QString output_path = settings.value("output_path",
-        QStandardPaths::writableLocation(QStandardPaths::MoviesLocation)).toString();
-    QString stream_url = settings.value("stream_url", "").toString();
+    QFuture<GeneralData> future =
+        AsyncSettings::async_load<GeneralData>([](QSettings &settings) {
+            GeneralData d;
+            d.output_path = settings.value("General/output_path",
+                QStandardPaths::writableLocation(QStandardPaths::MoviesLocation)).toString();
+            d.stream_url = settings.value("General/stream_url", "").toString();
+            return d;
+        });
 
-    settings.endGroup();
-
-    control_bar->stream_record()->set_output_path(output_path);
-    control_bar->stream_record()->set_stream_url(stream_url);
-
-    qDebug() << "已加载设置: output_path =" << output_path;
+    auto *watcher = new QFutureWatcher<GeneralData>(this);
+    QPointer<MainWindow> guard(this);
+    connect(watcher, &QFutureWatcher<GeneralData>::finished, this,
+            [this, guard, watcher]() {
+        if (!guard) {
+            watcher->deleteLater();
+            return;
+        }
+        auto d = watcher->result();
+        control_bar->stream_record()->set_output_path(d.output_path);
+        control_bar->stream_record()->set_stream_url(d.stream_url);
+        qDebug() << "已加载设置: output_path =" << d.output_path;
+        watcher->deleteLater();
+    });
+    watcher->setFuture(future);
 }
 
+struct SourceSaveData {
+    QString type;
+    QString display_name;
+    float pos_x, pos_y;
+    float scale_x, scale_y;
+    float rotation;
+    bool visible, lock_aspect_ratio;
+    int offset_x, offset_y, capture_width, capture_height;
+    QString text, font_family;
+    int font_size;
+    QString color_name;
+    QString file_path;
+};
+
 void MainWindow::save_sources() {
-    QSettings settings = app_settings();
-    settings.beginGroup("Sources");
     int count = static_cast<int>(scene_preview_widget->source_count());
-    settings.setValue("count", count);
+    if (count == 0) return;
+
+    std::vector<SourceSaveData> data;
+    data.reserve(count);
 
     for (int i = 0; i < count; ++i) {
         Source *src = scene_preview_widget->source_at(i);
-        QString group = QString("Source_%1").arg(i);
-        settings.beginGroup(group);
-
-        settings.setValue("type", QString::fromLatin1(src->source_type_name()));
-        settings.setValue("display_name", src->display_name);
-        settings.setValue("pos_x", src->pos_x);
-        settings.setValue("pos_y", src->pos_y);
-        settings.setValue("scale_x", src->scale_x);
-        settings.setValue("scale_y", src->scale_y);
-        settings.setValue("visible", src->visible);
-        settings.setValue("rotation", src->rotation);
-        settings.setValue("lock_aspect_ratio", src->lock_aspect_ratio);
+        SourceSaveData item;
+        item.type = QString::fromLatin1(src->source_type_name());
+        item.display_name = src->display_name;
+        item.pos_x = src->pos_x;
+        item.pos_y = src->pos_y;
+        item.scale_x = src->scale_x;
+        item.scale_y = src->scale_y;
+        item.visible = src->visible;
+        item.rotation = src->rotation;
+        item.lock_aspect_ratio = src->lock_aspect_ratio;
 
         if (auto *sc = dynamic_cast<ScreenCaptureSource *>(src)) {
             CaptorConfig cfg = sc->captor_config();
-            settings.setValue("offset_x", cfg.offset_x);
-            settings.setValue("offset_y", cfg.offset_y);
-            settings.setValue("capture_width", cfg.width);
-            settings.setValue("capture_height", cfg.height);
+            item.offset_x = cfg.offset_x;
+            item.offset_y = cfg.offset_y;
+            item.capture_width = cfg.width;
+            item.capture_height = cfg.height;
         } else if (auto *ts = dynamic_cast<TextSource *>(src)) {
-            settings.setValue("text", ts->text());
-            settings.setValue("font_family", ts->font().family());
-            settings.setValue("font_size", ts->font().pointSize());
-            settings.setValue("color", ts->color().name());
+            item.text = ts->text();
+            item.font_family = ts->font().family();
+            item.font_size = ts->font().pointSize();
+            item.color_name = ts->color().name();
         } else if (auto *is = dynamic_cast<ImageSource *>(src)) {
-            settings.setValue("file_path", is->file_path());
+            item.file_path = is->file_path();
         }
 
-        settings.endGroup();
+        data.push_back(std::move(item));
     }
-    settings.endGroup();
-    settings.sync();
+
+    AsyncSettings::async_save([data = std::move(data)](QSettings &settings) {
+        settings.beginGroup("Sources");
+        int count = static_cast<int>(data.size());
+        settings.setValue("count", count);
+
+        for (int i = 0; i < count; ++i) {
+            const auto &item = data[i];
+            QString group = QString("Source_%1").arg(i);
+            settings.beginGroup(group);
+
+            settings.setValue("type", item.type);
+            settings.setValue("display_name", item.display_name);
+            settings.setValue("pos_x", item.pos_x);
+            settings.setValue("pos_y", item.pos_y);
+            settings.setValue("scale_x", item.scale_x);
+            settings.setValue("scale_y", item.scale_y);
+            settings.setValue("visible", item.visible);
+            settings.setValue("rotation", item.rotation);
+            settings.setValue("lock_aspect_ratio", item.lock_aspect_ratio);
+
+            if (item.type == "Screen Capture") {
+                settings.setValue("offset_x", item.offset_x);
+                settings.setValue("offset_y", item.offset_y);
+                settings.setValue("capture_width", item.capture_width);
+                settings.setValue("capture_height", item.capture_height);
+            } else if (item.type == "Text") {
+                settings.setValue("text", item.text);
+                settings.setValue("font_family", item.font_family);
+                settings.setValue("font_size", item.font_size);
+                settings.setValue("color", item.color_name);
+            } else if (item.type == "Image") {
+                settings.setValue("file_path", item.file_path);
+            }
+
+            settings.endGroup();
+        }
+        settings.endGroup();
+    });
 }
 
 void MainWindow::load_sources() {
-    QSettings settings = app_settings();
-    settings.beginGroup("Sources");
-    int count = settings.value("count", 0).toInt();
+    QFuture<std::vector<SourceSaveData>> future =
+        AsyncSettings::async_load<std::vector<SourceSaveData>>(
+            [](QSettings &settings) {
+                settings.beginGroup("Sources");
+                int count = settings.value("count", 0).toInt();
+                std::vector<SourceSaveData> data;
+                data.reserve(count);
 
-    for (int i = 0; i < count; ++i) {
-        QString group = QString("Source_%1").arg(i);
-        settings.beginGroup(group);
-        QString type = settings.value("type").toString();
-        QString display_name = settings.value("display_name").toString();
+                for (int i = 0; i < count; ++i) {
+                    QString group = QString("Source_%1").arg(i);
+                    settings.beginGroup(group);
+                    SourceSaveData item;
+                    item.type = settings.value("type").toString();
+                    item.display_name = settings.value("display_name").toString();
+                    item.pos_x = settings.value("pos_x", 0.0f).toFloat();
+                    item.pos_y = settings.value("pos_y", 0.0f).toFloat();
+                    item.scale_x = settings.value("scale_x", 1.0f).toFloat();
+                    item.scale_y = settings.value("scale_y", 1.0f).toFloat();
+                    item.visible = settings.value("visible", true).toBool();
+                    item.rotation = settings.value("rotation", 0.0f).toFloat();
+                    item.lock_aspect_ratio = settings.value("lock_aspect_ratio", false).toBool();
 
-        if (type == "Screen Capture") {
-            CaptorConfig config;
-            config.offset_x = settings.value("offset_x").toInt();
-            config.offset_y = settings.value("offset_y").toInt();
-            config.width = settings.value("capture_width").toInt();
-            config.height = settings.value("capture_height").toInt();
-            scene_preview_widget->add_screen_capture_source(config, display_name);
-        } else if (type == "Camera") {
-            scene_preview_widget->add_camera_capture_source(display_name);
-        } else if (type == "Text") {
-            QString text = settings.value("text").toString();
-            QFont font;
-            font.setFamily(settings.value("font_family", "Arial").toString());
-            font.setPointSize(settings.value("font_size", 48).toInt());
-            QColor color(settings.value("color", "#FFFFFF").toString());
-            scene_preview_widget->add_text_source(text, font, color, display_name);
-        } else if (type == "Image") {
-            QString file_path = settings.value("file_path").toString();
-            scene_preview_widget->add_image_source(file_path, display_name);
+                    if (item.type == "Screen Capture") {
+                        item.offset_x = settings.value("offset_x").toInt();
+                        item.offset_y = settings.value("offset_y").toInt();
+                        item.capture_width = settings.value("capture_width").toInt();
+                        item.capture_height = settings.value("capture_height").toInt();
+                    } else if (item.type == "Text") {
+                        item.text = settings.value("text").toString();
+                        item.font_family = settings.value("font_family", "Arial").toString();
+                        item.font_size = settings.value("font_size", 48).toInt();
+                        item.color_name = settings.value("color", "#FFFFFF").toString();
+                    } else if (item.type == "Image") {
+                        item.file_path = settings.value("file_path").toString();
+                    } else if (item.type == "Camera") {
+                    }
+
+                    data.push_back(std::move(item));
+                    settings.endGroup();
+                }
+                settings.endGroup();
+                return data;
+            }
+        );
+
+    auto *watcher = new QFutureWatcher<std::vector<SourceSaveData>>(this);
+    QPointer<MainWindow> guard(this);
+    connect(watcher, &QFutureWatcher<std::vector<SourceSaveData>>::finished, this,
+            [this, guard, watcher]() {
+        if (!guard) {
+            watcher->deleteLater();
+            return;
+        }
+        auto data = watcher->result();
+
+        for (const auto &item : data) {
+            if (item.type == "Screen Capture") {
+                CaptorConfig config;
+                config.offset_x = item.offset_x;
+                config.offset_y = item.offset_y;
+                config.width = item.capture_width;
+                config.height = item.capture_height;
+                scene_preview_widget->add_screen_capture_source(config, item.display_name);
+            } else if (item.type == "Camera") {
+                scene_preview_widget->add_camera_capture_source(item.display_name);
+            } else if (item.type == "Text") {
+                QFont font;
+                font.setFamily(item.font_family);
+                font.setPointSize(item.font_size);
+                QColor color(item.color_name);
+                scene_preview_widget->add_text_source(item.text, font, color, item.display_name);
+            } else if (item.type == "Image") {
+                scene_preview_widget->add_image_source(item.file_path, item.display_name);
+            }
+
+            Source *src = scene_preview_widget->source_at(
+                scene_preview_widget->source_count() - 1);
+            src->pos_x = item.pos_x;
+            src->pos_y = item.pos_y;
+            src->scale_x = item.scale_x;
+            src->scale_y = item.scale_y;
+            src->visible = item.visible;
+            src->rotation = item.rotation;
+            src->lock_aspect_ratio = item.lock_aspect_ratio;
         }
 
-        // 覆盖几何属性
-        Source *src = scene_preview_widget->source_at(scene_preview_widget->source_count() - 1);
-        src->pos_x = settings.value("pos_x", src->pos_x).toFloat();
-        src->pos_y = settings.value("pos_y", src->pos_y).toFloat();
-        src->scale_x = settings.value("scale_x", src->scale_x).toFloat();
-        src->scale_y = settings.value("scale_y", src->scale_y).toFloat();
-        src->visible = settings.value("visible", src->visible).toBool();
-        src->rotation = settings.value("rotation", src->rotation).toFloat();
-        src->lock_aspect_ratio = settings.value("lock_aspect_ratio", src->lock_aspect_ratio).toBool();
+        // 重建 UI 源列表（从后往前，与 SourceControlBlock 反序索引一致）
+        QListWidget *list = control_bar->source_control()->source_list();
+        list->clear();
+        for (int i = static_cast<int>(scene_preview_widget->source_count()) - 1; i >= 0; --i) {
+            Source *src = scene_preview_widget->source_at(i);
+            list->addItem(src->display_name + " (" + type_display_suffix(src) + ")");
+        }
 
-        settings.endGroup();
-    }
-    settings.endGroup();
-
-    // 重建 UI 源列表（从后往前，与 SourceControlBlock 反序索引一致）
-    QListWidget *list = control_bar->source_control()->source_list();
-    list->clear();
-    for (int i = static_cast<int>(scene_preview_widget->source_count()) - 1; i >= 0; --i) {
-        Source *src = scene_preview_widget->source_at(i);
-        list->addItem(src->display_name + " (" + type_display_suffix(src) + ")");
-    }
+        watcher->deleteLater();
+    });
+    watcher->setFuture(future);
 }
 
 QString MainWindow::type_display_suffix(Source *src) {

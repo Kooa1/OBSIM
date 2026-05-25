@@ -45,6 +45,7 @@ find_package(Qt6 COMPONENTS
         OpenGL
         OpenGLWidgets
         Multimedia
+        Concurrent
         REQUIRED
 )
 
@@ -92,6 +93,7 @@ if (WIN32)
             Qt6::OpenGL
             Qt6::OpenGLWidgets
             Qt6::Multimedia
+            Qt6::Concurrent
             Qt6::Core
             Qt6::Gui
             Qt6::Widgets
@@ -111,6 +113,7 @@ elseif (APPLE)
             Qt6::OpenGL
             Qt6::OpenGLWidgets
             Qt6::Multimedia
+            Qt6::Concurrent
             Qt6::Core
             Qt6::Gui
             Qt6::Widgets
