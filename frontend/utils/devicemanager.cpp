@@ -3,8 +3,6 @@
 //
 
 #include "devicemanager.h"
-#include <QMediaDevices>
-#include <QCameraDevice>
 
 DeviceManager::DeviceManager(QObject *parent) : QObject(parent) {
 }

@@ -4,7 +4,7 @@
 #include <QDebug>
 #include <string>
 
-#include "audiocaptor.h"
+#include "../base/audiocaptor.h"
 
 class MicAudioCaptor : public AudioCaptor {
 public:

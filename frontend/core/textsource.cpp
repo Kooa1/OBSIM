@@ -1,7 +1,4 @@
 #include "textsource.h"
-#include <QImage>
-#include <QPainter>
-#include <QFontMetrics>
 
 TextSource::TextSource()
     : m_text("Text")

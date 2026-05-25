@@ -5,8 +5,8 @@
 
 #include <GL/gl.h>
 
-#include "source.h"
-#include "videocaptor.h"
+#include "../base/source.h"
+#include "../base/videocaptor.h"
 
 class VideoSource : public Source {
 public:

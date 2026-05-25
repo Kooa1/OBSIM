@@ -15,7 +15,7 @@
 #include <QDebug>
 #include <QMetaObject>
 
-#include "audiocaptor.h"
+#include "../base/audiocaptor.h"
 #include "systemaudiocaptor.h"
 #include "micaudiocaptor.h"
 #include "../utils/datasafequeue.h"

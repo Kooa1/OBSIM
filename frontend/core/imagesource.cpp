@@ -1,11 +1,4 @@
 #include "imagesource.h"
-#include "../utils/ffmpegfactory.h"
-
-#include <QFile>
-
-extern "C" {
-#include <libavutil/imgutils.h>
-};
 
 struct MemContext {
     const QByteArray &data;

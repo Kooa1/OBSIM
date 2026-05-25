@@ -1,5 +1,4 @@
 #include "recoder.h"
-#include "../utils/av_err2str_cxx.h"
 
 Recoder::Recoder() = default;
 

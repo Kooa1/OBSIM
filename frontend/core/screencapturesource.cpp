@@ -1,5 +1,4 @@
 #include "screencapturesource.h"
-#include "screencaptor.h"
 
 ScreenCaptureSource::ScreenCaptureSource(const CaptorConfig &config)
     : VideoSource([&config]() {

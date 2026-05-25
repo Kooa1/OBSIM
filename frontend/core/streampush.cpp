@@ -1,9 +1,4 @@
 #include "streampush.h"
-#include "../utils/av_err2str_cxx.h"
-
-extern "C" {
-#include <libavutil/log.h>
-}
 
 void StreamPush::start(const QString &rtmp_url, int canvas_w, int canvas_h, int fps,
                        DataSafeQueue<AVFramePtr> *system_audio_src,

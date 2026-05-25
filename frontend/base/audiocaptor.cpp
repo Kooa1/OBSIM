@@ -1,6 +1,4 @@
 #include "audiocaptor.h"
-#include <iostream>
-#include <chrono>
 
 AudioCaptor::~AudioCaptor() {
     stop();

@@ -2,6 +2,7 @@
 #define OBSIM_CAMERACAPTURESOURCE_H
 
 #include "videosource.h"
+#include "camera.h"
 
 class CameraCaptureSource : public VideoSource {
 public:

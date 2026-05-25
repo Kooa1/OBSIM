@@ -1,7 +1,12 @@
 #ifndef OBSIM_STREAMPUSH_H
 #define OBSIM_STREAMPUSH_H
 
-#include "recoder.h"
+#include "../base/recoder.h"
+#include "../utils/av_err2str_cxx.h"
+
+extern "C" {
+#include <libavutil/log.h>
+}
 
 class StreamPush : public Recoder {
 public:

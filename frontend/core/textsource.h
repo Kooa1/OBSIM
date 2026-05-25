@@ -5,10 +5,13 @@
 #include <QString>
 #include <QColor>
 #include <QFont>
+#include <QImage>
+#include <QPainter>
+#include <QFontMetrics>
 
 #include <GL/gl.h>
 
-#include "source.h"
+#include "../base/source.h"
 
 class TextSource : public Source, protected QOpenGLFunctions {
 public:

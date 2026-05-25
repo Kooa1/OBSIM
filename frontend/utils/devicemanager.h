@@ -6,6 +6,8 @@
 #define OBSIM_DEVICEMANAGER_H
 
 #include "PCH.h"
+#include <QMediaDevices>
+#include <QCameraDevice>
 
 struct DisplayInfo {
     int index; // 屏幕索引

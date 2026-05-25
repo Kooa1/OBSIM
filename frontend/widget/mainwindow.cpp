@@ -3,7 +3,6 @@
 //
 
 #include "mainwindow.h"
-#include "../core/videocaptor.h"
 
 MainWindow::MainWindow()
     : QWidget(nullptr) {

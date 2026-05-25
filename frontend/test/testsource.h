@@ -3,7 +3,7 @@
 
 #include <GL/gl.h>
 
-#include "core/source.h"
+#include "../base/source.h"
 
 class TestSource : public Source {
 public:

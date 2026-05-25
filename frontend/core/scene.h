@@ -16,7 +16,7 @@
 #include <QPointF>
 #include <QRectF>
 
-#include "core/source.h"
+#include "../base/source.h"
 
 // 交互模式
 enum class InteractionMode {

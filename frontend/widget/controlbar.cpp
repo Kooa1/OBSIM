@@ -1,11 +1,4 @@
 #include "controlbar.h"
-#include "settingsdialog.h"
-#include "../core/textsource.h"
-#include "../core/videocaptor.h"
-
-#include <QColorDialog>
-#include <QFontComboBox>
-#include <QFileDialog>
 
 // ==================== 场景控制块 ====================
 

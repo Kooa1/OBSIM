@@ -19,6 +19,7 @@
 #include "../core/audiomanager.h"
 #include "../core/filerecoder.h"
 #include "../core/streampush.h"
+#include "../base/videocaptor.h"
 
 struct CaptorConfig;
 

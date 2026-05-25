@@ -8,11 +8,14 @@
 #include <QTimer>
 #include <functional>
 #include <memory>
+#include <vector>
+#include <algorithm>
+#include <chrono>
 
-#include "core/source.h"
+#include "../base/source.h"
 #include "core/scene.h"
 #include "test/testsource.h"
-#include "core/videocaptor.h"
+#include "../base/videocaptor.h"
 #include "core/screencapturesource.h"
 #include "core/cameracapturesource.h"
 #include "core/textsource.h"

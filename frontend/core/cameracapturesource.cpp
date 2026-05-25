@@ -1,5 +1,4 @@
 #include "cameracapturesource.h"
-#include "camera.h"
 
 CameraCaptureSource::CameraCaptureSource(std::string device_description)
     : VideoSource(std::make_unique<Camera>(std::move(device_description)))

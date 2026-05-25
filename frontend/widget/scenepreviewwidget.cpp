@@ -1,9 +1,5 @@
 #include "scenepreviewwidget.h"
 
-#include <vector>
-#include <algorithm>
-#include <chrono>
-
 ScenePreviewWidget::ScenePreviewWidget(QWidget *parent)
     : QOpenGLWidget(parent) {
     setAttribute(Qt::WA_OpaquePaintEvent);

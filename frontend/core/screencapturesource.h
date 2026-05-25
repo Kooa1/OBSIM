@@ -2,6 +2,7 @@
 #define OBSIM_SCREENCAPTURESOURCE_H
 
 #include "videosource.h"
+#include "screencaptor.h"
 
 class ScreenCaptureSource : public VideoSource {
 public:
