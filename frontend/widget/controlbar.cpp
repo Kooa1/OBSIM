@@ -284,17 +284,22 @@ StreamRecordBlock::StreamRecordBlock(QWidget *parent)
 
     connect(m_btn_start_stream, &QPushButton::clicked, this, [this]() {
         if (!m_streaming) {
-            bool ok;
-            QString url = QInputDialog::getText(this, tr("推流地址"),
-                                                tr("请输入 RTMP 推流地址:"),
-                                                QLineEdit::Normal,
-                                                QStringLiteral("rtmp://localhost/live/stream"), &ok);
-            if (ok) {
-                url = url.trimmed();
-                if (url.startsWith("rtmp://") && url.length() > 7 && url.indexOf('/', 7) > 7) {
+            if (m_stream_url.isEmpty()) {
+                QMessageBox::warning(this, "未设置推流地址",
+                                     "请先在设置中配置推流地址");
+                SettingsDialog dlg(this, 1);
+                if (dlg.exec() == QDialog::Accepted) {
+                    m_stream_url = dlg.streaming_url();
+                }
+            } else {
+                int ret = QMessageBox::question(this, "确认直播",
+                                                "是否开始直播?\n\n推流地址: " + m_stream_url,
+                                                QMessageBox::Yes | QMessageBox::No,
+                                                QMessageBox::No);
+                if (ret == QMessageBox::Yes) {
                     m_streaming = true;
                     m_btn_start_stream->setText(QStringLiteral("⏹ 停止直播"));
-                    emit streaming_started(url);
+                    emit streaming_started(m_stream_url);
                 }
             }
         } else {
@@ -315,9 +320,10 @@ StreamRecordBlock::StreamRecordBlock(QWidget *parent)
         }
     });
     connect(m_btn_settings, &QPushButton::clicked, this, [this]() {
-        SettingsDialog dlg(this);
+        SettingsDialog dlg(this, 0);
         if (dlg.exec() == QDialog::Accepted) {
             m_output_path = dlg.record_output_path();
+            m_stream_url = dlg.streaming_url();
             qDebug() << "录像输出路径:" << m_output_path;
         }
     });

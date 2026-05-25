@@ -1,10 +1,11 @@
 #include "settingsdialog.h"
 
-SettingsDialog::SettingsDialog(QWidget *parent)
+SettingsDialog::SettingsDialog(QWidget *parent, int initial_page)
     : QDialog(parent) {
     setWindowTitle("设置");
     setMinimumSize(560, 360);
     init_ui();
+    m_page_list->setCurrentRow(initial_page);
 }
 
 QString SettingsDialog::record_output_path() const {
@@ -21,11 +22,13 @@ void SettingsDialog::init_ui() {
     m_page_list = new QListWidget();
     m_page_list->setFixedWidth(120);
     m_page_list->addItem("输出");
+    m_page_list->addItem("直播");
     m_page_list->setCurrentRow(0);
 
     // 右侧页面栈
     m_page_stack = new QStackedWidget();
     init_output_page();
+    init_streaming_page();
 
     splitter->addWidget(m_page_list);
     splitter->addWidget(m_page_stack);
@@ -82,4 +85,34 @@ void SettingsDialog::init_output_page() {
     });
 
     m_page_stack->addWidget(page);
+}
+
+void SettingsDialog::init_streaming_page() {
+    auto *page = new QWidget();
+    auto *layout = new QVBoxLayout(page);
+    layout->setContentsMargins(16, 16, 16, 16);
+
+    auto *title = new QLabel("推流设置");
+    title->setStyleSheet("font-weight: bold; font-size: 14px;");
+    layout->addWidget(title);
+    layout->addSpacing(8);
+
+    auto *url_layout = new QHBoxLayout();
+    auto *url_label = new QLabel("推流地址:");
+    m_stream_url_edit = new QLineEdit();
+    m_stream_url_edit->setPlaceholderText("rtmp://localhost/live/stream");
+    url_layout->addWidget(url_label);
+    url_layout->addWidget(m_stream_url_edit, 1);
+    layout->addLayout(url_layout);
+
+    auto *hint = new QLabel("请输入有效的 RTMP 推流地址");
+    hint->setStyleSheet("color: #888; font-size: 11px;");
+    layout->addWidget(hint);
+    layout->addStretch();
+
+    m_page_stack->addWidget(page);
+}
+
+QString SettingsDialog::streaming_url() const {
+    return m_stream_url_edit->text().trimmed();
 }

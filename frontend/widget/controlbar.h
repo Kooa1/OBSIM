@@ -16,6 +16,7 @@
 #include <QColorDialog>
 #include <QFontComboBox>
 #include <QFileDialog>
+#include <QMessageBox>
 
 struct CaptorConfig;
 
@@ -161,6 +162,7 @@ private:
     QPushButton *m_btn_settings;
     QPushButton *m_btn_exit;
     QString m_output_path;
+    QString m_stream_url;
     bool m_recording = false;
     bool m_streaming = false;
 };
