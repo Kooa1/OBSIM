@@ -71,6 +71,9 @@ protected:
 
 private:
     void load_settings();
+    void save_sources();
+    void load_sources();
+    QString type_display_suffix(Source *src);
 
     QVBoxLayout *main_layout = nullptr;
 

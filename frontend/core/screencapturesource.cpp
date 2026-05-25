@@ -5,7 +5,7 @@ ScreenCaptureSource::ScreenCaptureSource(const CaptorConfig &config)
         auto captor = std::make_unique<ScreenCaptor>();
         captor->apply_config(config);
         return captor;
-    }())
+    }()), m_config(config)
 {
     base_width  = static_cast<float>(config.width);
     base_height = static_cast<float>(config.height);

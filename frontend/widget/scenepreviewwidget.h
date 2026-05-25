@@ -33,13 +33,13 @@ public:
 
     void add_test_source();
 
-    void add_screen_capture_source(const CaptorConfig &config);
+    void add_screen_capture_source(const CaptorConfig &config, const QString &name = QString());
 
-    void add_camera_capture_source(std::string device_description = "");
+    void add_camera_capture_source(const QString &name, std::string device_description = "");
 
-    void add_text_source(const QString &text, const QFont &font, const QColor &color);
+    void add_text_source(const QString &text, const QFont &font, const QColor &color, const QString &name = QString());
 
-    void add_image_source(const QString &file_path);
+    void add_image_source(const QString &file_path, const QString &name = QString());
 
     void remove_source(int index);
 
@@ -55,8 +55,12 @@ public:
     static constexpr float CANVAS_W = 1920.0f;
     static constexpr float CANVAS_H = 1080.0f;
 
+    size_t source_count() const { return m_sources_storage.size(); }
+    Source* source_at(size_t index) const { return m_sources_storage[index].get(); }
+
 signals:
     void canvas_selection_changed(int index);
+    void source_position_changed();
 
 private:
     void rendering_view();

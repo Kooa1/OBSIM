@@ -28,10 +28,12 @@ public:
     const char *source_type_name() const override { return "Text"; }
 
     void set_text(const QString &text);
-
     void set_font(const QFont &font);
-
     void set_color(const QColor &color);
+
+    QString text() const { return m_text; }
+    QFont font() const { return m_font; }
+    QColor color() const { return m_color; }
 
 private:
     void rebuild_texture();

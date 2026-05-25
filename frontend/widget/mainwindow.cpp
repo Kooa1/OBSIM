@@ -7,6 +7,10 @@
 #include <QStandardPaths>
 
 #include "utils/configmanager.h"
+#include "core/screencapturesource.h"
+#include "core/cameracapturesource.h"
+#include "core/textsource.h"
+#include "core/imagesource.h"
 
 MainWindow::MainWindow()
     : QWidget(nullptr) {
@@ -39,6 +43,7 @@ bool MainWindow::init_UI() {
     connect_signal();
     connect_recorder_signals();
     load_settings();
+    load_sources();
     return true;
 }
 
@@ -165,6 +170,111 @@ void MainWindow::load_settings() {
     qDebug() << "已加载设置: output_path =" << output_path;
 }
 
+void MainWindow::save_sources() {
+    QSettings settings = app_settings();
+    settings.beginGroup("Sources");
+    int count = static_cast<int>(scene_preview_widget->source_count());
+    settings.setValue("count", count);
+
+    for (int i = 0; i < count; ++i) {
+        Source *src = scene_preview_widget->source_at(i);
+        QString group = QString("Source_%1").arg(i);
+        settings.beginGroup(group);
+
+        settings.setValue("type", QString::fromLatin1(src->source_type_name()));
+        settings.setValue("display_name", src->display_name);
+        settings.setValue("pos_x", src->pos_x);
+        settings.setValue("pos_y", src->pos_y);
+        settings.setValue("scale_x", src->scale_x);
+        settings.setValue("scale_y", src->scale_y);
+        settings.setValue("visible", src->visible);
+        settings.setValue("rotation", src->rotation);
+        settings.setValue("lock_aspect_ratio", src->lock_aspect_ratio);
+
+        if (auto *sc = dynamic_cast<ScreenCaptureSource *>(src)) {
+            CaptorConfig cfg = sc->captor_config();
+            settings.setValue("offset_x", cfg.offset_x);
+            settings.setValue("offset_y", cfg.offset_y);
+            settings.setValue("capture_width", cfg.width);
+            settings.setValue("capture_height", cfg.height);
+        } else if (auto *ts = dynamic_cast<TextSource *>(src)) {
+            settings.setValue("text", ts->text());
+            settings.setValue("font_family", ts->font().family());
+            settings.setValue("font_size", ts->font().pointSize());
+            settings.setValue("color", ts->color().name());
+        } else if (auto *is = dynamic_cast<ImageSource *>(src)) {
+            settings.setValue("file_path", is->file_path());
+        }
+
+        settings.endGroup();
+    }
+    settings.endGroup();
+    settings.sync();
+}
+
+void MainWindow::load_sources() {
+    QSettings settings = app_settings();
+    settings.beginGroup("Sources");
+    int count = settings.value("count", 0).toInt();
+
+    for (int i = 0; i < count; ++i) {
+        QString group = QString("Source_%1").arg(i);
+        settings.beginGroup(group);
+        QString type = settings.value("type").toString();
+        QString display_name = settings.value("display_name").toString();
+
+        if (type == "Screen Capture") {
+            CaptorConfig config;
+            config.offset_x = settings.value("offset_x").toInt();
+            config.offset_y = settings.value("offset_y").toInt();
+            config.width = settings.value("capture_width").toInt();
+            config.height = settings.value("capture_height").toInt();
+            scene_preview_widget->add_screen_capture_source(config, display_name);
+        } else if (type == "Camera") {
+            scene_preview_widget->add_camera_capture_source(display_name);
+        } else if (type == "Text") {
+            QString text = settings.value("text").toString();
+            QFont font;
+            font.setFamily(settings.value("font_family", "Arial").toString());
+            font.setPointSize(settings.value("font_size", 48).toInt());
+            QColor color(settings.value("color", "#FFFFFF").toString());
+            scene_preview_widget->add_text_source(text, font, color, display_name);
+        } else if (type == "Image") {
+            QString file_path = settings.value("file_path").toString();
+            scene_preview_widget->add_image_source(file_path, display_name);
+        }
+
+        // 覆盖几何属性
+        Source *src = scene_preview_widget->source_at(scene_preview_widget->source_count() - 1);
+        src->pos_x = settings.value("pos_x", src->pos_x).toFloat();
+        src->pos_y = settings.value("pos_y", src->pos_y).toFloat();
+        src->scale_x = settings.value("scale_x", src->scale_x).toFloat();
+        src->scale_y = settings.value("scale_y", src->scale_y).toFloat();
+        src->visible = settings.value("visible", src->visible).toBool();
+        src->rotation = settings.value("rotation", src->rotation).toFloat();
+        src->lock_aspect_ratio = settings.value("lock_aspect_ratio", src->lock_aspect_ratio).toBool();
+
+        settings.endGroup();
+    }
+    settings.endGroup();
+
+    // 重建 UI 源列表（从后往前，与 SourceControlBlock 反序索引一致）
+    QListWidget *list = control_bar->source_control()->source_list();
+    list->clear();
+    for (int i = static_cast<int>(scene_preview_widget->source_count()) - 1; i >= 0; --i) {
+        Source *src = scene_preview_widget->source_at(i);
+        list->addItem(src->display_name + " (" + type_display_suffix(src) + ")");
+    }
+}
+
+QString MainWindow::type_display_suffix(Source *src) {
+    if (dynamic_cast<ScreenCaptureSource *>(src)) return QStringLiteral("显示屏采集");
+    if (dynamic_cast<CameraCaptureSource *>(src)) return QStringLiteral("摄像头采集");
+    if (dynamic_cast<TextSource *>(src)) return QStringLiteral("文字源");
+    if (dynamic_cast<ImageSource *>(src)) return QStringLiteral("图片源");
+    return QStringLiteral("未知");
+}
+
 void MainWindow::connect_signal() {
     if (!control_bar || !scene_preview_widget) return;
 
@@ -186,35 +296,42 @@ void MainWindow::connect_signal() {
             this, &MainWindow::on_source_list_selection_changed);
     connect(scene_preview_widget, &ScenePreviewWidget::canvas_selection_changed,
             this, &MainWindow::on_canvas_selection_changed);
+    connect(scene_preview_widget, &ScenePreviewWidget::source_position_changed,
+            this, &MainWindow::save_sources);
 }
 
 void MainWindow::on_display_capture_requested(const CaptorConfig &config, const QString &name) {
     if (scene_preview_widget) {
-        scene_preview_widget->add_screen_capture_source(config);
+        scene_preview_widget->add_screen_capture_source(config, name);
+        save_sources();
     }
 }
 
 void MainWindow::on_camera_capture_requested(const QString &device_desc, const QString &name) {
     if (scene_preview_widget) {
-        scene_preview_widget->add_camera_capture_source(device_desc.toStdString());
+        scene_preview_widget->add_camera_capture_source(name, device_desc.toStdString());
+        save_sources();
     }
 }
 
 void MainWindow::on_text_source_requested(const QString &text, const QFont &font, const QColor &color, const QString &name) {
     if (scene_preview_widget) {
-        scene_preview_widget->add_text_source(text, font, color);
+        scene_preview_widget->add_text_source(text, font, color, name);
+        save_sources();
     }
 }
 
 void MainWindow::on_image_source_requested(const QString &file_path, const QString &name) {
     if (scene_preview_widget) {
-        scene_preview_widget->add_image_source(file_path);
+        scene_preview_widget->add_image_source(file_path, name);
+        save_sources();
     }
 }
 
 void MainWindow::on_source_remove_requested(int index) {
     if (scene_preview_widget) {
         scene_preview_widget->remove_source(index);
+        save_sources();
     }
 }
 
@@ -229,6 +346,7 @@ void MainWindow::on_source_move_up_requested(int scene_idx) {
             list->insertItem(list_row - 1, item);
             list->setCurrentRow(list_row - 1);
         }
+        save_sources();
     }
 }
 
@@ -243,6 +361,7 @@ void MainWindow::on_source_move_down_requested(int scene_idx) {
             list->insertItem(list_row + 1, item);
             list->setCurrentRow(list_row + 1);
         }
+        save_sources();
     }
 }
 

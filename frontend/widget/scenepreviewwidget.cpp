@@ -65,22 +65,23 @@ void ScenePreviewWidget::add_test_source() {
     m_sources_storage.push_back(std::move(rect2));
 }
 
-void ScenePreviewWidget::add_screen_capture_source(const CaptorConfig &config) {
+void ScenePreviewWidget::add_screen_capture_source(const CaptorConfig &config, const QString &name) {
     auto src = std::make_unique<ScreenCaptureSource>(config);
-    // 采集线程仅推帧到队列，由 m_render_timer 定时驱动 paintGL 拉取
+    src->display_name = name;
     m_scene.add_source(src.get());
     m_sources_storage.push_back(std::move(src));
 }
 
-void ScenePreviewWidget::add_camera_capture_source(std::string device_description) {
+void ScenePreviewWidget::add_camera_capture_source(const QString &name, std::string device_description) {
     auto src = std::make_unique<CameraCaptureSource>(std::move(device_description));
-    // 采集线程仅推帧到队列，由 m_render_timer 定时驱动 paintGL 拉取
+    src->display_name = name;
     m_scene.add_source(src.get());
     m_sources_storage.push_back(std::move(src));
 }
 
-void ScenePreviewWidget::add_text_source(const QString &text, const QFont &font, const QColor &color) {
+void ScenePreviewWidget::add_text_source(const QString &text, const QFont &font, const QColor &color, const QString &name) {
     auto src = std::make_unique<TextSource>();
+    src->display_name = name;
     src->set_text(text);
     src->set_font(font);
     src->set_color(color);
@@ -91,8 +92,9 @@ void ScenePreviewWidget::add_text_source(const QString &text, const QFont &font,
     m_sources_storage.push_back(std::move(src));
 }
 
-void ScenePreviewWidget::add_image_source(const QString &file_path) {
+void ScenePreviewWidget::add_image_source(const QString &file_path, const QString &name) {
     auto src = std::make_unique<ImageSource>(file_path);
+    src->display_name = name;
     src->pos_x = 200.0f;
     src->pos_y = 200.0f;
 
@@ -411,6 +413,11 @@ void ScenePreviewWidget::mouseMoveEvent(QMouseEvent *event) {
 
 void ScenePreviewWidget::mouseReleaseEvent(QMouseEvent *event) {
     Q_UNUSED(event);
+    InteractionMode prev_mode = m_scene.interaction_mode();
     m_scene.on_mouse_release();
     update_cursor();
+    if (prev_mode == InteractionMode::Dragging ||
+        prev_mode == InteractionMode::Resizing) {
+        emit source_position_changed();
+    }
 }

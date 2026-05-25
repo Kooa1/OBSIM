@@ -70,6 +70,9 @@ private:
     // 唯一标识符（用于序列化、查找等）
     std::string id;
 
+    // UI 显示名称
+    QString display_name;
+
     // ========== 几何属性（画布逻辑坐标， 1920x1080） ==========
     // 源在画布上的位置（左上角）
     float pos_x = 0.0f;
