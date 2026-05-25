@@ -5,7 +5,6 @@
 #include <thread>
 #include <memory>
 #include <vector>
-#include <queue>
 #include <deque>
 
 #include <QString>
@@ -34,9 +33,9 @@ struct VideoFrame {
 class Recoder {
 public:
     Recoder();
-    ~Recoder();
+    virtual ~Recoder();
 
-    void start(const QString &output_path, int canvas_w, int canvas_h, int fps = 30,
+    virtual void start(const QString &output_path, int canvas_w, int canvas_h, int fps = 30,
                DataSafeQueue<AVFramePtr> *system_audio_src = nullptr,
                DataSafeQueue<AVFramePtr> *mic_audio_src = nullptr);
     void stop();
@@ -44,10 +43,14 @@ public:
 
     void feed_frame(const uint8_t *data, int stride, int capture_w, int capture_h);
 
+protected:
+    virtual AVFormatContext* create_format_context() = 0;
+    virtual bool open_io(AVFormatContext *fmt_ctx) = 0;
+
 private:
     void encoding_loop();
 
-    bool init_audio_swr(SwrContext *&swr, const AVFrame *frame, int out_sample_rate);
+    bool init_audio_swr(SwrContextPtr &swr, const AVFrame *frame, int out_sample_rate);
     void encode_video_frame(AVFormatContext *fmt_ctx, AVPacket *pkt,
                             AVCodecContext *video_enc_ctx, AVStream *video_stream,
                             AVFrame *yuv_frame, int64_t pts);
@@ -55,74 +58,19 @@ private:
                             AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
                             AVFrame *audio_frame, int64_t &audio_pts);
 
-    bool setup_recording(AVFormatContext *&fmt_ctx,
-                         AVCodecContext *&video_enc_ctx, AVStream *&video_stream,
-                         AVCodecContext *&audio_enc_ctx, AVStream *&audio_stream,
-                         bool &has_audio, int &audio_frame_size,
-                         AVFrame *&yuv_frame, AVFrame *&audio_frame, AVPacket *&pkt);
-    void main_encode_loop(AVFormatContext *fmt_ctx, AVPacket *pkt,
-                          AVCodecContext *video_enc_ctx, AVStream *video_stream,
-                          AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
-                          SwsContext *&sws_ctx, SwrContext *sys_swr, SwrContext *mic_swr,
-                          AVFrame *yuv_frame, AVFrame *audio_frame,
-                          bool has_audio, int audio_frame_size,
-                          std::deque<float> *audio_fifo,
-                          std::deque<float> *sys_fifo,
-                          std::deque<float> *mic_fifo,
-                          int64_t &audio_clock, int64_t &video_pts, int64_t &audio_pts,
-                          int64_t &audio_frames_received, int64_t &audio_frames_encoded,
-                          int64_t &sys_silence_samples, int64_t &mic_silence_samples,
-                          int &last_capture_w, int &last_capture_h);
+    bool init_contexts();
+    void main_encode_loop();
 
-    void process_audio_source(DataSafeQueue<AVFramePtr> *src, SwrContext *swr,
-                              int64_t &silence_counter, std::deque<float> *fifo,
-                              bool &did_work);
-    void mix_audio(std::deque<float> *sys_fifo, std::deque<float> *mic_fifo,
-                   std::deque<float> *audio_fifo, int64_t &audio_frames_received,
-                   int64_t &audio_clock, bool &did_work);
-    void process_video_frame(SwsContext *&sws_ctx, AVFrame *yuv_frame,
-                             AVFormatContext *fmt_ctx, AVPacket *pkt,
-                             AVCodecContext *video_enc_ctx, AVStream *video_stream,
-                             int64_t &video_pts, bool has_audio,
-                             AVCodecContext *audio_enc_ctx, int64_t audio_clock,
-                             int &last_capture_w, int &last_capture_h, bool &did_work);
-    void encode_audio_frames(AVFrame *audio_frame, std::deque<float> *audio_fifo,
-                             int audio_frame_size, AVFormatContext *fmt_ctx, AVPacket *pkt,
-                             AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
-                             int64_t &audio_pts, int64_t &audio_frames_encoded, bool &did_work);
+    void process_system_audio();
+    void process_mic_audio();
+    void mix_audio_streams();
+    void process_video_frame();
+    void encode_audio_frames_from_fifo();
 
-    void drain_and_finalize(AVFormatContext *fmt_ctx, AVPacket *pkt,
-                            AVCodecContext *video_enc_ctx, AVStream *video_stream,
-                            AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
-                            SwsContext *&sws_ctx, SwrContext *sys_swr, SwrContext *mic_swr,
-                            AVFrame *yuv_frame, AVFrame *audio_frame,
-                            bool has_audio, int audio_frame_size,
-                            std::deque<float> *audio_fifo,
-                            std::deque<float> *sys_fifo,
-                            std::deque<float> *mic_fifo,
-                            int64_t &video_pts, int64_t &audio_pts,
-                            int64_t &audio_frames_encoded,
-                            int &last_capture_w, int &last_capture_h);
-    void drain_video_frames(SwsContext *&sws_ctx, AVFrame *yuv_frame,
-                            AVFormatContext *fmt_ctx, AVPacket *pkt,
-                            AVCodecContext *video_enc_ctx, AVStream *video_stream,
-                            int64_t &video_pts, int &last_capture_w, int &last_capture_h);
-    void flush_resamplers_and_mix_residual(SwrContext *sys_swr, SwrContext *mic_swr,
-                                           std::deque<float> *sys_fifo, std::deque<float> *mic_fifo,
-                                           std::deque<float> *audio_fifo, bool has_audio);
-    void drain_audio_fifo_residual(AVFrame *audio_frame, std::deque<float> *audio_fifo,
-                                   int audio_frame_size, AVFormatContext *fmt_ctx,
-                                   AVPacket *pkt, AVCodecContext *audio_enc_ctx,
-                                   AVStream *audio_stream, int64_t &audio_pts,
-                                   int64_t &audio_frames_encoded, bool has_audio);
-    void flush_encoders_and_trailer(AVFormatContext *fmt_ctx, AVPacket *pkt,
-                                    AVCodecContext *video_enc_ctx, AVStream *video_stream,
-                                    AVCodecContext *audio_enc_ctx, AVStream *audio_stream,
-                                    bool has_audio);
-    void cleanup_resources(AVFormatContext *&fmt_ctx, AVPacket *&pkt,
-                           AVFrame *&yuv_frame, AVFrame *&audio_frame,
-                           SwsContext *&sws_ctx, SwrContext *&sys_swr, SwrContext *&mic_swr,
-                           AVCodecContext *&video_enc_ctx, AVCodecContext *&audio_enc_ctx);
+    void drain_video_frames();
+    void drain_audio_residual();
+    void flush_encoders_and_write_trailer();
+    void reset_state();
 
     static constexpr int AUDIO_SAMPLE_RATE = 48000;
     static constexpr int AUDIO_CHANNELS = 2;
@@ -140,7 +88,35 @@ private:
     int m_canvas_w = 0;
     int m_canvas_h = 0;
     int m_fps = 30;
-    QString m_output_path;
+
+    AVFormatOutputContextPtr m_fmt_ctx;
+    AVCodecContextPtr m_video_enc_ctx;
+    AVStream *m_video_stream = nullptr;
+    AVCodecContextPtr m_audio_enc_ctx;
+    AVStream *m_audio_stream = nullptr;
+    SwsContextPtr m_sws_ctx;
+    SwrContextPtr m_sys_swr;
+    SwrContextPtr m_mic_swr;
+    AVFramePtr m_yuv_frame;
+    AVFramePtr m_audio_frame;
+    AVPacketPtr m_pkt;
+
+    bool m_has_audio = false;
+    int m_audio_frame_size = AUDIO_FRAME_SAMPLES;
+    int m_last_capture_w = 0;
+    int m_last_capture_h = 0;
+
+    int64_t m_audio_clock = 0;
+    int64_t m_video_pts = 0;
+    int64_t m_audio_pts = 0;
+    int64_t m_audio_frames_received = 0;
+    int64_t m_audio_frames_encoded = 0;
+    int64_t m_sys_silence_samples = 0;
+    int64_t m_mic_silence_samples = 0;
+
+    std::deque<float> m_audio_fifo[2];
+    std::deque<float> m_sys_fifo[2];
+    std::deque<float> m_mic_fifo[2];
 };
 
 #endif
