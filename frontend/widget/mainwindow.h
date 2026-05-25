@@ -17,7 +17,7 @@
 #include "settingsdialog.h"
 
 #include "../core/audiomanager.h"
-#include "../core/recoder.h"
+#include "../core/filerecoder.h"
 
 struct CaptorConfig;
 
@@ -76,7 +76,7 @@ private:
     ControlBar *control_bar = nullptr;
 
     std::unique_ptr<AudioManager> m_audio_manager;
-    std::unique_ptr<Recoder> m_recoder;
+    std::unique_ptr<FileRecoder> m_recoder;
 };
 
 #endif //MAINWINDOW_H

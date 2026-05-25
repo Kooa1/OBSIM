@@ -28,7 +28,7 @@ bool MainWindow::init_UI() {
     m_audio_manager->start_all();
 
     // 初始化录制器
-    m_recoder = std::make_unique<Recoder>();
+    m_recoder = std::make_unique<FileRecoder>();
 
     init_layout();
     connect_audio_signals();
