@@ -147,6 +147,9 @@ public:
     bool is_recording() const { return m_recording; }
     bool is_streaming() const { return m_streaming; }
 
+    void set_output_path(const QString &path) { m_output_path = path; }
+    void set_stream_url(const QString &url) { m_stream_url = url; }
+
 signals:
     void streaming_started(const QString &rtmp_url);
 

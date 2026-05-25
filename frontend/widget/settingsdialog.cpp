@@ -1,4 +1,5 @@
 #include "settingsdialog.h"
+#include "utils/configmanager.h"
 
 SettingsDialog::SettingsDialog(QWidget *parent, int initial_page)
     : QDialog(parent) {
@@ -48,7 +49,15 @@ void SettingsDialog::init_ui() {
     btn_layout->addWidget(cancel_btn);
     main_layout->addLayout(btn_layout);
 
-    connect(ok_btn, &QPushButton::clicked, this, &QDialog::accept);
+    connect(ok_btn, &QPushButton::clicked, this, [this]() {
+        QSettings settings = app_settings();
+        settings.beginGroup("General");
+        settings.setValue("output_path", m_output_path_edit->text());
+        settings.setValue("stream_url", m_stream_url_edit->text().trimmed());
+        settings.endGroup();
+        settings.sync();
+        accept();
+    });
     connect(cancel_btn, &QPushButton::clicked, this, &QDialog::reject);
 }
 
@@ -64,8 +73,12 @@ void SettingsDialog::init_output_page() {
 
     auto *path_layout = new QHBoxLayout();
     m_output_path_edit = new QLineEdit();
-    QString default_path = QStandardPaths::writableLocation(QStandardPaths::MoviesLocation);
-    m_output_path_edit->setText(default_path);
+
+    QSettings settings = app_settings();
+    QString saved_path = settings.value("General/output_path",
+        QStandardPaths::writableLocation(QStandardPaths::MoviesLocation)).toString();
+    m_output_path_edit->setText(saved_path);
+
     m_output_path_edit->setReadOnly(true);
 
     auto *browse_btn = new QPushButton("更改");
@@ -100,6 +113,11 @@ void SettingsDialog::init_streaming_page() {
     auto *url_layout = new QHBoxLayout();
     auto *url_label = new QLabel("推流地址:");
     m_stream_url_edit = new QLineEdit();
+
+    QSettings settings = app_settings();
+    QString saved_url = settings.value("General/stream_url", "").toString();
+    m_stream_url_edit->setText(saved_url);
+
     m_stream_url_edit->setPlaceholderText("rtmp://localhost/live/stream");
     url_layout->addWidget(url_label);
     url_layout->addWidget(m_stream_url_edit, 1);

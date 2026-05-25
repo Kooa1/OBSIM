@@ -70,6 +70,8 @@ protected:
     void showEvent(QShowEvent *event) override;
 
 private:
+    void load_settings();
+
     QVBoxLayout *main_layout = nullptr;
 
     QSplitter *main_splitter = nullptr;

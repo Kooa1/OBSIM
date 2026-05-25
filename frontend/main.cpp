@@ -19,8 +19,9 @@ void init_FFMPEG() {
 }
 
 int main(int argc, char *argv[]) {
-    // 推流链接
-    const std::string rtmp_url = "rtmp://8.148.211.115/live/stream_key";
+    QCoreApplication::setOrganizationName("OBSIM");
+    QCoreApplication::setOrganizationDomain("obsim.app");
+    QCoreApplication::setApplicationName("OBSIM");
 
     init_FFMPEG();
 

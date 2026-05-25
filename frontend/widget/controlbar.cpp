@@ -270,7 +270,6 @@ void AudioMixerBlock::update_track_level(const QString &name, float level) {
 
 StreamRecordBlock::StreamRecordBlock(QWidget *parent)
         : ControlBlock("直播 / 录制", parent) {
-    m_output_path = QStandardPaths::writableLocation(QStandardPaths::MoviesLocation);
     m_btn_start_stream = new QPushButton("🔴 开始直播");
     m_btn_start_record = new QPushButton("⏺ 开始录制");
     m_btn_settings = new QPushButton("⚙ 设置");

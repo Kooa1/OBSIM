@@ -4,6 +4,10 @@
 
 #include "mainwindow.h"
 
+#include <QStandardPaths>
+
+#include "utils/configmanager.h"
+
 MainWindow::MainWindow()
     : QWidget(nullptr) {
     setMouseTracking(true);
@@ -34,6 +38,7 @@ bool MainWindow::init_UI() {
     connect_audio_signals();
     connect_signal();
     connect_recorder_signals();
+    load_settings();
     return true;
 }
 
@@ -131,6 +136,22 @@ void MainWindow::on_streaming_stopped() {
     m_audio_manager->disable_recording();
 
     av_log(nullptr, AV_LOG_INFO, "streaming stopped\n");
+}
+
+void MainWindow::load_settings() {
+    QSettings settings = app_settings();
+    settings.beginGroup("General");
+
+    QString output_path = settings.value("output_path",
+        QStandardPaths::writableLocation(QStandardPaths::MoviesLocation)).toString();
+    QString stream_url = settings.value("stream_url", "").toString();
+
+    settings.endGroup();
+
+    control_bar->stream_record()->set_output_path(output_path);
+    control_bar->stream_record()->set_stream_url(stream_url);
+
+    qDebug() << "已加载设置: output_path =" << output_path;
 }
 
 void MainWindow::connect_signal() {
