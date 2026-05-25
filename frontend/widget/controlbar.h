@@ -5,6 +5,7 @@
 
 #include <QWidget>
 #include <QStandardPaths>
+#include <QInputDialog>
 
 #include "../utils/PCH.h"
 #include "../utils/devicemanager.h"
@@ -136,9 +137,12 @@ public:
     QString output_path() const { return m_output_path; }
 
     bool is_recording() const { return m_recording; }
+    bool is_streaming() const { return m_streaming; }
 
 signals:
-    void start_stream_clicked();
+    void streaming_started(const QString &rtmp_url);
+
+    void streaming_stopped();
 
     void recording_started(const QString &output_path);
 
@@ -151,6 +155,7 @@ private:
     QPushButton *m_btn_exit;
     QString m_output_path;
     bool m_recording = false;
+    bool m_streaming = false;
 };
 
 

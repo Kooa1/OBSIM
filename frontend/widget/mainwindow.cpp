@@ -29,6 +29,7 @@ bool MainWindow::init_UI() {
 
     // 初始化录制器
     m_recoder = std::make_unique<FileRecoder>();
+    m_stream_push = std::make_unique<StreamPush>();
 
     init_layout();
     connect_audio_signals();
@@ -52,6 +53,11 @@ void MainWindow::connect_recorder_signals() {
             this, &MainWindow::on_recording_started);
     connect(control_bar->stream_record(), &StreamRecordBlock::recording_stopped,
             this, &MainWindow::on_recording_stopped);
+
+    connect(control_bar->stream_record(), &StreamRecordBlock::streaming_started,
+            this, &MainWindow::on_streaming_started);
+    connect(control_bar->stream_record(), &StreamRecordBlock::streaming_stopped,
+            this, &MainWindow::on_streaming_stopped);
 }
 
 void MainWindow::on_recording_started(const QString &output_path) {
@@ -92,6 +98,40 @@ void MainWindow::on_recording_stopped() {
     m_audio_manager->disable_recording();
 
     av_log(nullptr, AV_LOG_INFO, "recording stopped\n");
+}
+
+void MainWindow::on_streaming_started(const QString &rtmp_url) {
+    if (!m_stream_push || !scene_preview_widget || !m_audio_manager) return;
+
+    m_audio_manager->enable_recording();
+
+    m_stream_push->start(rtmp_url,
+                         static_cast<int>(ScenePreviewWidget::CANVAS_W),
+                         static_cast<int>(ScenePreviewWidget::CANVAS_H),
+                         30,
+                         m_audio_manager->system_record_queue(),
+                         m_audio_manager->mic_record_queue());
+
+    scene_preview_widget->set_frame_capture_callback(
+        [this](const uint8_t *data, int stride, int w, int h) {
+            if (m_stream_push && m_stream_push->is_recording()) {
+                m_stream_push->feed_frame(data, stride, w, h);
+            }
+        });
+
+    av_log(nullptr, AV_LOG_INFO, "streaming started: %s\n", rtmp_url.toUtf8().constData());
+}
+
+void MainWindow::on_streaming_stopped() {
+    if (!m_stream_push || !scene_preview_widget) return;
+
+    scene_preview_widget->set_frame_capture_callback(nullptr);
+
+    m_stream_push->stop();
+
+    m_audio_manager->disable_recording();
+
+    av_log(nullptr, AV_LOG_INFO, "streaming stopped\n");
 }
 
 void MainWindow::connect_signal() {

@@ -20,7 +20,7 @@ void init_FFMPEG() {
 
 int main(int argc, char *argv[]) {
     // 推流链接
-    const std::string rtmp_url = "rtemp://172.28.206.198/live/stream_key";
+    const std::string rtmp_url = "rtmp://8.148.211.115/live/stream_key";
 
     init_FFMPEG();
 

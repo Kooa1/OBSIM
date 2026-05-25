@@ -18,6 +18,7 @@
 
 #include "../core/audiomanager.h"
 #include "../core/filerecoder.h"
+#include "../core/streampush.h"
 
 struct CaptorConfig;
 
@@ -61,6 +62,9 @@ private:
     void on_recording_started(const QString &output_path);
     void on_recording_stopped();
 
+    void on_streaming_started(const QString &rtmp_url);
+    void on_streaming_stopped();
+
 protected:
     void showEvent(QShowEvent *event) override;
 
@@ -77,6 +81,7 @@ private:
 
     std::unique_ptr<AudioManager> m_audio_manager;
     std::unique_ptr<FileRecoder> m_recoder;
+    std::unique_ptr<StreamPush> m_stream_push;
 };
 
 #endif //MAINWINDOW_H

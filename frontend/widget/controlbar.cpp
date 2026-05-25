@@ -289,7 +289,27 @@ StreamRecordBlock::StreamRecordBlock(QWidget *parent)
     m_content_layout->addWidget(m_btn_settings);
     m_content_layout->addWidget(m_btn_exit);
 
-    connect(m_btn_start_stream, &QPushButton::clicked, this, &StreamRecordBlock::start_stream_clicked);
+    connect(m_btn_start_stream, &QPushButton::clicked, this, [this]() {
+        if (!m_streaming) {
+            bool ok;
+            QString url = QInputDialog::getText(this, tr("推流地址"),
+                                                tr("请输入 RTMP 推流地址:"),
+                                                QLineEdit::Normal,
+                                                QStringLiteral("rtmp://localhost/live/stream"), &ok);
+            if (ok) {
+                url = url.trimmed();
+                if (url.startsWith("rtmp://") && url.length() > 7 && url.indexOf('/', 7) > 7) {
+                    m_streaming = true;
+                    m_btn_start_stream->setText(QStringLiteral("⏹ 停止直播"));
+                    emit streaming_started(url);
+                }
+            }
+        } else {
+            m_streaming = false;
+            m_btn_start_stream->setText(QStringLiteral("🔴 开始直播"));
+            emit streaming_stopped();
+        }
+    });
     connect(m_btn_start_record, &QPushButton::clicked, this, [this]() {
         if (!m_recording) {
             m_recording = true;
