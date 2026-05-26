@@ -12,6 +12,11 @@
 #include <QFileDialog>
 #include <QStandardPaths>
 #include <QSplitter>
+#include <QFutureWatcher>
+#include <QPointer>
+#include <QDesktopServices>
+
+#include "../../utils/configmanager.h"
 
 class SettingsDialog : public QDialog {
     Q_OBJECT

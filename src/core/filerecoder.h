@@ -1,7 +1,7 @@
 #ifndef OBSIM_FILERECODER_H
 #define OBSIM_FILERECODER_H
 
-#include "../base/recoder.h"
+#include "base/recoder.h"
 
 class FileRecoder : public Recoder {
 public:

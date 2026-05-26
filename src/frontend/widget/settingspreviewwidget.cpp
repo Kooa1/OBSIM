@@ -1,6 +1,4 @@
 #include "settingspreviewwidget.h"
-#include <QLabel>
-#include <QVBoxLayout>
 
 SettingsPreviewWidget::SettingsPreviewWidget(QWidget *parent)
     : PreviewBaseWidget(parent) {

@@ -4,16 +4,6 @@
 
 #include "mainwindow.h"
 
-#include <QStandardPaths>
-#include <QFutureWatcher>
-#include <QPointer>
-
-#include "utils/configmanager.h"
-#include "core/screencapturesource.h"
-#include "core/cameracapturesource.h"
-#include "core/textsource.h"
-#include "core/imagesource.h"
-
 MainWindow::MainWindow()
     : QWidget(nullptr) {
     setMouseTracking(true);

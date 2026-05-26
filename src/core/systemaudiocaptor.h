@@ -7,7 +7,7 @@
 
 #include <QDebug>
 
-#include "../base/audiocaptor.h"
+#include "base/audiocaptor.h"
 
 struct IMMDeviceEnumerator;
 struct IMMDevice;

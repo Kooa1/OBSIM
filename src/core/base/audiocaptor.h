@@ -12,9 +12,9 @@
 
 #include <QDebug>
 
-#include "../utils/ffmpegfactory.h"
-#include "../utils/datasafequeue.h"
-#include "../utils/av_err2str_cxx.h"
+#include "../../utils/ffmpegfactory.h"
+#include "../../utils/datasafequeue.h"
+#include "../../utils/av_err2str_cxx.h"
 
 extern "C" {
 #include <libavutil/log.h>

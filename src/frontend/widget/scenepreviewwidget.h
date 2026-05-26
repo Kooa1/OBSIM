@@ -12,15 +12,15 @@
 #include <algorithm>
 #include <chrono>
 
-#include "../base/source.h"
-#include "../core/scene.h"
-#include "test/testsource.h"
+#include "../../core/base/source.h"
+#include "../../core/scene.h"
+#include "../test/testsource.h"
 #include "../../core/base/videocaptor.h"
-#include "core/screencapturesource.h"
-#include "core/cameracapturesource.h"
-#include "core/textsource.h"
-#include "core/imagesource.h"
-#include "utils/devicemanager.h"
+#include "../../core/screencapturesource.h"
+#include "../../core/cameracapturesource.h"
+#include "../../core/textsource.h"
+#include "../../core/imagesource.h"
+#include "../../utils/devicemanager.h"
 
 struct SceneData {
     Scene scene;

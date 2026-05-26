@@ -2,6 +2,8 @@
 #define OBSIM_FILTERPREVIEWWIDGET_H
 
 #include "../widget/previewbasewidget.h"
+#include <QLabel>
+#include <QVBoxLayout>
 
 class FilterPreviewWidget : public PreviewBaseWidget {
     Q_OBJECT

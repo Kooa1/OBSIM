@@ -2,6 +2,8 @@
 #define OBSIM_SETTINGSPREVIEWWIDGET_H
 
 #include "previewbasewidget.h"
+#include <QLabel>
+#include <QVBoxLayout>
 
 class SettingsPreviewWidget : public PreviewBaseWidget {
     Q_OBJECT

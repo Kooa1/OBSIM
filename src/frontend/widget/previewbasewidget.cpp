@@ -1,8 +1,4 @@
 #include "previewbasewidget.h"
-#include <QCloseEvent>
-#include <QVBoxLayout>
-#include <QGuiApplication>
-#include <QScreen>
 #include "../../core/base/source.h"
 
 // ===== PreviewGLWidget =====

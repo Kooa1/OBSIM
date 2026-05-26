@@ -3,6 +3,10 @@
 
 #include <QTimer>
 #include <QSplitter>
+#include <QCloseEvent>
+#include <QVBoxLayout>
+#include <QGuiApplication>
+#include <QScreen>
 #include <QtOpenGLWidgets/QOpenGLWidget>
 
 class Source;

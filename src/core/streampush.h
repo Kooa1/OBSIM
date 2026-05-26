@@ -1,7 +1,7 @@
 #ifndef OBSIM_STREAMPUSH_H
 #define OBSIM_STREAMPUSH_H
 
-#include "../base/recoder.h"
+#include "base/recoder.h"
 #include "../utils/av_err2str_cxx.h"
 
 extern "C" {

@@ -57,24 +57,24 @@ file(GLOB_RECURSE HEADER_FILES
         "include/*.h"
         "include/*.hpp"
         "include/*.hxx"
-        "frontend/*.h"
-        "frontend/*.hpp"
-        "frontend/*.hxx"
+        "src/*.h"
+        "src/*.hpp"
+        "src/*.hxx"
 )
 
 # 自动查找所有源文件
 file(GLOB_RECURSE SOURCE_FILES
-        "frontend/*.cpp"
-        "frontend/*.cxx"
-        "frontend/*.cc"
-        "frontend/*.c"
+        "src/*.cpp"
+        "src/*.cxx"
+        "src/*.cc"
+        "src/*.c"
 )
 
 # 添加可执行文件
 add_executable(OBSIM
         ${SOURCE_FILES}
         ${HEADER_FILES}
-        frontend/main.cpp
+        src/main.cpp
 )
 
 target_compile_definitions(OBSIM PRIVATE
@@ -85,7 +85,7 @@ target_compile_definitions(OBSIM PRIVATE
 # 设置包含目录
 target_include_directories(OBSIM PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/frontend
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 if (WIN32)

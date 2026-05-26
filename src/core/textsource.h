@@ -11,7 +11,7 @@
 
 #include <GL/gl.h>
 
-#include "../base/source.h"
+#include "base/source.h"
 
 class TextSource : public Source, protected QOpenGLFunctions {
 public:

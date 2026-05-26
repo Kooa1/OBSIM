@@ -1,9 +1,4 @@
 #include "settingsdialog.h"
-#include "utils/configmanager.h"
-
-#include <QFutureWatcher>
-#include <QPointer>
-#include <QDesktopServices>
 
 SettingsDialog::SettingsDialog(QWidget *parent, int initial_page)
     : QDialog(parent) {

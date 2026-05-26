@@ -1,6 +1,4 @@
 #include "filterpreviewwidget.h"
-#include <QLabel>
-#include <QVBoxLayout>
 
 FilterPreviewWidget::FilterPreviewWidget(QWidget *parent)
     : PreviewBaseWidget(parent) {

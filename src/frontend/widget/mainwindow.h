@@ -5,12 +5,14 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include "../utils/PCH.h"
+#include "../../utils/PCH.h"
 
 #include <QSplitter>
 #include <QHBoxLayout>
 #include <QDateTime>
 #include <QPointer>
+#include <QStandardPaths>
+#include <QFutureWatcher>
 
 #include "scenepreviewwidget.h"
 #include "settingbar.h"
@@ -19,10 +21,15 @@
 #include "../base/filterpreviewwidget.h"
 #include "settingspreviewwidget.h"
 
-#include "../core/audiomanager.h"
-#include "../core/filerecoder.h"
-#include "../core/streampush.h"
+#include "../../core/audiomanager.h"
+#include "../../core/filerecoder.h"
+#include "../../core/streampush.h"
 #include "../../core/base/videocaptor.h"
+#include "../../utils/configmanager.h"
+#include "../../core/screencapturesource.h"
+#include "../../core/cameracapturesource.h"
+#include "../../core/textsource.h"
+#include "../../core/imagesource.h"
 
 struct CaptorConfig;
 
