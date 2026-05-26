@@ -25,6 +25,7 @@ int main(int argc, char *argv[]) {
 
     init_FFMPEG();
 
+    QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
     QApplication a(argc, argv);
 
     auto main_window = new MainWindow();

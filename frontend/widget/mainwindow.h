@@ -10,11 +10,14 @@
 #include <QSplitter>
 #include <QHBoxLayout>
 #include <QDateTime>
+#include <QPointer>
 
 #include "scenepreviewwidget.h"
 #include "settingbar.h"
 #include "controlbar.h"
 #include "settingsdialog.h"
+#include "../base/filterpreviewwidget.h"
+#include "settingspreviewwidget.h"
 
 #include "../core/audiomanager.h"
 #include "../core/filerecoder.h"
@@ -65,6 +68,9 @@ private:
     void on_scene_selection_changed(int index);
     void rebuild_source_list();
 
+    void on_filter_requested(Source *source);
+    void on_settings_requested(Source *source);
+
     void on_recording_started(const QString &output_path);
     void on_recording_stopped();
 
@@ -93,6 +99,9 @@ private:
     std::unique_ptr<AudioManager> m_audio_manager;
     std::unique_ptr<FileRecoder> m_recoder;
     std::unique_ptr<StreamPush> m_stream_push;
+
+    QPointer<FilterPreviewWidget> m_filter_window;
+    QPointer<SettingsPreviewWidget> m_settings_window;
 };
 
 #endif //MAINWINDOW_H

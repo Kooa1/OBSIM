@@ -14,6 +14,10 @@ void SettingBar::set_selection_text(const QString &text) {
     m_settings_btn->setEnabled(has_selection);
 }
 
+void SettingBar::set_current_source(Source *source) {
+    m_current_source = source;
+}
+
 void SettingBar::init_UI() {
     auto *layout = new QHBoxLayout(this);
     layout->setContentsMargins(12, 0, 12, 0);
@@ -29,6 +33,13 @@ void SettingBar::init_UI() {
     layout->addStretch();
     layout->addWidget(m_filter_btn);
     layout->addWidget(m_settings_btn);
+
+    connect(m_filter_btn, &QPushButton::clicked, this, [this]() {
+        emit filter_clicked(m_current_source);
+    });
+    connect(m_settings_btn, &QPushButton::clicked, this, [this]() {
+        emit settings_clicked(m_current_source);
+    });
 
     init_CSS();
 }

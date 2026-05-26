@@ -559,6 +559,12 @@ void MainWindow::connect_signal() {
             this, &MainWindow::on_scene_removed);
     connect(control_bar->scene_control(), &SceneControlBlock::scene_selection_changed,
             this, &MainWindow::on_scene_selection_changed);
+
+    // 滤镜/设置预览窗口信号
+    connect(setting_bar, &SettingBar::filter_clicked,
+            this, &MainWindow::on_filter_requested);
+    connect(setting_bar, &SettingBar::settings_clicked,
+            this, &MainWindow::on_settings_requested);
 }
 
 void MainWindow::on_display_capture_requested(const CaptorConfig &config, const QString &name) {
@@ -632,8 +638,14 @@ void MainWindow::on_source_list_selection_changed(int row) {
     }
     if (setting_bar) {
         if (row >= 0 && scene_preview_widget) {
-            setting_bar->set_selection_text(scene_preview_widget->source_at(row)->display_name);
+            Source *src = scene_preview_widget->source_at(row);
+            setting_bar->set_current_source(src);
+            setting_bar->set_selection_text(src->display_name);
+
+            if (m_filter_window) m_filter_window->set_source(src);
+            if (m_settings_window) m_settings_window->set_source(src);
         } else {
+            setting_bar->set_current_source(nullptr);
             setting_bar->set_selection_text("未选择输入源");
         }
     }
@@ -647,8 +659,14 @@ void MainWindow::on_canvas_selection_changed(int scene_idx) {
     }
     if (setting_bar) {
         if (scene_idx >= 0 && scene_preview_widget) {
-            setting_bar->set_selection_text(scene_preview_widget->source_at(scene_idx)->display_name);
+            Source *src = scene_preview_widget->source_at(scene_idx);
+            setting_bar->set_current_source(src);
+            setting_bar->set_selection_text(src->display_name);
+
+            if (m_filter_window) m_filter_window->set_source(src);
+            if (m_settings_window) m_settings_window->set_source(src);
         } else {
+            setting_bar->set_current_source(nullptr);
             setting_bar->set_selection_text("未选择输入源");
         }
     }
@@ -691,8 +709,41 @@ void MainWindow::rebuild_source_list() {
     }
 
     if (setting_bar) {
+        setting_bar->set_current_source(nullptr);
         setting_bar->set_selection_text("未选择输入源");
     }
+}
+
+void MainWindow::on_filter_requested(Source *source) {
+    if (!source) return;
+    if (!m_filter_window) {
+        m_filter_window = new FilterPreviewWidget(nullptr);
+        connect(m_filter_window, &FilterPreviewWidget::close_requested,
+                this, [this]() {
+                    if (m_filter_window) m_filter_window->deleteLater();
+                });
+    }
+    m_filter_window->set_source(source);
+    m_filter_window->start_preview();
+    m_filter_window->show();
+    m_filter_window->raise();
+    m_filter_window->activateWindow();
+}
+
+void MainWindow::on_settings_requested(Source *source) {
+    if (!source) return;
+    if (!m_settings_window) {
+        m_settings_window = new SettingsPreviewWidget(nullptr);
+        connect(m_settings_window, &SettingsPreviewWidget::close_requested,
+                this, [this]() {
+                    if (m_settings_window) m_settings_window->deleteLater();
+                });
+    }
+    m_settings_window->set_source(source);
+    m_settings_window->start_preview();
+    m_settings_window->show();
+    m_settings_window->raise();
+    m_settings_window->activateWindow();
 }
 
 void MainWindow::init_layout() {
