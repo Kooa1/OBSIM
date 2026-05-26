@@ -41,6 +41,8 @@ public:
 
     void start();
     void stop();
+    void pause();
+    void resume();
     void set_frame_ready_callback(FrameReadyCallback callback);
     std::optional<AVFramePtr> try_pop_frame();
     bool is_running() const { return is_capturing.load(); }
@@ -62,6 +64,7 @@ protected:
     // ===== 成员变量 =====
     std::unique_ptr<DataSafeQueue<AVFramePtr>> queue;
     std::atomic_bool is_capturing{false};
+    std::atomic_bool is_paused_{false};
     std::thread cap_thread;
     FrameReadyCallback frame_ready_callback;
     std::mutex callback_mutex;

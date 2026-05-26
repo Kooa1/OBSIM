@@ -30,6 +30,17 @@ void VideoCaptor::stop() {
     }
 }
 
+void VideoCaptor::pause() {
+    is_paused_.store(true);
+    if (queue) {
+        queue->clean_queue();
+    }
+}
+
+void VideoCaptor::resume() {
+    is_paused_.store(false);
+}
+
 void VideoCaptor::set_frame_ready_callback(FrameReadyCallback callback) {
     std::lock_guard<std::mutex> lock(callback_mutex);
     frame_ready_callback = std::move(callback);
@@ -134,6 +145,11 @@ void VideoCaptor::init_sws_ctx() {
 // ========== 采集循环 ==========
 void VideoCaptor::capture_loop() {
     while (is_capturing.load()) {
+        if (is_paused_.load()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            continue;
+        }
+
         AVPacketPtr av_packet(av_packet_alloc(), AVPacketDeleter());
         int ret = av_read_frame(av_format_context.get(), av_packet.get());
         if (ret == AVERROR_EOF) break;

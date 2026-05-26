@@ -49,6 +49,9 @@ find_package(Qt6 COMPONENTS
         REQUIRED
 )
 
+# 查找 OpenGL（跨平台）
+find_package(OpenGL REQUIRED)
+
 # 自动查找所有头文件
 file(GLOB_RECURSE HEADER_FILES
         "include/*.h"
@@ -97,7 +100,7 @@ if (WIN32)
             Qt6::Core
             Qt6::Gui
             Qt6::Widgets
-            opengl32.lib
+            OpenGL::GL
             avdevice
             avformat
             avcodec
@@ -107,8 +110,6 @@ if (WIN32)
     )
 elseif (APPLE)
     target_link_libraries(OBSIM
-            vld
-            SDL2main
             SDL2
             Qt6::OpenGL
             Qt6::OpenGLWidgets
@@ -117,7 +118,7 @@ elseif (APPLE)
             Qt6::Core
             Qt6::Gui
             Qt6::Widgets
-            opengl32.lib
+            OpenGL::GL
             avdevice
             avformat
             avcodec
@@ -168,6 +169,29 @@ if (WIN32)
                 COMMENT "Copying qwindows${DEBUG_SUFFIX}.dll"
         )
     endif ()
+
+    # 复制 FFmpeg DLLs
+    set(FFMPEG_BIN_DIR "D:/src/ffmpeg-7.1.1-full_build-shared/bin")
+    set(FFMPEG_DLLS
+        avcodec-61.dll
+        avdevice-61.dll
+        avfilter-10.dll
+        avformat-61.dll
+        avutil-59.dll
+        postproc-58.dll
+        swresample-5.dll
+        swscale-8.dll
+    )
+    foreach (FFMPEG_DLL ${FFMPEG_DLLS})
+        if (EXISTS "${FFMPEG_BIN_DIR}/${FFMPEG_DLL}")
+            add_custom_command(TARGET OBSIM POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${FFMPEG_BIN_DIR}/${FFMPEG_DLL}"
+                    "$<TARGET_FILE_DIR:OBSIM>"
+                    COMMENT "Copying ${FFMPEG_DLL}"
+            )
+        endif ()
+    endforeach ()
 
 endif ()
 

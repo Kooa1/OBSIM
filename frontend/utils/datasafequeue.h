@@ -145,8 +145,7 @@ public:
     }
 
     std::optional<T> try_pop_drain() {
-        std::queue<T> temp;
-        {
+        std::queue<T> temp; {
             std::unique_lock<std::mutex> lock(q_mutex);
             if (data_queue.empty()) return std::nullopt;
 
@@ -174,10 +173,11 @@ public:
     bool push_no_wait(T value) {
         std::unique_lock<std::mutex> lock(q_mutex);
         if (data_queue.size() >= max_size) {
-            data_queue.pop();  // 丢弃最旧的帧（自动释放 AVFramePtr 引用）
+            data_queue.pop(); // 丢弃最旧的帧（自动释放 AVFramePtr 引用）
         }
         data_queue.push(std::move(value));
         cv_not_empty.notify_one();
+        cv_not_full.notify_one();
         return true;
     }
 

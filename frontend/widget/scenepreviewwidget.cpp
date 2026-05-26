@@ -213,8 +213,33 @@ void ScenePreviewWidget::remove_scene(int index) {
 
 void ScenePreviewWidget::switch_to_scene(int index) {
     if (index < 0 || index >= static_cast<int>(m_scene_list.size())) return;
+    if (index == m_current_scene_index) return;
+
+    // 暂停当前场景的所有视频源
+    for (auto &src : current_storage()) {
+        auto *video_src = dynamic_cast<VideoSource *>(src.get());
+        if (video_src) video_src->pause_capture();
+    }
+
     m_current_scene_index = index;
+
+    // 恢复新场景的所有视频源
+    for (auto &src : current_storage()) {
+        auto *video_src = dynamic_cast<VideoSource *>(src.get());
+        if (video_src) video_src->resume_capture();
+    }
+
     current_scene().clear_selection();
+}
+
+void ScenePreviewWidget::pause_all_non_current_scenes() {
+    for (int i = 0; i < static_cast<int>(m_scene_list.size()); ++i) {
+        if (i == m_current_scene_index) continue;
+        for (auto &src : m_scene_list[i].source_storage) {
+            auto *video_src = dynamic_cast<VideoSource *>(src.get());
+            if (video_src) video_src->pause_capture();
+        }
+    }
 }
 
 // ==================== 渲染方法 ====================

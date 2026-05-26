@@ -496,6 +496,9 @@ void MainWindow::load_sources() {
                                      scene_preview_widget->scene_count() - 1);
         scene_preview_widget->switch_to_scene(restore_idx);
 
+        // 暂停所有非当前场景的视频源（避免后台采集浪费资源）
+        scene_preview_widget->pause_all_non_current_scenes();
+
         // 重建场景列表 UI
         QListWidget *scene_list = control_bar->scene_control()->scene_list();
         scene_list->clear();

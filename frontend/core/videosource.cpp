@@ -14,6 +14,18 @@ void VideoSource::stop_capture() {
     }
 }
 
+void VideoSource::pause_capture() {
+    if (m_capture) {
+        m_capture->pause();
+    }
+}
+
+void VideoSource::resume_capture() {
+    if (m_capture) {
+        m_capture->resume();
+    }
+}
+
 void VideoSource::load_resources() {
     if (!m_texture_created) {
         create_texture(static_cast<int>(base_width), static_cast<int>(base_height));

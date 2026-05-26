@@ -65,6 +65,9 @@ public:
     // 持久化辅助：清空所有场景（不自动补默认场景）
     void clear_all_scenes();
 
+    // 首次加载后暂停所有非当前场景的视频源
+    void pause_all_non_current_scenes();
+
     // 只读访问全部场景数据
     const std::vector<SceneData>& all_scenes() const { return m_scene_list; }
 

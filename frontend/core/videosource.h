@@ -19,6 +19,8 @@ public:
     bool update_frame() override;
     void set_frame_ready_callback(VideoCaptor::FrameReadyCallback callback);
     void stop_capture();
+    void pause_capture();
+    void resume_capture();
 
 protected:
     void create_texture(int width, int height);
