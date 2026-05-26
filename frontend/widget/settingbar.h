@@ -1,7 +1,3 @@
-//
-// Created by 66 on 2026/4/27.
-//
-
 #ifndef OBSIM_SETTINGBAR_H
 #define OBSIM_SETTINGBAR_H
 
@@ -15,10 +11,16 @@ public:
 
     ~SettingBar() override;
 
+    void set_selection_text(const QString &text);
+
 private:
     void init_UI();
 
     void init_CSS();
+
+    QLabel *m_source_label = nullptr;
+    QPushButton *m_filter_btn = nullptr;
+    QPushButton *m_settings_btn = nullptr;
 };
 
 

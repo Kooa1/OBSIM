@@ -630,6 +630,13 @@ void MainWindow::on_source_list_selection_changed(int row) {
     if (scene_preview_widget) {
         scene_preview_widget->select_source_at(row);
     }
+    if (setting_bar) {
+        if (row >= 0 && scene_preview_widget) {
+            setting_bar->set_selection_text(scene_preview_widget->source_at(row)->display_name);
+        } else {
+            setting_bar->set_selection_text("未选择输入源");
+        }
+    }
 }
 
 void MainWindow::on_canvas_selection_changed(int scene_idx) {
@@ -637,6 +644,13 @@ void MainWindow::on_canvas_selection_changed(int scene_idx) {
         QListWidget *list = control_bar->source_control()->source_list();
         int list_row = list->count() - 1 - scene_idx;
         list->setCurrentRow(list_row);
+    }
+    if (setting_bar) {
+        if (scene_idx >= 0 && scene_preview_widget) {
+            setting_bar->set_selection_text(scene_preview_widget->source_at(scene_idx)->display_name);
+        } else {
+            setting_bar->set_selection_text("未选择输入源");
+        }
     }
 }
 
@@ -674,6 +688,10 @@ void MainWindow::rebuild_source_list() {
     for (int i = static_cast<int>(scene_preview_widget->source_count()) - 1; i >= 0; --i) {
         Source *src = scene_preview_widget->source_at(i);
         list->addItem(src->display_name + " (" + type_display_suffix(src) + ")");
+    }
+
+    if (setting_bar) {
+        setting_bar->set_selection_text("未选择输入源");
     }
 }
 
