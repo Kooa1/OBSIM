@@ -46,6 +46,12 @@ bool MainWindow::init_UI() {
     connect_recorder_signals();
     load_settings();
     load_sources();
+
+    // 初始化场景列表 UI
+    for (int i = 0; i < scene_preview_widget->scene_count(); ++i) {
+        control_bar->scene_control()->add_item(scene_preview_widget->scene_name_at(i));
+    }
+    rebuild_source_list();
     return true;
 }
 
@@ -203,171 +209,302 @@ struct SourceSaveData {
 };
 
 void MainWindow::save_sources() {
-    int count = static_cast<int>(scene_preview_widget->source_count());
-    if (count == 0) return;
+    int scene_count = scene_preview_widget->scene_count();
+    if (scene_count == 0) return;
 
-    std::vector<SourceSaveData> data;
-    data.reserve(count);
+    // 收集所有场景数据
+    struct SceneSaveEntry {
+        QString name;
+        std::vector<SourceSaveData> sources;
+    };
+    std::vector<SceneSaveEntry> all_data;
+    all_data.reserve(scene_count);
 
-    for (int i = 0; i < count; ++i) {
-        Source *src = scene_preview_widget->source_at(i);
-        SourceSaveData item;
-        item.type = QString::fromLatin1(src->source_type_name());
-        item.display_name = src->display_name;
-        item.pos_x = src->pos_x;
-        item.pos_y = src->pos_y;
-        item.scale_x = src->scale_x;
-        item.scale_y = src->scale_y;
-        item.visible = src->visible;
-        item.rotation = src->rotation;
-        item.lock_aspect_ratio = src->lock_aspect_ratio;
+    for (int si = 0; si < scene_count; ++si) {
+        const SceneData &sd = scene_preview_widget->all_scenes()[si];
+        SceneSaveEntry entry;
+        entry.name = sd.name;
+        entry.sources.reserve(sd.source_storage.size());
 
-        if (auto *sc = dynamic_cast<ScreenCaptureSource *>(src)) {
-            CaptorConfig cfg = sc->captor_config();
-            item.offset_x = cfg.offset_x;
-            item.offset_y = cfg.offset_y;
-            item.capture_width = cfg.width;
-            item.capture_height = cfg.height;
-        } else if (auto *ts = dynamic_cast<TextSource *>(src)) {
-            item.text = ts->text();
-            item.font_family = ts->font().family();
-            item.font_size = ts->font().pointSize();
-            item.color_name = ts->color().name();
-        } else if (auto *is = dynamic_cast<ImageSource *>(src)) {
-            item.file_path = is->file_path();
-        }
+        for (const auto &src_ptr : sd.source_storage) {
+            Source *src = src_ptr.get();
+            SourceSaveData item;
+            item.type = QString::fromLatin1(src->source_type_name());
+            item.display_name = src->display_name;
+            item.pos_x = src->pos_x;
+            item.pos_y = src->pos_y;
+            item.scale_x = src->scale_x;
+            item.scale_y = src->scale_y;
+            item.visible = src->visible;
+            item.rotation = src->rotation;
+            item.lock_aspect_ratio = src->lock_aspect_ratio;
 
-        data.push_back(std::move(item));
-    }
-
-    AsyncSettings::async_save([data = std::move(data)](QSettings &settings) {
-        settings.beginGroup("Sources");
-        int count = static_cast<int>(data.size());
-        settings.setValue("count", count);
-
-        for (int i = 0; i < count; ++i) {
-            const auto &item = data[i];
-            QString group = QString("Source_%1").arg(i);
-            settings.beginGroup(group);
-
-            settings.setValue("type", item.type);
-            settings.setValue("display_name", item.display_name);
-            settings.setValue("pos_x", item.pos_x);
-            settings.setValue("pos_y", item.pos_y);
-            settings.setValue("scale_x", item.scale_x);
-            settings.setValue("scale_y", item.scale_y);
-            settings.setValue("visible", item.visible);
-            settings.setValue("rotation", item.rotation);
-            settings.setValue("lock_aspect_ratio", item.lock_aspect_ratio);
-
-            if (item.type == "Screen Capture") {
-                settings.setValue("offset_x", item.offset_x);
-                settings.setValue("offset_y", item.offset_y);
-                settings.setValue("capture_width", item.capture_width);
-                settings.setValue("capture_height", item.capture_height);
-            } else if (item.type == "Text") {
-                settings.setValue("text", item.text);
-                settings.setValue("font_family", item.font_family);
-                settings.setValue("font_size", item.font_size);
-                settings.setValue("color", item.color_name);
-            } else if (item.type == "Image") {
-                settings.setValue("file_path", item.file_path);
+            if (auto *sc = dynamic_cast<ScreenCaptureSource *>(src)) {
+                CaptorConfig cfg = sc->captor_config();
+                item.offset_x = cfg.offset_x;
+                item.offset_y = cfg.offset_y;
+                item.capture_width = cfg.width;
+                item.capture_height = cfg.height;
+            } else if (auto *ts = dynamic_cast<TextSource *>(src)) {
+                item.text = ts->text();
+                item.font_family = ts->font().family();
+                item.font_size = ts->font().pointSize();
+                item.color_name = ts->color().name();
+            } else if (auto *is = dynamic_cast<ImageSource *>(src)) {
+                item.file_path = is->file_path();
             }
 
-            settings.endGroup();
+            entry.sources.push_back(std::move(item));
         }
-        settings.endGroup();
+
+        all_data.push_back(std::move(entry));
+    }
+
+    int current_idx = scene_preview_widget->current_scene_index();
+
+    AsyncSettings::async_save([all_data = std::move(all_data), current_idx](QSettings &settings) {
+        settings.beginGroup("Scenes");
+        int scene_count = static_cast<int>(all_data.size());
+        settings.setValue("count", scene_count);
+        settings.setValue("current_index", current_idx);
+
+        for (int si = 0; si < scene_count; ++si) {
+            const auto &entry = all_data[si];
+            QString scene_group = QString("Scene_%1").arg(si);
+            settings.beginGroup(scene_group);
+
+            settings.setValue("name", entry.name);
+
+            settings.beginGroup("Sources");
+            int src_count = static_cast<int>(entry.sources.size());
+            settings.setValue("count", src_count);
+
+            for (int i = 0; i < src_count; ++i) {
+                const auto &item = entry.sources[i];
+                QString group = QString("Source_%1").arg(i);
+                settings.beginGroup(group);
+
+                settings.setValue("type", item.type);
+                settings.setValue("display_name", item.display_name);
+                settings.setValue("pos_x", item.pos_x);
+                settings.setValue("pos_y", item.pos_y);
+                settings.setValue("scale_x", item.scale_x);
+                settings.setValue("scale_y", item.scale_y);
+                settings.setValue("visible", item.visible);
+                settings.setValue("rotation", item.rotation);
+                settings.setValue("lock_aspect_ratio", item.lock_aspect_ratio);
+
+                if (item.type == "Screen Capture") {
+                    settings.setValue("offset_x", item.offset_x);
+                    settings.setValue("offset_y", item.offset_y);
+                    settings.setValue("capture_width", item.capture_width);
+                    settings.setValue("capture_height", item.capture_height);
+                } else if (item.type == "Text") {
+                    settings.setValue("text", item.text);
+                    settings.setValue("font_family", item.font_family);
+                    settings.setValue("font_size", item.font_size);
+                    settings.setValue("color", item.color_name);
+                } else if (item.type == "Image") {
+                    settings.setValue("file_path", item.file_path);
+                }
+
+                settings.endGroup(); // Source_N
+            }
+            settings.endGroup(); // Sources
+
+            settings.endGroup(); // Scene_N
+        }
+        settings.endGroup(); // Scenes
     });
 }
 
 void MainWindow::load_sources() {
-    QFuture<std::vector<SourceSaveData>> future =
-        AsyncSettings::async_load<std::vector<SourceSaveData>>(
-            [](QSettings &settings) {
+    // 加载数据结构
+    struct SceneLoadEntry {
+        QString name;
+        std::vector<SourceSaveData> sources;
+    };
+    struct LoadResult {
+        std::vector<SceneLoadEntry> scenes;
+        int current_index = 0;
+    };
+
+    QFuture<LoadResult> future =
+        AsyncSettings::async_load<LoadResult>(
+            [](QSettings &settings) -> LoadResult {
+                LoadResult result;
+
+                // 优先读取新格式 Scenes/
+                int scene_count = settings.value("Scenes/count", -1).toInt();
+                if (scene_count > 0) {
+                    result.current_index = settings.value("Scenes/current_index", 0).toInt();
+                    result.scenes.reserve(scene_count);
+
+                    for (int si = 0; si < scene_count; ++si) {
+                        QString scene_group = QString("Scenes/Scene_%1").arg(si);
+                        settings.beginGroup(scene_group);
+                        SceneLoadEntry entry;
+                        entry.name = settings.value("name", QString("场景 %1").arg(si + 1)).toString();
+
+                        settings.beginGroup("Sources");
+                        int src_count = settings.value("count", 0).toInt();
+                        entry.sources.reserve(src_count);
+
+                        for (int i = 0; i < src_count; ++i) {
+                            QString group = QString("Source_%1").arg(i);
+                            settings.beginGroup(group);
+                            SourceSaveData item;
+                            item.type = settings.value("type").toString();
+                            item.display_name = settings.value("display_name").toString();
+                            item.pos_x = settings.value("pos_x", 0.0f).toFloat();
+                            item.pos_y = settings.value("pos_y", 0.0f).toFloat();
+                            item.scale_x = settings.value("scale_x", 1.0f).toFloat();
+                            item.scale_y = settings.value("scale_y", 1.0f).toFloat();
+                            item.visible = settings.value("visible", true).toBool();
+                            item.rotation = settings.value("rotation", 0.0f).toFloat();
+                            item.lock_aspect_ratio = settings.value("lock_aspect_ratio", false).toBool();
+
+                            if (item.type == "Screen Capture") {
+                                item.offset_x = settings.value("offset_x").toInt();
+                                item.offset_y = settings.value("offset_y").toInt();
+                                item.capture_width = settings.value("capture_width").toInt();
+                                item.capture_height = settings.value("capture_height").toInt();
+                            } else if (item.type == "Text") {
+                                item.text = settings.value("text").toString();
+                                item.font_family = settings.value("font_family", "Arial").toString();
+                                item.font_size = settings.value("font_size", 48).toInt();
+                                item.color_name = settings.value("color", "#FFFFFF").toString();
+                            } else if (item.type == "Image") {
+                                item.file_path = settings.value("file_path").toString();
+                            } else if (item.type == "Camera") {
+                            }
+
+                            entry.sources.push_back(std::move(item));
+                            settings.endGroup(); // Source_N
+                        }
+                        settings.endGroup(); // Sources
+                        settings.endGroup(); // Scene_N
+
+                        result.scenes.push_back(std::move(entry));
+                    }
+                    return result;
+                }
+
+                // 兼容旧格式：Sources/ 组 → 迁移为场景 0
                 settings.beginGroup("Sources");
                 int count = settings.value("count", 0).toInt();
-                std::vector<SourceSaveData> data;
-                data.reserve(count);
+                if (count > 0) {
+                    SceneLoadEntry entry;
+                    entry.name = "场景 1";
+                    entry.sources.reserve(count);
 
-                for (int i = 0; i < count; ++i) {
-                    QString group = QString("Source_%1").arg(i);
-                    settings.beginGroup(group);
-                    SourceSaveData item;
-                    item.type = settings.value("type").toString();
-                    item.display_name = settings.value("display_name").toString();
-                    item.pos_x = settings.value("pos_x", 0.0f).toFloat();
-                    item.pos_y = settings.value("pos_y", 0.0f).toFloat();
-                    item.scale_x = settings.value("scale_x", 1.0f).toFloat();
-                    item.scale_y = settings.value("scale_y", 1.0f).toFloat();
-                    item.visible = settings.value("visible", true).toBool();
-                    item.rotation = settings.value("rotation", 0.0f).toFloat();
-                    item.lock_aspect_ratio = settings.value("lock_aspect_ratio", false).toBool();
+                    for (int i = 0; i < count; ++i) {
+                        QString group = QString("Source_%1").arg(i);
+                        settings.beginGroup(group);
+                        SourceSaveData item;
+                        item.type = settings.value("type").toString();
+                        item.display_name = settings.value("display_name").toString();
+                        item.pos_x = settings.value("pos_x", 0.0f).toFloat();
+                        item.pos_y = settings.value("pos_y", 0.0f).toFloat();
+                        item.scale_x = settings.value("scale_x", 1.0f).toFloat();
+                        item.scale_y = settings.value("scale_y", 1.0f).toFloat();
+                        item.visible = settings.value("visible", true).toBool();
+                        item.rotation = settings.value("rotation", 0.0f).toFloat();
+                        item.lock_aspect_ratio = settings.value("lock_aspect_ratio", false).toBool();
 
-                    if (item.type == "Screen Capture") {
-                        item.offset_x = settings.value("offset_x").toInt();
-                        item.offset_y = settings.value("offset_y").toInt();
-                        item.capture_width = settings.value("capture_width").toInt();
-                        item.capture_height = settings.value("capture_height").toInt();
-                    } else if (item.type == "Text") {
-                        item.text = settings.value("text").toString();
-                        item.font_family = settings.value("font_family", "Arial").toString();
-                        item.font_size = settings.value("font_size", 48).toInt();
-                        item.color_name = settings.value("color", "#FFFFFF").toString();
-                    } else if (item.type == "Image") {
-                        item.file_path = settings.value("file_path").toString();
-                    } else if (item.type == "Camera") {
+                        if (item.type == "Screen Capture") {
+                            item.offset_x = settings.value("offset_x").toInt();
+                            item.offset_y = settings.value("offset_y").toInt();
+                            item.capture_width = settings.value("capture_width").toInt();
+                            item.capture_height = settings.value("capture_height").toInt();
+                        } else if (item.type == "Text") {
+                            item.text = settings.value("text").toString();
+                            item.font_family = settings.value("font_family", "Arial").toString();
+                            item.font_size = settings.value("font_size", 48).toInt();
+                            item.color_name = settings.value("color", "#FFFFFF").toString();
+                        } else if (item.type == "Image") {
+                            item.file_path = settings.value("file_path").toString();
+                        } else if (item.type == "Camera") {
+                        }
+
+                        entry.sources.push_back(std::move(item));
+                        settings.endGroup();
                     }
-
-                    data.push_back(std::move(item));
-                    settings.endGroup();
+                    result.scenes.push_back(std::move(entry));
                 }
-                settings.endGroup();
-                return data;
+                settings.endGroup(); // Sources
+                return result;
             }
         );
 
-    auto *watcher = new QFutureWatcher<std::vector<SourceSaveData>>(this);
+    auto *watcher = new QFutureWatcher<LoadResult>(this);
     QPointer<MainWindow> guard(this);
-    connect(watcher, &QFutureWatcher<std::vector<SourceSaveData>>::finished, this,
+    connect(watcher, &QFutureWatcher<LoadResult>::finished, this,
             [this, guard, watcher]() {
         if (!guard) {
             watcher->deleteLater();
             return;
         }
-        auto data = watcher->result();
+        auto result = watcher->result();
 
-        for (const auto &item : data) {
-            if (item.type == "Screen Capture") {
-                CaptorConfig config;
-                config.offset_x = item.offset_x;
-                config.offset_y = item.offset_y;
-                config.width = item.capture_width;
-                config.height = item.capture_height;
-                scene_preview_widget->add_screen_capture_source(config, item.display_name);
-            } else if (item.type == "Camera") {
-                scene_preview_widget->add_camera_capture_source(item.display_name);
-            } else if (item.type == "Text") {
-                QFont font;
-                font.setFamily(item.font_family);
-                font.setPointSize(item.font_size);
-                QColor color(item.color_name);
-                scene_preview_widget->add_text_source(item.text, font, color, item.display_name);
-            } else if (item.type == "Image") {
-                scene_preview_widget->add_image_source(item.file_path, item.display_name);
-            }
-
-            Source *src = scene_preview_widget->source_at(
-                scene_preview_widget->source_count() - 1);
-            src->pos_x = item.pos_x;
-            src->pos_y = item.pos_y;
-            src->scale_x = item.scale_x;
-            src->scale_y = item.scale_y;
-            src->visible = item.visible;
-            src->rotation = item.rotation;
-            src->lock_aspect_ratio = item.lock_aspect_ratio;
+        if (result.scenes.empty()) {
+            watcher->deleteLater();
+            return; // 保留默认场景
         }
 
-        // 重建 UI 源列表（从后往前，与 SourceControlBlock 反序索引一致）
+        // 清空现有场景，用加载数据重建
+        scene_preview_widget->clear_all_scenes();
+
+        for (auto &entry : result.scenes) {
+            int scene_idx = scene_preview_widget->add_scene(entry.name);
+            scene_preview_widget->switch_to_scene(scene_idx);
+
+            for (const auto &item : entry.sources) {
+                if (item.type == "Screen Capture") {
+                    CaptorConfig config;
+                    config.offset_x = item.offset_x;
+                    config.offset_y = item.offset_y;
+                    config.width = item.capture_width;
+                    config.height = item.capture_height;
+                    scene_preview_widget->add_screen_capture_source(config, item.display_name);
+                } else if (item.type == "Camera") {
+                    scene_preview_widget->add_camera_capture_source(item.display_name);
+                } else if (item.type == "Text") {
+                    QFont font;
+                    font.setFamily(item.font_family);
+                    font.setPointSize(item.font_size);
+                    QColor color(item.color_name);
+                    scene_preview_widget->add_text_source(item.text, font, color, item.display_name);
+                } else if (item.type == "Image") {
+                    scene_preview_widget->add_image_source(item.file_path, item.display_name);
+                }
+
+                Source *src = scene_preview_widget->source_at(
+                    scene_preview_widget->source_count() - 1);
+                src->pos_x = item.pos_x;
+                src->pos_y = item.pos_y;
+                src->scale_x = item.scale_x;
+                src->scale_y = item.scale_y;
+                src->visible = item.visible;
+                src->rotation = item.rotation;
+                src->lock_aspect_ratio = item.lock_aspect_ratio;
+            }
+        }
+
+        // 恢复当前场景
+        int restore_idx = std::clamp(result.current_index, 0,
+                                     scene_preview_widget->scene_count() - 1);
+        scene_preview_widget->switch_to_scene(restore_idx);
+
+        // 重建场景列表 UI
+        QListWidget *scene_list = control_bar->scene_control()->scene_list();
+        scene_list->clear();
+        for (int i = 0; i < scene_preview_widget->scene_count(); ++i) {
+            scene_list->addItem(scene_preview_widget->scene_name_at(i));
+        }
+        scene_list->setCurrentRow(restore_idx);
+
+        // 重建源列表 UI
         QListWidget *list = control_bar->source_control()->source_list();
         list->clear();
         for (int i = static_cast<int>(scene_preview_widget->source_count()) - 1; i >= 0; --i) {
@@ -411,6 +548,14 @@ void MainWindow::connect_signal() {
             this, &MainWindow::on_canvas_selection_changed);
     connect(scene_preview_widget, &ScenePreviewWidget::source_position_changed,
             this, &MainWindow::save_sources);
+
+    // 场景控制信号
+    connect(control_bar->scene_control(), &SceneControlBlock::scene_added,
+            this, &MainWindow::on_scene_added);
+    connect(control_bar->scene_control(), &SceneControlBlock::scene_removed,
+            this, &MainWindow::on_scene_removed);
+    connect(control_bar->scene_control(), &SceneControlBlock::scene_selection_changed,
+            this, &MainWindow::on_scene_selection_changed);
 }
 
 void MainWindow::on_display_capture_requested(const CaptorConfig &config, const QString &name) {
@@ -489,6 +634,43 @@ void MainWindow::on_canvas_selection_changed(int scene_idx) {
         QListWidget *list = control_bar->source_control()->source_list();
         int list_row = list->count() - 1 - scene_idx;
         list->setCurrentRow(list_row);
+    }
+}
+
+void MainWindow::on_scene_added(const QString &name) {
+    if (!scene_preview_widget) return;
+    int new_index = scene_preview_widget->add_scene(name);
+    scene_preview_widget->switch_to_scene(new_index);
+    rebuild_source_list();
+    save_sources();
+}
+
+void MainWindow::on_scene_removed(int index) {
+    if (!scene_preview_widget) return;
+    scene_preview_widget->remove_scene(index);
+
+    // 删除场景后同步 UI
+    rebuild_source_list();
+    save_sources();
+}
+
+void MainWindow::on_scene_selection_changed(int index) {
+    if (!scene_preview_widget) return;
+    scene_preview_widget->switch_to_scene(index);
+
+    // 切换场景时重建源列表
+    rebuild_source_list();
+}
+
+void MainWindow::rebuild_source_list() {
+    if (!control_bar || !scene_preview_widget) return;
+
+    QListWidget *list = control_bar->source_control()->source_list();
+    list->clear();
+
+    for (int i = static_cast<int>(scene_preview_widget->source_count()) - 1; i >= 0; --i) {
+        Source *src = scene_preview_widget->source_at(i);
+        list->addItem(src->display_name + " (" + type_display_suffix(src) + ")");
     }
 }
 

@@ -60,6 +60,14 @@ public:
 
     QListWidget *scene_list() const { return m_scene_list; }
 
+    void add_item(const QString &name);
+    void remove_item(int index);
+
+signals:
+    void scene_added(const QString &name);
+    void scene_removed(int index);
+    void scene_selection_changed(int index);
+
 private:
     QListWidget *m_scene_list;
 };

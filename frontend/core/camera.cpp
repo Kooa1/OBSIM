@@ -23,7 +23,6 @@ Camera::Camera(std::string device_description)
 #endif
     }
 
-    init_ctx();
 }
 
 const char* Camera::get_input_format_name() const {

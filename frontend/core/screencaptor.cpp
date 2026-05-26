@@ -4,7 +4,6 @@ ScreenCaptor::ScreenCaptor() {}
 
 void ScreenCaptor::apply_config(const CaptorConfig &config) {
     VideoCaptor::apply_config(config);
-    init_ctx();
 }
 
 void ScreenCaptor::setup_options(AVDictionary** opts) {

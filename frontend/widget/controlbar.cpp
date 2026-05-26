@@ -19,9 +19,60 @@ SceneControlBlock::SceneControlBlock(QWidget *parent)
     m_content_layout->addWidget(m_scene_list);
     m_content_layout->addLayout(btn_layout);
 
-    m_scene_list->addItem("场景 1");
-    m_scene_list->addItem("场景 2");
-    m_scene_list->setCurrentRow(0);
+    connect(btn_add, &QPushButton::clicked, this, [this]() {
+        bool ok = false;
+        QString name = QInputDialog::getText(this, "新建场景", "场景名称:",
+                                              QLineEdit::Normal, QString(), &ok);
+        if (!ok || name.trimmed().isEmpty()) return;
+        name = name.trimmed();
+
+        // 确保不重名
+        auto items = m_scene_list->findItems(name, Qt::MatchFixedString);
+        if (!items.isEmpty()) {
+            QMessageBox::information(this, "提示", "场景名已存在，请使用其他名称");
+            return;
+        }
+
+        m_scene_list->addItem(name);
+        m_scene_list->setCurrentRow(m_scene_list->count() - 1);
+        emit scene_added(name);
+    });
+
+    connect(btn_del, &QPushButton::clicked, this, [this]() {
+        int row = m_scene_list->currentRow();
+        if (row < 0 || m_scene_list->count() <= 1) {
+            if (m_scene_list->count() <= 1) {
+                QMessageBox::information(this, "提示", "至少保留一个场景");
+            }
+            return;
+        }
+        QString name = m_scene_list->currentItem()->text();
+        int ret = QMessageBox::question(this, "删除场景",
+                                        QString("确定删除场景 \"%1\" 及其所有输入源吗？").arg(name),
+                                        QMessageBox::Yes | QMessageBox::No,
+                                        QMessageBox::No);
+        if (ret != QMessageBox::Yes) return;
+
+        delete m_scene_list->takeItem(row);
+        emit scene_removed(row);
+    });
+
+    connect(m_scene_list, &QListWidget::currentRowChanged, this,
+            [this](int row) {
+                if (row >= 0) {
+                    emit scene_selection_changed(row);
+                }
+            });
+}
+
+void SceneControlBlock::add_item(const QString &name) {
+    m_scene_list->addItem(name);
+}
+
+void SceneControlBlock::remove_item(int index) {
+    if (index >= 0 && index < m_scene_list->count()) {
+        delete m_scene_list->takeItem(index);
+    }
 }
 
 

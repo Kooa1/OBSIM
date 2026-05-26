@@ -60,6 +60,11 @@ private:
     void on_source_list_selection_changed(int row);
     void on_canvas_selection_changed(int index);
 
+    void on_scene_added(const QString &name);
+    void on_scene_removed(int index);
+    void on_scene_selection_changed(int index);
+    void rebuild_source_list();
+
     void on_recording_started(const QString &output_path);
     void on_recording_stopped();
 

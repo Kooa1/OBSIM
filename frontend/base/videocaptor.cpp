@@ -12,7 +12,12 @@ void VideoCaptor::start() {
     if (is_capturing.load()) return;
     queue = std::make_unique<DataSafeQueue<AVFramePtr>>(64);
     is_capturing.store(true);
-    cap_thread = std::thread([this]() { capture_loop(); });
+    cap_thread = std::thread([this]() {
+        init_ctx();
+        if (av_format_context && decode_func) {
+            capture_loop();
+        }
+    });
 }
 
 void VideoCaptor::stop() {

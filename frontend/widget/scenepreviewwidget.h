@@ -13,7 +13,7 @@
 #include <chrono>
 
 #include "../base/source.h"
-#include "core/scene.h"
+#include "../core/scene.h"
 #include "test/testsource.h"
 #include "../base/videocaptor.h"
 #include "core/screencapturesource.h"
@@ -21,6 +21,12 @@
 #include "core/textsource.h"
 #include "core/imagesource.h"
 #include "utils/devicemanager.h"
+
+struct SceneData {
+    Scene scene;
+    std::vector<std::unique_ptr<Source>> source_storage;
+    QString name;
+};
 
 
 class ScenePreviewWidget : public QOpenGLWidget {
@@ -48,6 +54,20 @@ public:
     void move_source_up(int index);
     void move_source_down(int index);
 
+    // 多场景管理
+    int add_scene(const QString &name);
+    void remove_scene(int index);
+    void switch_to_scene(int index);
+    int scene_count() const { return static_cast<int>(m_scene_list.size()); }
+    QString scene_name_at(int index) const;
+    int current_scene_index() const { return m_current_scene_index; }
+
+    // 持久化辅助：清空所有场景（不自动补默认场景）
+    void clear_all_scenes();
+
+    // 只读访问全部场景数据
+    const std::vector<SceneData>& all_scenes() const { return m_scene_list; }
+
     // 录制帧捕获回调（data: BGRA, stride: width*4）
     using FrameCaptureCallback = std::function<void(const uint8_t *data, int stride, int w, int h)>;
     void set_frame_capture_callback(FrameCaptureCallback cb) { m_frame_capture_callback = std::move(cb); }
@@ -55,8 +75,8 @@ public:
     static constexpr float CANVAS_W = 1920.0f;
     static constexpr float CANVAS_H = 1080.0f;
 
-    size_t source_count() const { return m_sources_storage.size(); }
-    Source* source_at(size_t index) const { return m_sources_storage[index].get(); }
+    size_t source_count() const;
+    Source* source_at(size_t index) const;
 
 signals:
     void canvas_selection_changed(int index);
@@ -108,8 +128,17 @@ private:
     int m_mosaic_w = 0;
     int m_mosaic_h = 0;
 
-    std::vector<std::unique_ptr<Source> > m_sources_storage;
-    Scene m_scene;
+    std::vector<SceneData> m_scene_list;
+    int m_current_scene_index = 0;
+
+    Scene &current_scene() { return m_scene_list[m_current_scene_index].scene; }
+    const Scene &current_scene() const { return m_scene_list[m_current_scene_index].scene; }
+    std::vector<std::unique_ptr<Source>> &current_storage() {
+        return m_scene_list[m_current_scene_index].source_storage;
+    }
+    const std::vector<std::unique_ptr<Source>> &current_storage() const {
+        return m_scene_list[m_current_scene_index].source_storage;
+    }
 
     QPointer<ScenePreviewWidget> m_self_guard; // 跨线程安全引用
     QTimer *m_render_timer = nullptr;           // 60fps 渲染定时器
