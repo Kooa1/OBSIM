@@ -257,6 +257,12 @@ void ScenePreviewWidget::setup_viewport_and_clear() {
     m_viewX = (w - m_viewW) / 2;
     m_viewY = (h - m_viewH) / 2;
 
+    const int padding = 6;
+    m_viewX += padding;
+    m_viewY += padding;
+    m_viewW -= 2 * padding;
+    m_viewH -= 2 * padding;
+
     glViewport(0, 0, w, h);
     glClearStencil(0);
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
