@@ -6,7 +6,7 @@
 #include <QApplication>
 
 #include "utils/PCH.h"
-#include "widget/mainwindow.h"
+#include "frontend/widget/mainwindow.h"
 
 extern "C" {
 #include <libavdevice/avdevice.h>
