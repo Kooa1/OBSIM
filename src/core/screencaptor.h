@@ -1,7 +1,7 @@
 #ifndef OBSIM_CAPTOR_H
 #define OBSIM_CAPTOR_H
 
-#include "../base/videocaptor.h"
+#include "base/videocaptor.h"
 
 class ScreenCaptor : public VideoCaptor {
 public:

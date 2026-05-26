@@ -15,7 +15,7 @@
 #include "../base/source.h"
 #include "../core/scene.h"
 #include "test/testsource.h"
-#include "../base/videocaptor.h"
+#include "../../core/base/videocaptor.h"
 #include "core/screencapturesource.h"
 #include "core/cameracapturesource.h"
 #include "core/textsource.h"

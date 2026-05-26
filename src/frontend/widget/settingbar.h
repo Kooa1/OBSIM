@@ -2,7 +2,7 @@
 #define OBSIM_SETTINGBAR_H
 
 #include "../utils/PCH.h"
-#include "../base/source.h"
+#include "../../core/base/source.h"
 
 class SettingBar : public QWidget {
     Q_OBJECT

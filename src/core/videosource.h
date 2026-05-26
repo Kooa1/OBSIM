@@ -6,7 +6,7 @@
 #include <GL/gl.h>
 
 #include "../base/source.h"
-#include "../base/videocaptor.h"
+#include "base/videocaptor.h"
 
 class VideoSource : public Source {
 public:

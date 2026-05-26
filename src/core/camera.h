@@ -5,7 +5,7 @@
 #ifndef MONITORSERVER_CAPTOR_H
 #define MONITORSERVER_CAPTOR_H
 
-#include "../base/videocaptor.h"
+#include "base/videocaptor.h"
 
 class Camera : public VideoCaptor {
 public:

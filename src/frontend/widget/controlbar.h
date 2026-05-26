@@ -10,7 +10,7 @@
 #include "../utils/PCH.h"
 #include "../utils/devicemanager.h"
 #include "../core/textsource.h"
-#include "../base/videocaptor.h"
+#include "../../core/base/videocaptor.h"
 #include "settingsdialog.h"
 
 #include <QColorDialog>

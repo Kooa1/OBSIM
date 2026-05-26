@@ -3,7 +3,7 @@
 #include <QVBoxLayout>
 #include <QGuiApplication>
 #include <QScreen>
-#include "../base/source.h"
+#include "../../core/base/source.h"
 
 // ===== PreviewGLWidget =====
 
