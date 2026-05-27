@@ -18,7 +18,7 @@
 #include "settingbar.h"
 #include "controlbar.h"
 #include "settingsdialog.h"
-#include "../base/filterpreviewwidget.h"
+#include "filterpreviewwidget.h"
 #include "settingspreviewwidget.h"
 
 #include "../../core/audiomanager.h"

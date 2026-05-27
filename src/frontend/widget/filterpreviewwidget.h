@@ -1,7 +1,7 @@
 #ifndef OBSIM_FILTERPREVIEWWIDGET_H
 #define OBSIM_FILTERPREVIEWWIDGET_H
 
-#include "../widget/previewbasewidget.h"
+#include "../base/previewbasewidget.h"
 #include <QLabel>
 #include <QVBoxLayout>
 
