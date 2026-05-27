@@ -39,13 +39,18 @@ public:
     VideoCaptor() = default;
     virtual ~VideoCaptor();
 
-    void start();
-    void stop();
-    void pause();
-    void resume();
+    virtual void start();
+    virtual void stop();
+    virtual void pause();
+    virtual void resume();
     void set_frame_ready_callback(FrameReadyCallback callback);
     std::optional<AVFramePtr> try_pop_frame();
     bool is_running() const { return is_capturing.load(); }
+
+    // ===== 子类必须实现 =====
+    virtual const char* get_input_format_name() const = 0;
+    virtual const char* get_device_name() const = 0;
+    virtual void setup_options(AVDictionary** opts) {}  // 可选的选项设置
 
 protected:
     virtual void apply_config(const CaptorConfig &config);
@@ -56,11 +61,6 @@ protected:
     virtual void receive_frame1(AVPacketPtr packet);
     virtual void push_frame(AVFramePtr frame);
     void notify_frame_ready();
-
-    // ===== 子类必须实现 =====
-    virtual const char* get_input_format_name() const = 0;
-    virtual const char* get_device_name() const = 0;
-    virtual void setup_options(AVDictionary** opts) {}  // 可选的选项设置
 
     // ===== 成员变量 =====
     std::unique_ptr<DataSafeQueue<AVFramePtr>> queue;

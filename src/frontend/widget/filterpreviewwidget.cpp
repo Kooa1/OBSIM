@@ -50,24 +50,27 @@ QWidget* FilterPreviewWidget::create_control_area() {
 
     auto panel = create_split_panel("滤镜参数", container);
 
-    auto add_checkable = [&](const QString &text) {
+    auto add_item = [&](const QString &text) {
         auto *item = new QListWidgetItem(text);
-        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-        item->setCheckState(Qt::Unchecked);
         panel.list_widget->addItem(item);
     };
-    add_checkable("翻转");
-    add_checkable("灰度");
-    add_checkable("高斯模糊");
-    add_checkable("锐化");
-    add_checkable("边缘检测");
-    add_checkable("颜色调整");
-    add_checkable("裁剪");
+    add_item("翻转");
+    add_item("灰度");
+    add_item("高斯模糊");
+    add_item("锐化");
+    add_item("边缘检测");
+    add_item("颜色调整");
+    add_item("裁剪");
 
     m_param_stack = new QStackedWidget(panel.right_panel);
+    m_param_stack->setStyleSheet("background: #2a2a2a;");
     auto *right_layout = new QVBoxLayout(panel.right_panel);
     right_layout->setContentsMargins(8, 8, 8, 8);
     right_layout->addWidget(m_param_stack);
+
+    auto *reset_btn = new QPushButton("重置参数");
+    right_layout->addWidget(reset_btn);
+    connect(reset_btn, &QPushButton::clicked, this, &FilterPreviewWidget::on_reset);
 
     layout->addWidget(panel.splitter);
 
@@ -75,23 +78,6 @@ QWidget* FilterPreviewWidget::create_control_area() {
 
     connect(m_param_list, &QListWidget::currentRowChanged,
             this, &FilterPreviewWidget::on_item_clicked);
-    connect(m_param_list, &QListWidget::itemChanged,
-            this, [this](QListWidgetItem *item) {
-        int row = m_param_list->row(item);
-        if (row < 0 || !m_filter) return;
-        FilterParams p = m_filter->params();
-        auto checked = (item->checkState() == Qt::Checked);
-        switch (row) {
-            case 0: p.enable_flip = checked; break;
-            case 1: p.enable_grayscale = checked; break;
-            case 2: p.enable_gaussian_blur = checked; break;
-            case 3: p.enable_sharpen = checked; break;
-            case 4: p.enable_edge_detect = checked; break;
-            case 5: p.enable_color_adjust = checked; break;
-            case 6: p.enable_crop = checked; break;
-        }
-        m_filter->set_params(p);
-    });
 
     return container;
 }
@@ -100,36 +86,20 @@ void FilterPreviewWidget::build_param_pages() {
     if (!m_filter || m_param_stack->count() > 0) return;
 
     m_param_stack->addWidget(create_flip_page());
-    m_param_stack->addWidget(create_no_param_page("灰度：将图像转换为灰度"));
+    m_param_stack->addWidget(create_grayscale_page());
     m_param_stack->addWidget(create_blur_page());
-    m_param_stack->addWidget(create_no_param_page("锐化：增强图像边缘"));
-    m_param_stack->addWidget(create_no_param_page("边缘检测：Canny 算法"));
+    m_param_stack->addWidget(create_sharpen_page());
+    m_param_stack->addWidget(create_edge_detect_page());
     m_param_stack->addWidget(create_color_adjust_page());
-    m_param_stack->addWidget(create_no_param_page("裁剪：设置裁剪区域"));
+    m_param_stack->addWidget(create_crop_page());
 }
 
 void FilterPreviewWidget::on_item_clicked(int currentRow) {
-    if (currentRow < 0 || !m_filter) return;
-
+    if (currentRow < 0) return;
     build_param_pages();
-
     if (currentRow < m_param_stack->count()) {
         m_param_stack->setCurrentIndex(currentRow);
     }
-
-    FilterParams p = m_filter->params();
-    bool checked = false;
-    switch (currentRow) {
-        case 0: checked = p.enable_flip; break;
-        case 1: checked = p.enable_grayscale; break;
-        case 2: checked = p.enable_gaussian_blur; break;
-        case 3: checked = p.enable_sharpen; break;
-        case 4: checked = p.enable_edge_detect; break;
-        case 5: checked = p.enable_color_adjust; break;
-        case 6: checked = p.enable_crop; break;
-    }
-    auto *item = m_param_list->item(currentRow);
-    if (item) item->setCheckState(checked ? Qt::Checked : Qt::Unchecked);
 }
 
 void FilterPreviewWidget::apply_flip_code(int code) {
@@ -172,23 +142,122 @@ void FilterPreviewWidget::apply_saturation(int value) {
     m_filter->set_params(p);
 }
 
+void FilterPreviewWidget::apply_sharpen_intensity(int value) {
+    if (!m_filter) return;
+    FilterParams p = m_filter->params();
+    p.sharpen_intensity = value / 100.0f;
+    p.enable_sharpen = true;
+    m_filter->set_params(p);
+}
+
+void FilterPreviewWidget::apply_edge_low(int value) {
+    if (!m_filter) return;
+    FilterParams p = m_filter->params();
+    p.edge_low = value;
+    p.enable_edge_detect = true;
+    m_filter->set_params(p);
+}
+
+void FilterPreviewWidget::apply_edge_high(int value) {
+    if (!m_filter) return;
+    FilterParams p = m_filter->params();
+    p.edge_high = value;
+    p.enable_edge_detect = true;
+    m_filter->set_params(p);
+}
+
+void FilterPreviewWidget::apply_crop_x(int value) {
+    if (!m_filter) return;
+    FilterParams p = m_filter->params();
+    p.crop_rect.x = value;
+    p.enable_crop = true;
+    m_filter->set_params(p);
+}
+
+void FilterPreviewWidget::apply_crop_y(int value) {
+    if (!m_filter) return;
+    FilterParams p = m_filter->params();
+    p.crop_rect.y = value;
+    p.enable_crop = true;
+    m_filter->set_params(p);
+}
+
+void FilterPreviewWidget::apply_crop_w(int value) {
+    if (!m_filter) return;
+    FilterParams p = m_filter->params();
+    p.crop_rect.width = value;
+    p.enable_crop = true;
+    m_filter->set_params(p);
+}
+
+void FilterPreviewWidget::apply_crop_h(int value) {
+    if (!m_filter) return;
+    FilterParams p = m_filter->params();
+    p.crop_rect.height = value;
+    p.enable_crop = true;
+    m_filter->set_params(p);
+}
+
 QWidget* FilterPreviewWidget::create_flip_page() {
     auto *page = new QWidget();
     auto *layout = new QVBoxLayout(page);
 
-    auto *label = new QLabel("翻转方向");
+    auto *header = new QHBoxLayout();
+    auto *checkbox = new QCheckBox("启用翻转");
+    header->addWidget(checkbox);
+    header->addStretch();
+    layout->addLayout(header);
+
     auto *combo = new QComboBox();
     combo->addItem("水平翻转", 1);
     combo->addItem("垂直翻转", 0);
     combo->addItem("双向翻转", -1);
+    layout->addWidget(new QLabel("翻转方向"));
+    layout->addWidget(combo);
 
+    FilterParams p = m_filter->params();
+    checkbox->setChecked(p.enable_flip);
+
+    connect(checkbox, &QCheckBox::toggled, this, [this](bool checked) {
+        if (!m_filter) return;
+        FilterParams p = m_filter->params();
+        p.enable_flip = checked;
+        m_filter->set_params(p);
+    });
     connect(combo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [this, combo](int) {
         apply_flip_code(combo->currentData().toInt());
     });
 
-    layout->addWidget(label);
-    layout->addWidget(combo);
+    layout->addStretch();
+    return page;
+}
+
+QWidget* FilterPreviewWidget::create_grayscale_page() {
+    auto *page = new QWidget();
+    auto *layout = new QVBoxLayout(page);
+
+    auto *header = new QHBoxLayout();
+    auto *checkbox = new QCheckBox("启用灰度");
+    header->addWidget(checkbox);
+    header->addStretch();
+    layout->addLayout(header);
+
+    auto *desc = new QLabel("将图像转换为灰度");
+    desc->setWordWrap(true);
+    desc->setStyleSheet("color: #aaa;");
+    layout->addWidget(desc);
+
+    FilterParams p = m_filter->params();
+    checkbox->setChecked(p.enable_grayscale);
+
+    connect(checkbox, &QCheckBox::toggled, this, [this](bool checked) {
+        if (!m_filter) return;
+        FilterParams p = m_filter->params();
+        p.enable_grayscale = checked;
+        m_filter->set_params(p);
+    });
+
     layout->addStretch();
     return page;
 }
@@ -197,17 +266,115 @@ QWidget* FilterPreviewWidget::create_blur_page() {
     auto *page = new QWidget();
     auto *layout = new QVBoxLayout(page);
 
-    auto *label = new QLabel("模糊半径");
+    auto *header = new QHBoxLayout();
+    auto *checkbox = new QCheckBox("启用高斯模糊");
+    header->addWidget(checkbox);
+    header->addStretch();
+    layout->addLayout(header);
+
     auto *spin = new QSpinBox();
     spin->setRange(1, 31);
     spin->setSingleStep(2);
     spin->setValue(5);
+    layout->addWidget(new QLabel("模糊半径"));
+    layout->addWidget(spin);
 
+    FilterParams p = m_filter->params();
+    checkbox->setChecked(p.enable_gaussian_blur);
+
+    connect(checkbox, &QCheckBox::toggled, this, [this](bool checked) {
+        if (!m_filter) return;
+        FilterParams p = m_filter->params();
+        p.enable_gaussian_blur = checked;
+        m_filter->set_params(p);
+    });
     connect(spin, QOverload<int>::of(&QSpinBox::valueChanged),
             this, &FilterPreviewWidget::apply_blur_ksize);
 
-    layout->addWidget(label);
-    layout->addWidget(spin);
+    layout->addStretch();
+    return page;
+}
+
+QWidget* FilterPreviewWidget::create_sharpen_page() {
+    auto *page = new QWidget();
+    auto *layout = new QVBoxLayout(page);
+
+    auto *header = new QHBoxLayout();
+    auto *checkbox = new QCheckBox("启用锐化");
+    header->addWidget(checkbox);
+    header->addStretch();
+    layout->addLayout(header);
+
+    auto *value_label = new QLabel("强度: 100%");
+    auto *slider = new QSlider(Qt::Horizontal);
+    slider->setRange(0, 300);
+    slider->setValue(100);
+    layout->addWidget(value_label);
+    layout->addWidget(slider);
+
+    FilterParams p = m_filter->params();
+    checkbox->setChecked(p.enable_sharpen);
+    slider->setValue(static_cast<int>(p.sharpen_intensity * 100.0f));
+
+    connect(checkbox, &QCheckBox::toggled, this, [this](bool checked) {
+        if (!m_filter) return;
+        FilterParams p = m_filter->params();
+        p.enable_sharpen = checked;
+        m_filter->set_params(p);
+    });
+    connect(slider, &QSlider::valueChanged, this, [this, value_label](int val) {
+        value_label->setText(QString("强度: %1%").arg(val));
+        apply_sharpen_intensity(val);
+    });
+
+    layout->addStretch();
+    return page;
+}
+
+QWidget* FilterPreviewWidget::create_edge_detect_page() {
+    auto *page = new QWidget();
+    auto *layout = new QVBoxLayout(page);
+
+    auto *header = new QHBoxLayout();
+    auto *checkbox = new QCheckBox("启用边缘检测");
+    header->addWidget(checkbox);
+    header->addStretch();
+    layout->addLayout(header);
+
+    auto *low_label = new QLabel("低阈值: 50");
+    auto *low_slider = new QSlider(Qt::Horizontal);
+    low_slider->setRange(0, 500);
+    low_slider->setValue(50);
+    layout->addWidget(low_label);
+    layout->addWidget(low_slider);
+
+    auto *high_label = new QLabel("高阈值: 150");
+    auto *high_slider = new QSlider(Qt::Horizontal);
+    high_slider->setRange(0, 500);
+    high_slider->setValue(150);
+    layout->addWidget(high_label);
+    layout->addWidget(high_slider);
+
+    FilterParams p = m_filter->params();
+    checkbox->setChecked(p.enable_edge_detect);
+    low_slider->setValue(p.edge_low);
+    high_slider->setValue(p.edge_high);
+
+    connect(checkbox, &QCheckBox::toggled, this, [this](bool checked) {
+        if (!m_filter) return;
+        FilterParams p = m_filter->params();
+        p.enable_edge_detect = checked;
+        m_filter->set_params(p);
+    });
+    connect(low_slider, &QSlider::valueChanged, this, [this, low_label](int val) {
+        low_label->setText(QString("低阈值: %1").arg(val));
+        apply_edge_low(val);
+    });
+    connect(high_slider, &QSlider::valueChanged, this, [this, high_label](int val) {
+        high_label->setText(QString("高阈值: %1").arg(val));
+        apply_edge_high(val);
+    });
+
     layout->addStretch();
     return page;
 }
@@ -216,33 +383,104 @@ QWidget* FilterPreviewWidget::create_color_adjust_page() {
     auto *page = new QWidget();
     auto *layout = new QVBoxLayout(page);
 
-    auto *bright_label = new QLabel("亮度");
+    auto *header = new QHBoxLayout();
+    auto *checkbox = new QCheckBox("启用颜色调整");
+    header->addWidget(checkbox);
+    header->addStretch();
+    layout->addLayout(header);
+
     auto *bright_slider = new QSlider(Qt::Horizontal);
     bright_slider->setRange(-100, 100);
     bright_slider->setValue(0);
-    connect(bright_slider, &QSlider::valueChanged,
-            this, &FilterPreviewWidget::apply_brightness);
+    layout->addWidget(new QLabel("亮度"));
+    layout->addWidget(bright_slider);
 
-    auto *contrast_label = new QLabel("对比度");
     auto *contrast_slider = new QSlider(Qt::Horizontal);
     contrast_slider->setRange(0, 300);
     contrast_slider->setValue(100);
-    connect(contrast_slider, &QSlider::valueChanged,
-            this, &FilterPreviewWidget::apply_contrast);
+    layout->addWidget(new QLabel("对比度"));
+    layout->addWidget(contrast_slider);
 
-    auto *sat_label = new QLabel("饱和度");
     auto *sat_slider = new QSlider(Qt::Horizontal);
     sat_slider->setRange(0, 300);
     sat_slider->setValue(100);
+    layout->addWidget(new QLabel("饱和度"));
+    layout->addWidget(sat_slider);
+
+    FilterParams p = m_filter->params();
+    checkbox->setChecked(p.enable_color_adjust);
+
+    connect(checkbox, &QCheckBox::toggled, this, [this](bool checked) {
+        if (!m_filter) return;
+        FilterParams p = m_filter->params();
+        p.enable_color_adjust = checked;
+        m_filter->set_params(p);
+    });
+    connect(bright_slider, &QSlider::valueChanged,
+            this, &FilterPreviewWidget::apply_brightness);
+    connect(contrast_slider, &QSlider::valueChanged,
+            this, &FilterPreviewWidget::apply_contrast);
     connect(sat_slider, &QSlider::valueChanged,
             this, &FilterPreviewWidget::apply_saturation);
 
-    layout->addWidget(bright_label);
-    layout->addWidget(bright_slider);
-    layout->addWidget(contrast_label);
-    layout->addWidget(contrast_slider);
-    layout->addWidget(sat_label);
-    layout->addWidget(sat_slider);
+    layout->addStretch();
+    return page;
+}
+
+QWidget* FilterPreviewWidget::create_crop_page() {
+    auto *page = new QWidget();
+    auto *layout = new QVBoxLayout(page);
+
+    auto *header = new QHBoxLayout();
+    auto *checkbox = new QCheckBox("启用裁剪");
+    header->addWidget(checkbox);
+    header->addStretch();
+    layout->addLayout(header);
+
+    auto *x_spin = new QSpinBox();
+    x_spin->setRange(0, 9999);
+    layout->addWidget(new QLabel("X"));
+    layout->addWidget(x_spin);
+
+    auto *y_spin = new QSpinBox();
+    y_spin->setRange(0, 9999);
+    layout->addWidget(new QLabel("Y"));
+    layout->addWidget(y_spin);
+
+    auto *w_spin = new QSpinBox();
+    w_spin->setRange(1, 9999);
+    w_spin->setValue(640);
+    layout->addWidget(new QLabel("宽度"));
+    layout->addWidget(w_spin);
+
+    auto *h_spin = new QSpinBox();
+    h_spin->setRange(1, 9999);
+    h_spin->setValue(480);
+    layout->addWidget(new QLabel("高度"));
+    layout->addWidget(h_spin);
+
+    FilterParams p = m_filter->params();
+    checkbox->setChecked(p.enable_crop);
+    x_spin->setValue(p.crop_rect.x);
+    y_spin->setValue(p.crop_rect.y);
+    if (p.crop_rect.width > 0) w_spin->setValue(p.crop_rect.width);
+    if (p.crop_rect.height > 0) h_spin->setValue(p.crop_rect.height);
+
+    connect(checkbox, &QCheckBox::toggled, this, [this](bool checked) {
+        if (!m_filter) return;
+        FilterParams p = m_filter->params();
+        p.enable_crop = checked;
+        m_filter->set_params(p);
+    });
+    connect(x_spin, QOverload<int>::of(&QSpinBox::valueChanged),
+            this, &FilterPreviewWidget::apply_crop_x);
+    connect(y_spin, QOverload<int>::of(&QSpinBox::valueChanged),
+            this, &FilterPreviewWidget::apply_crop_y);
+    connect(w_spin, QOverload<int>::of(&QSpinBox::valueChanged),
+            this, &FilterPreviewWidget::apply_crop_w);
+    connect(h_spin, QOverload<int>::of(&QSpinBox::valueChanged),
+            this, &FilterPreviewWidget::apply_crop_h);
+
     layout->addStretch();
     return page;
 }
@@ -256,4 +494,14 @@ QWidget* FilterPreviewWidget::create_no_param_page(const char *text) {
     layout->addWidget(label);
     layout->addStretch();
     return page;
+}
+
+void FilterPreviewWidget::on_reset() {
+    if (!m_filter) return;
+    m_filter->set_params(FilterParams{});
+    while (m_param_stack->count() > 0) {
+        QWidget *page = m_param_stack->widget(0);
+        m_param_stack->removeWidget(page);
+        delete page;
+    }
 }

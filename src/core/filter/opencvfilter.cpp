@@ -60,45 +60,59 @@ void OpenCVFilter::apply_gaussian_blur(cv::Mat &frame) {
 }
 
 void OpenCVFilter::apply_sharpen(cv::Mat &frame) {
+    float intensity = m_params.sharpen_intensity;
+    float c = 4.0f * intensity;
+    float ne = -1.0f * intensity;
     cv::Mat kernel = (cv::Mat_<float>(3, 3) <<
-        -1, -1, -1,
-        -1,  9, -1,
-        -1, -1, -1);
+        ne, ne, ne,
+        ne, c + 1.0f, ne,
+        ne, ne, ne);
     cv::filter2D(frame, frame, frame.depth(), kernel);
 }
 
 void OpenCVFilter::apply_edge_detect(cv::Mat &frame) {
     cv::Mat gray, edges;
     cv::cvtColor(frame, gray, cv::COLOR_BGRA2GRAY);
-    cv::Canny(gray, edges, 50, 150);
+    cv::Canny(gray, edges, m_params.edge_low, m_params.edge_high);
     cv::cvtColor(edges, frame, cv::COLOR_GRAY2BGRA);
 }
 
 void OpenCVFilter::apply_color_adjust(cv::Mat &frame) {
+    std::vector<cv::Mat> ch(4);
+    cv::split(frame, ch);
+
+    cv::Mat bgr;
+    cv::merge(std::vector<cv::Mat>{ch[0], ch[1], ch[2]}, bgr);
+
     if (m_params.brightness != 0.0f || m_params.contrast != 1.0f) {
-        frame.convertTo(frame, -1, m_params.contrast, m_params.brightness * 255.0);
+        bgr.convertTo(bgr, -1, m_params.contrast, m_params.brightness * 255.0);
     }
     if (m_params.saturation != 1.0f) {
         cv::Mat hsv;
-        cv::cvtColor(frame, hsv, cv::COLOR_BGRA2BGR);
-        cv::cvtColor(hsv, hsv, cv::COLOR_BGR2HSV);
-        for (int i = 0; i < hsv.rows; i++) {
-            for (int j = 0; j < hsv.cols; j++) {
-                auto &s = hsv.at<cv::Vec3b>(i, j)[1];
-                s = cv::saturate_cast<uchar>(s * m_params.saturation);
-            }
-        }
-        cv::cvtColor(hsv, hsv, cv::COLOR_HSV2BGR);
-        cv::cvtColor(hsv, frame, cv::COLOR_BGR2BGRA);
+        cv::cvtColor(bgr, hsv, cv::COLOR_BGR2HSV);
+        std::vector<cv::Mat> hsv_ch(3);
+        cv::split(hsv, hsv_ch);
+        hsv_ch[1] = hsv_ch[1] * m_params.saturation;
+        cv::merge(hsv_ch, hsv);
+        cv::cvtColor(hsv, bgr, cv::COLOR_HSV2BGR);
     }
+
+    std::vector<cv::Mat> bgr_ch(3);
+    cv::split(bgr, bgr_ch);
+    cv::merge(std::vector<cv::Mat>{bgr_ch[0], bgr_ch[1], bgr_ch[2], ch[3]}, frame);
 }
 
 void OpenCVFilter::apply_crop(cv::Mat &frame) {
     cv::Rect r = m_params.crop_rect;
-    if (r.x < 0) r.x = 0;
-    if (r.y < 0) r.y = 0;
     if (r.width <= 0 || r.height <= 0) return;
-    if (r.x + r.width > frame.cols) r.width = frame.cols - r.x;
-    if (r.y + r.height > frame.rows) r.height = frame.rows - r.y;
-    frame = frame(r).clone();
+    r &= cv::Rect(0, 0, frame.cols, frame.rows);
+    if (r.area() <= 0) {
+        frame = cv::Scalar(0, 0, 0, 255);
+        return;
+    }
+
+    cv::Mat bg = cv::Mat::zeros(frame.size(), frame.type());
+    bg = cv::Scalar(0, 0, 0, 255);
+    frame(r).copyTo(bg(r));
+    bg.copyTo(frame);
 }

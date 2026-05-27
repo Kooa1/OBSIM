@@ -6,6 +6,7 @@
 #include <QSpinBox>
 #include <QSlider>
 #include <QComboBox>
+#include <QCheckBox>
 
 class OpenCVFilter;
 
@@ -28,13 +29,25 @@ private slots:
     void apply_brightness(int value);
     void apply_contrast(int value);
     void apply_saturation(int value);
+    void apply_sharpen_intensity(int value);
+    void apply_edge_low(int value);
+    void apply_edge_high(int value);
+    void apply_crop_x(int value);
+    void apply_crop_y(int value);
+    void apply_crop_w(int value);
+    void apply_crop_h(int value);
+    void on_reset();
 
 private:
     void init_filter();
     void build_param_pages();
     QWidget* create_flip_page();
+    QWidget* create_grayscale_page();
     QWidget* create_blur_page();
+    QWidget* create_sharpen_page();
+    QWidget* create_edge_detect_page();
     QWidget* create_color_adjust_page();
+    QWidget* create_crop_page();
     QWidget* create_no_param_page(const char *text);
 
     OpenCVFilter *m_filter = nullptr;

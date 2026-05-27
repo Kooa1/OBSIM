@@ -5,6 +5,7 @@
 
 PreviewBaseWidget::PreviewGLWidget::PreviewGLWidget(PreviewBaseWidget *owner, QWidget *parent)
     : QOpenGLWidget(parent), m_owner(owner) {
+
 }
 
 void PreviewBaseWidget::PreviewGLWidget::initializeGL() {

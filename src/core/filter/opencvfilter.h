@@ -19,8 +19,11 @@ struct FilterParams {
     int blur_ksize = 5;
 
     bool enable_sharpen = false;
+    float sharpen_intensity = 1.0f;
 
     bool enable_edge_detect = false;
+    int edge_low = 50;
+    int edge_high = 150;
 
     bool enable_color_adjust = false;
     float brightness = 0.0f;

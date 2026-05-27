@@ -4,8 +4,9 @@
 #include <windows.h>
 #endif
 
-FilteredVideoCaptor::FilteredVideoCaptor()
-    : m_filter(std::make_unique<OpenCVFilter>())
+FilteredVideoCaptor::FilteredVideoCaptor(std::unique_ptr<VideoCaptor> inner)
+    : m_inner(std::move(inner))
+    , m_filter(std::make_unique<OpenCVFilter>())
 {
 }
 
@@ -27,19 +28,37 @@ std::optional<AVFramePtr> FilteredVideoCaptor::try_pop_filtered_frame() {
 }
 
 void FilteredVideoCaptor::start() {
-    VideoCaptor::start();
+    if (is_capturing.load()) return;
+    queue = std::make_unique<DataSafeQueue<AVFramePtr>>(64);
+    is_capturing.store(true);
+
+    m_inner->set_frame_ready_callback([this]() {
+        while (is_capturing.load()) {
+            auto frame = m_inner->try_pop_frame();
+            if (!frame.has_value()) break;
+            push_frame(std::move(frame.value()));
+        }
+    });
+
+    m_inner->start();
 }
 
 void FilteredVideoCaptor::stop() {
+    is_capturing.store(false);
+    m_inner->stop();
     stop_filter();
-    VideoCaptor::stop();
+    if (queue) {
+        queue->clean_queue();
+    }
 }
 
 void FilteredVideoCaptor::pause() {
+    m_inner->pause();
     VideoCaptor::pause();
 }
 
 void FilteredVideoCaptor::resume() {
+    m_inner->resume();
     VideoCaptor::resume();
 }
 
@@ -59,7 +78,7 @@ void FilteredVideoCaptor::start_filter() {
     m_filter_running.store(true);
     m_filter_thread = std::thread([this]() { filter_loop(); });
 #ifdef _WIN32
-    SetThreadPriority(m_filter_thread.native_handle(), THREAD_PRIORITY_BELOW_NORMAL);
+    SetThreadPriority(m_filter_thread.native_handle(), THREAD_PRIORITY_NORMAL);
 #endif
 }
 
