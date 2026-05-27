@@ -25,13 +25,9 @@ protected:
 private slots:
     void on_item_clicked(int currentRow);
     void apply_flip_code(int code);
-    void apply_blur_ksize(int ksize);
     void apply_brightness(int value);
     void apply_contrast(int value);
     void apply_saturation(int value);
-    void apply_sharpen_intensity(int value);
-    void apply_edge_low(int value);
-    void apply_edge_high(int value);
     void apply_crop_x(int value);
     void apply_crop_y(int value);
     void apply_crop_w(int value);
@@ -43,9 +39,6 @@ private:
     void build_param_pages();
     QWidget* create_flip_page();
     QWidget* create_grayscale_page();
-    QWidget* create_blur_page();
-    QWidget* create_sharpen_page();
-    QWidget* create_edge_detect_page();
     QWidget* create_color_adjust_page();
     QWidget* create_crop_page();
     QWidget* create_no_param_page(const char *text);

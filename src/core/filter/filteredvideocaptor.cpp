@@ -63,10 +63,10 @@ void FilteredVideoCaptor::resume() {
 }
 
 void FilteredVideoCaptor::push_frame(AVFramePtr frame) {
-    auto copy = frame;
-    VideoCaptor::push_frame(std::move(frame));
     if (m_raw_queue) {
-        m_raw_queue->push_no_wait(std::move(copy));
+        m_raw_queue->push_no_wait(std::move(frame));
+    } else {
+        VideoCaptor::push_frame(std::move(frame));
     }
 }
 

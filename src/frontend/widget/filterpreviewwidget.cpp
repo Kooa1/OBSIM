@@ -56,9 +56,6 @@ QWidget* FilterPreviewWidget::create_control_area() {
     };
     add_item("翻转");
     add_item("灰度");
-    add_item("高斯模糊");
-    add_item("锐化");
-    add_item("边缘检测");
     add_item("颜色调整");
     add_item("裁剪");
 
@@ -87,9 +84,6 @@ void FilterPreviewWidget::build_param_pages() {
 
     m_param_stack->addWidget(create_flip_page());
     m_param_stack->addWidget(create_grayscale_page());
-    m_param_stack->addWidget(create_blur_page());
-    m_param_stack->addWidget(create_sharpen_page());
-    m_param_stack->addWidget(create_edge_detect_page());
     m_param_stack->addWidget(create_color_adjust_page());
     m_param_stack->addWidget(create_crop_page());
 }
@@ -107,14 +101,6 @@ void FilterPreviewWidget::apply_flip_code(int code) {
     FilterParams p = m_filter->params();
     p.flip_code = code;
     p.enable_flip = true;
-    m_filter->set_params(p);
-}
-
-void FilterPreviewWidget::apply_blur_ksize(int ksize) {
-    if (!m_filter) return;
-    FilterParams p = m_filter->params();
-    p.blur_ksize = ksize;
-    p.enable_gaussian_blur = true;
     m_filter->set_params(p);
 }
 
@@ -139,30 +125,6 @@ void FilterPreviewWidget::apply_saturation(int value) {
     FilterParams p = m_filter->params();
     p.saturation = value / 100.0f;
     p.enable_color_adjust = true;
-    m_filter->set_params(p);
-}
-
-void FilterPreviewWidget::apply_sharpen_intensity(int value) {
-    if (!m_filter) return;
-    FilterParams p = m_filter->params();
-    p.sharpen_intensity = value / 100.0f;
-    p.enable_sharpen = true;
-    m_filter->set_params(p);
-}
-
-void FilterPreviewWidget::apply_edge_low(int value) {
-    if (!m_filter) return;
-    FilterParams p = m_filter->params();
-    p.edge_low = value;
-    p.enable_edge_detect = true;
-    m_filter->set_params(p);
-}
-
-void FilterPreviewWidget::apply_edge_high(int value) {
-    if (!m_filter) return;
-    FilterParams p = m_filter->params();
-    p.edge_high = value;
-    p.enable_edge_detect = true;
     m_filter->set_params(p);
 }
 
@@ -256,123 +218,6 @@ QWidget* FilterPreviewWidget::create_grayscale_page() {
         FilterParams p = m_filter->params();
         p.enable_grayscale = checked;
         m_filter->set_params(p);
-    });
-
-    layout->addStretch();
-    return page;
-}
-
-QWidget* FilterPreviewWidget::create_blur_page() {
-    auto *page = new QWidget();
-    auto *layout = new QVBoxLayout(page);
-
-    auto *header = new QHBoxLayout();
-    auto *checkbox = new QCheckBox("启用高斯模糊");
-    header->addWidget(checkbox);
-    header->addStretch();
-    layout->addLayout(header);
-
-    auto *spin = new QSpinBox();
-    spin->setRange(1, 31);
-    spin->setSingleStep(2);
-    spin->setValue(5);
-    layout->addWidget(new QLabel("模糊半径"));
-    layout->addWidget(spin);
-
-    FilterParams p = m_filter->params();
-    checkbox->setChecked(p.enable_gaussian_blur);
-
-    connect(checkbox, &QCheckBox::toggled, this, [this](bool checked) {
-        if (!m_filter) return;
-        FilterParams p = m_filter->params();
-        p.enable_gaussian_blur = checked;
-        m_filter->set_params(p);
-    });
-    connect(spin, QOverload<int>::of(&QSpinBox::valueChanged),
-            this, &FilterPreviewWidget::apply_blur_ksize);
-
-    layout->addStretch();
-    return page;
-}
-
-QWidget* FilterPreviewWidget::create_sharpen_page() {
-    auto *page = new QWidget();
-    auto *layout = new QVBoxLayout(page);
-
-    auto *header = new QHBoxLayout();
-    auto *checkbox = new QCheckBox("启用锐化");
-    header->addWidget(checkbox);
-    header->addStretch();
-    layout->addLayout(header);
-
-    auto *value_label = new QLabel("强度: 100%");
-    auto *slider = new QSlider(Qt::Horizontal);
-    slider->setRange(0, 300);
-    slider->setValue(100);
-    layout->addWidget(value_label);
-    layout->addWidget(slider);
-
-    FilterParams p = m_filter->params();
-    checkbox->setChecked(p.enable_sharpen);
-    slider->setValue(static_cast<int>(p.sharpen_intensity * 100.0f));
-
-    connect(checkbox, &QCheckBox::toggled, this, [this](bool checked) {
-        if (!m_filter) return;
-        FilterParams p = m_filter->params();
-        p.enable_sharpen = checked;
-        m_filter->set_params(p);
-    });
-    connect(slider, &QSlider::valueChanged, this, [this, value_label](int val) {
-        value_label->setText(QString("强度: %1%").arg(val));
-        apply_sharpen_intensity(val);
-    });
-
-    layout->addStretch();
-    return page;
-}
-
-QWidget* FilterPreviewWidget::create_edge_detect_page() {
-    auto *page = new QWidget();
-    auto *layout = new QVBoxLayout(page);
-
-    auto *header = new QHBoxLayout();
-    auto *checkbox = new QCheckBox("启用边缘检测");
-    header->addWidget(checkbox);
-    header->addStretch();
-    layout->addLayout(header);
-
-    auto *low_label = new QLabel("低阈值: 50");
-    auto *low_slider = new QSlider(Qt::Horizontal);
-    low_slider->setRange(0, 500);
-    low_slider->setValue(50);
-    layout->addWidget(low_label);
-    layout->addWidget(low_slider);
-
-    auto *high_label = new QLabel("高阈值: 150");
-    auto *high_slider = new QSlider(Qt::Horizontal);
-    high_slider->setRange(0, 500);
-    high_slider->setValue(150);
-    layout->addWidget(high_label);
-    layout->addWidget(high_slider);
-
-    FilterParams p = m_filter->params();
-    checkbox->setChecked(p.enable_edge_detect);
-    low_slider->setValue(p.edge_low);
-    high_slider->setValue(p.edge_high);
-
-    connect(checkbox, &QCheckBox::toggled, this, [this](bool checked) {
-        if (!m_filter) return;
-        FilterParams p = m_filter->params();
-        p.enable_edge_detect = checked;
-        m_filter->set_params(p);
-    });
-    connect(low_slider, &QSlider::valueChanged, this, [this, low_label](int val) {
-        low_label->setText(QString("低阈值: %1").arg(val));
-        apply_edge_low(val);
-    });
-    connect(high_slider, &QSlider::valueChanged, this, [this, high_label](int val) {
-        high_label->setText(QString("高阈值: %1").arg(val));
-        apply_edge_high(val);
     });
 
     layout->addStretch();

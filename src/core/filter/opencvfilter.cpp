@@ -18,9 +18,6 @@ bool OpenCVFilter::is_active() const {
     std::lock_guard<std::mutex> lock(m_mutex);
     return m_params.enable_flip
         || m_params.enable_grayscale
-        || m_params.enable_gaussian_blur
-        || m_params.enable_sharpen
-        || m_params.enable_edge_detect
         || m_params.enable_color_adjust
         || m_params.enable_crop;
 }
@@ -31,9 +28,6 @@ void OpenCVFilter::apply(cv::Mat &frame) {
 
     if (m_params.enable_flip) apply_flip(frame);
     if (m_params.enable_grayscale) apply_grayscale(frame);
-    if (m_params.enable_gaussian_blur) apply_gaussian_blur(frame);
-    if (m_params.enable_sharpen) apply_sharpen(frame);
-    if (m_params.enable_edge_detect) apply_edge_detect(frame);
     if (m_params.enable_color_adjust) apply_color_adjust(frame);
     if (m_params.enable_crop) apply_crop(frame);
 }
@@ -53,29 +47,6 @@ void OpenCVFilter::apply_grayscale(cv::Mat &frame) {
     cv::cvtColor(gray, frame, cv::COLOR_GRAY2BGRA);
 }
 
-void OpenCVFilter::apply_gaussian_blur(cv::Mat &frame) {
-    int k = m_params.blur_ksize;
-    if (k % 2 == 0) k += 1;
-    cv::GaussianBlur(frame, frame, cv::Size(k, k), 0);
-}
-
-void OpenCVFilter::apply_sharpen(cv::Mat &frame) {
-    float intensity = m_params.sharpen_intensity;
-    float c = 4.0f * intensity;
-    float ne = -1.0f * intensity;
-    cv::Mat kernel = (cv::Mat_<float>(3, 3) <<
-        ne, ne, ne,
-        ne, c + 1.0f, ne,
-        ne, ne, ne);
-    cv::filter2D(frame, frame, frame.depth(), kernel);
-}
-
-void OpenCVFilter::apply_edge_detect(cv::Mat &frame) {
-    cv::Mat gray, edges;
-    cv::cvtColor(frame, gray, cv::COLOR_BGRA2GRAY);
-    cv::Canny(gray, edges, m_params.edge_low, m_params.edge_high);
-    cv::cvtColor(edges, frame, cv::COLOR_GRAY2BGRA);
-}
 
 void OpenCVFilter::apply_color_adjust(cv::Mat &frame) {
     std::vector<cv::Mat> ch(4);

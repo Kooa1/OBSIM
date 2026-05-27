@@ -15,16 +15,6 @@ struct FilterParams {
 
     bool enable_grayscale = false;
 
-    bool enable_gaussian_blur = false;
-    int blur_ksize = 5;
-
-    bool enable_sharpen = false;
-    float sharpen_intensity = 1.0f;
-
-    bool enable_edge_detect = false;
-    int edge_low = 50;
-    int edge_high = 150;
-
     bool enable_color_adjust = false;
     float brightness = 0.0f;
     float contrast = 1.0f;
@@ -51,9 +41,6 @@ public:
 private:
     void apply_flip(cv::Mat &frame);
     void apply_grayscale(cv::Mat &frame);
-    void apply_gaussian_blur(cv::Mat &frame);
-    void apply_sharpen(cv::Mat &frame);
-    void apply_edge_detect(cv::Mat &frame);
     void apply_color_adjust(cv::Mat &frame);
     void apply_crop(cv::Mat &frame);
 
