@@ -19,9 +19,6 @@ struct FilterParams {
     float brightness = 0.0f;
     float contrast = 1.0f;
     float saturation = 1.0f;
-
-    bool enable_crop = false;
-    cv::Rect crop_rect;
 };
 
 class OpenCVFilter {
@@ -42,7 +39,6 @@ private:
     void apply_flip(cv::Mat &frame);
     void apply_grayscale(cv::Mat &frame);
     void apply_color_adjust(cv::Mat &frame);
-    void apply_crop(cv::Mat &frame);
 
     mutable std::mutex m_mutex;
     FilterParams m_params;

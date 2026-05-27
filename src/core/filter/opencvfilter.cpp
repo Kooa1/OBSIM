@@ -18,8 +18,7 @@ bool OpenCVFilter::is_active() const {
     std::lock_guard<std::mutex> lock(m_mutex);
     return m_params.enable_flip
         || m_params.enable_grayscale
-        || m_params.enable_color_adjust
-        || m_params.enable_crop;
+        || m_params.enable_color_adjust;
 }
 
 void OpenCVFilter::apply(cv::Mat &frame) {
@@ -29,7 +28,6 @@ void OpenCVFilter::apply(cv::Mat &frame) {
     if (m_params.enable_flip) apply_flip(frame);
     if (m_params.enable_grayscale) apply_grayscale(frame);
     if (m_params.enable_color_adjust) apply_color_adjust(frame);
-    if (m_params.enable_crop) apply_crop(frame);
 }
 
 void OpenCVFilter::apply_to_avframe(uint8_t *data, int width, int height, int stride) {
@@ -73,17 +71,3 @@ void OpenCVFilter::apply_color_adjust(cv::Mat &frame) {
     cv::merge(std::vector<cv::Mat>{bgr_ch[0], bgr_ch[1], bgr_ch[2], ch[3]}, frame);
 }
 
-void OpenCVFilter::apply_crop(cv::Mat &frame) {
-    cv::Rect r = m_params.crop_rect;
-    if (r.width <= 0 || r.height <= 0) return;
-    r &= cv::Rect(0, 0, frame.cols, frame.rows);
-    if (r.area() <= 0) {
-        frame = cv::Scalar(0, 0, 0, 255);
-        return;
-    }
-
-    cv::Mat bg = cv::Mat::zeros(frame.size(), frame.type());
-    bg = cv::Scalar(0, 0, 0, 255);
-    frame(r).copyTo(bg(r));
-    bg.copyTo(frame);
-}

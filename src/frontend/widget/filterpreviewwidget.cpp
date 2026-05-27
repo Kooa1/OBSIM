@@ -19,6 +19,11 @@ void FilterPreviewWidget::init_filter() {
     if (auto *vs = dynamic_cast<VideoSource*>(m_source)) {
         m_filter = vs->filter();
     }
+    if (m_filter) {
+        m_pending_params = m_filter->params();
+    } else {
+        m_pending_params = FilterParams{};
+    }
 }
 
 void FilterPreviewWidget::showEvent(QShowEvent *event) {
@@ -29,9 +34,12 @@ void FilterPreviewWidget::showEvent(QShowEvent *event) {
 }
 
 void FilterPreviewWidget::hideEvent(QHideEvent *event) {
-    if (auto *vs = dynamic_cast<VideoSource*>(m_source)) {
-        vs->stop_filter();
+    if (!m_applying) {
+        if (auto *vs = dynamic_cast<VideoSource*>(m_source)) {
+            vs->stop_filter();
+        }
     }
+    m_applying = false;
     PreviewBaseWidget::hideEvent(event);
 }
 
@@ -57,17 +65,28 @@ QWidget* FilterPreviewWidget::create_control_area() {
     add_item("翻转");
     add_item("灰度");
     add_item("颜色调整");
-    add_item("裁剪");
 
     m_param_stack = new QStackedWidget(panel.right_panel);
-    m_param_stack->setStyleSheet("background: #2a2a2a;");
     auto *right_layout = new QVBoxLayout(panel.right_panel);
     right_layout->setContentsMargins(8, 8, 8, 8);
     right_layout->addWidget(m_param_stack);
 
+    auto *btn_layout = new QHBoxLayout();
+    btn_layout->addStretch();
     auto *reset_btn = new QPushButton("重置参数");
-    right_layout->addWidget(reset_btn);
+    btn_layout->addWidget(reset_btn);
+    auto *cancel_btn = new QPushButton("取消");
+    btn_layout->addWidget(cancel_btn);
+    auto *apply_btn = new QPushButton("确定");
+    apply_btn->setDefault(true);
+    btn_layout->addWidget(apply_btn);
+    right_layout->addLayout(btn_layout);
+
     connect(reset_btn, &QPushButton::clicked, this, &FilterPreviewWidget::on_reset);
+    connect(cancel_btn, &QPushButton::clicked, this, [this]() {
+        close();
+    });
+    connect(apply_btn, &QPushButton::clicked, this, &FilterPreviewWidget::on_apply);
 
     layout->addWidget(panel.splitter);
 
@@ -85,7 +104,6 @@ void FilterPreviewWidget::build_param_pages() {
     m_param_stack->addWidget(create_flip_page());
     m_param_stack->addWidget(create_grayscale_page());
     m_param_stack->addWidget(create_color_adjust_page());
-    m_param_stack->addWidget(create_crop_page());
 }
 
 void FilterPreviewWidget::on_item_clicked(int currentRow) {
@@ -96,68 +114,30 @@ void FilterPreviewWidget::on_item_clicked(int currentRow) {
     }
 }
 
+void FilterPreviewWidget::inject_current_params() {
+    if (m_filter) {
+        m_filter->set_params(m_pending_params);
+    }
+}
+
 void FilterPreviewWidget::apply_flip_code(int code) {
-    if (!m_filter) return;
-    FilterParams p = m_filter->params();
-    p.flip_code = code;
-    p.enable_flip = true;
-    m_filter->set_params(p);
+    m_pending_params.flip_code = code;
+    if (m_pending_params.enable_flip) inject_current_params();
 }
 
 void FilterPreviewWidget::apply_brightness(int value) {
-    if (!m_filter) return;
-    FilterParams p = m_filter->params();
-    p.brightness = value / 100.0f;
-    p.enable_color_adjust = true;
-    m_filter->set_params(p);
+    m_pending_params.brightness = value / 100.0f;
+    if (m_pending_params.enable_color_adjust) inject_current_params();
 }
 
 void FilterPreviewWidget::apply_contrast(int value) {
-    if (!m_filter) return;
-    FilterParams p = m_filter->params();
-    p.contrast = value / 100.0f;
-    p.enable_color_adjust = true;
-    m_filter->set_params(p);
+    m_pending_params.contrast = value / 100.0f;
+    if (m_pending_params.enable_color_adjust) inject_current_params();
 }
 
 void FilterPreviewWidget::apply_saturation(int value) {
-    if (!m_filter) return;
-    FilterParams p = m_filter->params();
-    p.saturation = value / 100.0f;
-    p.enable_color_adjust = true;
-    m_filter->set_params(p);
-}
-
-void FilterPreviewWidget::apply_crop_x(int value) {
-    if (!m_filter) return;
-    FilterParams p = m_filter->params();
-    p.crop_rect.x = value;
-    p.enable_crop = true;
-    m_filter->set_params(p);
-}
-
-void FilterPreviewWidget::apply_crop_y(int value) {
-    if (!m_filter) return;
-    FilterParams p = m_filter->params();
-    p.crop_rect.y = value;
-    p.enable_crop = true;
-    m_filter->set_params(p);
-}
-
-void FilterPreviewWidget::apply_crop_w(int value) {
-    if (!m_filter) return;
-    FilterParams p = m_filter->params();
-    p.crop_rect.width = value;
-    p.enable_crop = true;
-    m_filter->set_params(p);
-}
-
-void FilterPreviewWidget::apply_crop_h(int value) {
-    if (!m_filter) return;
-    FilterParams p = m_filter->params();
-    p.crop_rect.height = value;
-    p.enable_crop = true;
-    m_filter->set_params(p);
+    m_pending_params.saturation = value / 100.0f;
+    if (m_pending_params.enable_color_adjust) inject_current_params();
 }
 
 QWidget* FilterPreviewWidget::create_flip_page() {
@@ -177,14 +157,12 @@ QWidget* FilterPreviewWidget::create_flip_page() {
     layout->addWidget(new QLabel("翻转方向"));
     layout->addWidget(combo);
 
-    FilterParams p = m_filter->params();
-    checkbox->setChecked(p.enable_flip);
+    checkbox->setChecked(m_pending_params.enable_flip);
+    combo->setCurrentIndex(combo->findData(m_pending_params.flip_code));
 
     connect(checkbox, &QCheckBox::toggled, this, [this](bool checked) {
-        if (!m_filter) return;
-        FilterParams p = m_filter->params();
-        p.enable_flip = checked;
-        m_filter->set_params(p);
+        m_pending_params.enable_flip = checked;
+        inject_current_params();
     });
     connect(combo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [this, combo](int) {
@@ -207,17 +185,13 @@ QWidget* FilterPreviewWidget::create_grayscale_page() {
 
     auto *desc = new QLabel("将图像转换为灰度");
     desc->setWordWrap(true);
-    desc->setStyleSheet("color: #aaa;");
     layout->addWidget(desc);
 
-    FilterParams p = m_filter->params();
-    checkbox->setChecked(p.enable_grayscale);
+    checkbox->setChecked(m_pending_params.enable_grayscale);
 
     connect(checkbox, &QCheckBox::toggled, this, [this](bool checked) {
-        if (!m_filter) return;
-        FilterParams p = m_filter->params();
-        p.enable_grayscale = checked;
-        m_filter->set_params(p);
+        m_pending_params.enable_grayscale = checked;
+        inject_current_params();
     });
 
     layout->addStretch();
@@ -236,30 +210,27 @@ QWidget* FilterPreviewWidget::create_color_adjust_page() {
 
     auto *bright_slider = new QSlider(Qt::Horizontal);
     bright_slider->setRange(-100, 100);
-    bright_slider->setValue(0);
+    bright_slider->setValue(static_cast<int>(m_pending_params.brightness * 100.0f));
     layout->addWidget(new QLabel("亮度"));
     layout->addWidget(bright_slider);
 
     auto *contrast_slider = new QSlider(Qt::Horizontal);
     contrast_slider->setRange(0, 300);
-    contrast_slider->setValue(100);
+    contrast_slider->setValue(static_cast<int>(m_pending_params.contrast * 100.0f));
     layout->addWidget(new QLabel("对比度"));
     layout->addWidget(contrast_slider);
 
     auto *sat_slider = new QSlider(Qt::Horizontal);
     sat_slider->setRange(0, 300);
-    sat_slider->setValue(100);
+    sat_slider->setValue(static_cast<int>(m_pending_params.saturation * 100.0f));
     layout->addWidget(new QLabel("饱和度"));
     layout->addWidget(sat_slider);
 
-    FilterParams p = m_filter->params();
-    checkbox->setChecked(p.enable_color_adjust);
+    checkbox->setChecked(m_pending_params.enable_color_adjust);
 
     connect(checkbox, &QCheckBox::toggled, this, [this](bool checked) {
-        if (!m_filter) return;
-        FilterParams p = m_filter->params();
-        p.enable_color_adjust = checked;
-        m_filter->set_params(p);
+        m_pending_params.enable_color_adjust = checked;
+        inject_current_params();
     });
     connect(bright_slider, &QSlider::valueChanged,
             this, &FilterPreviewWidget::apply_brightness);
@@ -272,81 +243,28 @@ QWidget* FilterPreviewWidget::create_color_adjust_page() {
     return page;
 }
 
-QWidget* FilterPreviewWidget::create_crop_page() {
-    auto *page = new QWidget();
-    auto *layout = new QVBoxLayout(page);
-
-    auto *header = new QHBoxLayout();
-    auto *checkbox = new QCheckBox("启用裁剪");
-    header->addWidget(checkbox);
-    header->addStretch();
-    layout->addLayout(header);
-
-    auto *x_spin = new QSpinBox();
-    x_spin->setRange(0, 9999);
-    layout->addWidget(new QLabel("X"));
-    layout->addWidget(x_spin);
-
-    auto *y_spin = new QSpinBox();
-    y_spin->setRange(0, 9999);
-    layout->addWidget(new QLabel("Y"));
-    layout->addWidget(y_spin);
-
-    auto *w_spin = new QSpinBox();
-    w_spin->setRange(1, 9999);
-    w_spin->setValue(640);
-    layout->addWidget(new QLabel("宽度"));
-    layout->addWidget(w_spin);
-
-    auto *h_spin = new QSpinBox();
-    h_spin->setRange(1, 9999);
-    h_spin->setValue(480);
-    layout->addWidget(new QLabel("高度"));
-    layout->addWidget(h_spin);
-
-    FilterParams p = m_filter->params();
-    checkbox->setChecked(p.enable_crop);
-    x_spin->setValue(p.crop_rect.x);
-    y_spin->setValue(p.crop_rect.y);
-    if (p.crop_rect.width > 0) w_spin->setValue(p.crop_rect.width);
-    if (p.crop_rect.height > 0) h_spin->setValue(p.crop_rect.height);
-
-    connect(checkbox, &QCheckBox::toggled, this, [this](bool checked) {
-        if (!m_filter) return;
-        FilterParams p = m_filter->params();
-        p.enable_crop = checked;
-        m_filter->set_params(p);
-    });
-    connect(x_spin, QOverload<int>::of(&QSpinBox::valueChanged),
-            this, &FilterPreviewWidget::apply_crop_x);
-    connect(y_spin, QOverload<int>::of(&QSpinBox::valueChanged),
-            this, &FilterPreviewWidget::apply_crop_y);
-    connect(w_spin, QOverload<int>::of(&QSpinBox::valueChanged),
-            this, &FilterPreviewWidget::apply_crop_w);
-    connect(h_spin, QOverload<int>::of(&QSpinBox::valueChanged),
-            this, &FilterPreviewWidget::apply_crop_h);
-
-    layout->addStretch();
-    return page;
-}
-
 QWidget* FilterPreviewWidget::create_no_param_page(const char *text) {
     auto *page = new QWidget();
     auto *layout = new QVBoxLayout(page);
     auto *label = new QLabel(text);
     label->setWordWrap(true);
-    label->setStyleSheet("color: #aaa;");
     layout->addWidget(label);
     layout->addStretch();
     return page;
 }
 
 void FilterPreviewWidget::on_reset() {
-    if (!m_filter) return;
-    m_filter->set_params(FilterParams{});
+    m_pending_params = FilterParams{};
+    inject_current_params();
     while (m_param_stack->count() > 0) {
         QWidget *page = m_param_stack->widget(0);
         m_param_stack->removeWidget(page);
         delete page;
     }
+}
+
+void FilterPreviewWidget::on_apply() {
+    inject_current_params();
+    m_applying = true;
+    emit apply_confirmed();
 }

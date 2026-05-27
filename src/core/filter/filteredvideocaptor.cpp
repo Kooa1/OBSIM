@@ -64,6 +64,7 @@ void FilteredVideoCaptor::resume() {
 
 void FilteredVideoCaptor::push_frame(AVFramePtr frame) {
     if (m_raw_queue) {
+        // 滤镜运行：帧只进 m_raw_queue，filter_loop 处理后推给画布
         m_raw_queue->push_no_wait(std::move(frame));
     } else {
         VideoCaptor::push_frame(std::move(frame));
@@ -87,6 +88,15 @@ void FilteredVideoCaptor::stop_filter() {
     if (m_filter_thread.joinable()) {
         m_filter_thread.join();
     }
+
+    // 取滤镜队列最后一帧推给画布，避免断流
+    if (m_filtered_queue) {
+        auto last = m_filtered_queue->try_pop_drain();
+        if (last.has_value()) {
+            VideoCaptor::push_frame(std::move(last.value()));
+        }
+    }
+
     if (m_raw_queue) {
         m_raw_queue->clean_queue();
         m_raw_queue.reset();
@@ -117,6 +127,9 @@ void FilteredVideoCaptor::filter_loop() {
             m_filter->apply(mat);
         }
 
-        m_filtered_queue->push_no_wait(std::move(frame.value()));
+        // 滤镜处理后的帧同时推给滤镜预览和画布
+        auto processed = frame.value();
+        m_filtered_queue->push_no_wait(processed);
+        VideoCaptor::push_frame(processed);
     }
 }

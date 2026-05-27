@@ -723,6 +723,14 @@ void MainWindow::on_filter_requested(Source *source) {
                     }
                     if (m_filter_window) m_filter_window->deleteLater();
                 });
+        connect(m_filter_window, &FilterPreviewWidget::apply_confirmed,
+                this, [this]() {
+                    if (m_filtered_source) {
+                        m_filtered_source->visible = true;
+                        m_filtered_source = nullptr;
+                    }
+                    if (m_filter_window) m_filter_window->hide();
+                });
     }
     m_filter_window->set_source(source);
     m_filter_window->start_preview();
