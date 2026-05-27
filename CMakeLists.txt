@@ -148,6 +148,7 @@ endif ()
 # Unit test for OpenCVFilter
 add_executable(opencv_filter_test
     test/test_opencv_filter.cpp
+    src/core/filter/opencvfilter.cpp
 )
 target_include_directories(opencv_filter_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src

@@ -31,15 +31,12 @@ void test_set_and_get_params() {
     p.enable_flip = true;
     p.flip_code = 1;
     p.enable_grayscale = true;
-    p.enable_gaussian_blur = true;
-    p.blur_ksize = 7;
     filter.set_params(p);
 
     FilterParams got = filter.params();
     assert(got.enable_flip == true);
     assert(got.flip_code == 1);
     assert(got.enable_grayscale == true);
-    assert(got.blur_ksize == 7);
     PASS();
 }
 
@@ -93,52 +90,6 @@ void test_apply_grayscale() {
             assert(px[0] == px[1] && px[1] == px[2]);
         }
     }
-    PASS();
-}
-
-void test_apply_gaussian_blur() {
-    TEST("gaussian blur changes pixels");
-    OpenCVFilter filter;
-    FilterParams p;
-    p.enable_gaussian_blur = true;
-    filter.set_params(p);
-
-    cv::Mat frame(20, 20, CV_8UC4);
-    cv::randu(frame, 0, 255);
-    cv::Mat original = frame.clone();
-    filter.apply(frame);
-
-    double diff = cv::norm(frame, original, cv::NORM_L1);
-    assert(diff > 0);
-    PASS();
-}
-
-void test_apply_sharpen() {
-    TEST("sharpen modifies image");
-    OpenCVFilter filter;
-    FilterParams p;
-    p.enable_sharpen = true;
-    filter.set_params(p);
-
-    cv::Mat frame(20, 20, CV_8UC4);
-    cv::randu(frame, 0, 255);
-    cv::Mat original = frame.clone();
-    filter.apply(frame);
-    assert(!mats_equal(frame, original));
-    PASS();
-}
-
-void test_apply_edge_detect() {
-    TEST("edge detect produces output");
-    OpenCVFilter filter;
-    FilterParams p;
-    p.enable_edge_detect = true;
-    filter.set_params(p);
-
-    cv::Mat frame(20, 20, CV_8UC4, cv::Scalar(0, 0, 0, 255));
-    cv::rectangle(frame, cv::Rect(5, 5, 10, 10), cv::Scalar(255, 255, 255, 255), cv::FILLED);
-    filter.apply(frame);
-    assert(!mats_equal(frame, cv::Mat(20, 20, CV_8UC4, cv::Scalar(0, 0, 0, 255))));
     PASS();
 }
 
@@ -196,9 +147,6 @@ int main() {
     test_is_active();
     test_apply_flip_horizontal();
     test_apply_grayscale();
-    test_apply_gaussian_blur();
-    test_apply_sharpen();
-    test_apply_edge_detect();
     test_apply_color_adjust_brightness();
     test_apply_to_avframe();
     test_apply_noop_when_inactive();

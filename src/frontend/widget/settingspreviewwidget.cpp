@@ -1,4 +1,8 @@
 #include "settingspreviewwidget.h"
+#include "../../core/cameracapturesource.h"
+#include "../../core/screencapturesource.h"
+#include "../../core/textsource.h"
+#include "../../core/imagesource.h"
 
 SettingsPreviewWidget::SettingsPreviewWidget(QWidget *parent)
     : PreviewBaseWidget(parent) {
@@ -7,23 +11,75 @@ SettingsPreviewWidget::SettingsPreviewWidget(QWidget *parent)
     add_control_area();
 }
 
+void SettingsPreviewWidget::set_all_sources(const QVector<Source*> &sources) {
+    m_all_sources = sources;
+    populate_source_list();
+}
+
+void SettingsPreviewWidget::populate_source_list() {
+    if (!m_source_combo || !m_source) return;
+
+    m_source_combo->blockSignals(true);
+    m_source_combo->clear();
+
+    const char *current_type = m_source->source_type_name();
+
+    for (Source *src : m_all_sources) {
+        if (qstrcmp(src->source_type_name(), current_type) == 0) {
+            QString label = src->display_name;
+            m_source_combo->addItem(label, reinterpret_cast<quintptr>(src));
+            if (src == m_source) {
+                m_source_combo->setCurrentIndex(m_source_combo->count() - 1);
+            }
+        }
+    }
+
+    m_source_combo->blockSignals(false);
+
+    if (m_name_edit) {
+        m_name_edit->blockSignals(true);
+        m_name_edit->setText(m_source->display_name);
+        m_name_edit->blockSignals(false);
+    }
+}
+
 QWidget* SettingsPreviewWidget::create_control_area() {
     auto *container = new QWidget(this);
     auto *layout = new QVBoxLayout(container);
-    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setContentsMargins(12, 12, 12, 12);
+    layout->setSpacing(10);
 
-    auto panel = create_split_panel("源属性", container);
+    auto *combo_label = new QLabel("输入源选择:");
+    m_source_combo = new QComboBox();
+    layout->addWidget(combo_label);
+    layout->addWidget(m_source_combo);
 
-    panel.list_widget->addItem("位置");
-    panel.list_widget->addItem("缩放");
-    panel.list_widget->addItem("旋转");
-    panel.list_widget->addItem("裁剪");
-    panel.list_widget->addItem("不透明度");
+    auto *name_label = new QLabel("源名称:");
+    m_name_edit = new QLineEdit();
+    m_name_edit->setPlaceholderText("请输入源名称");
+    layout->addWidget(name_label);
+    layout->addWidget(m_name_edit);
 
-    layout->addWidget(panel.splitter);
+    layout->addStretch();
 
-    m_param_list = panel.list_widget;
-    m_param_right = panel.right_panel;
+    connect(m_source_combo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int index) {
+        if (index < 0) return;
+        Source *src = reinterpret_cast<Source*>(m_source_combo->itemData(index).value<quintptr>());
+        if (!src || src == m_source) return;
+
+        PreviewBaseWidget::set_source(src);
+
+        m_name_edit->blockSignals(true);
+        m_name_edit->setText(src->display_name);
+        m_name_edit->blockSignals(false);
+    });
+
+    connect(m_name_edit, &QLineEdit::textChanged, this, [this](const QString &text) {
+        if (m_source && !text.trimmed().isEmpty()) {
+            emit source_name_changed(m_source, text.trimmed());
+        }
+    });
 
     return container;
 }

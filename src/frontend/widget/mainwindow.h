@@ -77,6 +77,7 @@ private:
 
     void on_filter_requested(Source *source);
     void on_settings_requested(Source *source);
+    void on_settings_source_name_changed(Source *src, const QString &new_name);
 
     void on_recording_started(const QString &output_path);
     void on_recording_stopped();

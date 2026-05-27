@@ -748,11 +748,42 @@ void MainWindow::on_settings_requested(Source *source) {
                     if (m_settings_window) m_settings_window->deleteLater();
                 });
     }
+
+    disconnect(m_settings_window, &SettingsPreviewWidget::source_name_changed,
+               this, &MainWindow::on_settings_source_name_changed);
+    connect(m_settings_window, &SettingsPreviewWidget::source_name_changed,
+            this, &MainWindow::on_settings_source_name_changed);
+
     m_settings_window->set_source(source);
+
+    QVector<Source*> all_sources;
+    for (size_t i = 0; i < scene_preview_widget->source_count(); ++i) {
+        all_sources.append(scene_preview_widget->source_at(i));
+    }
+    m_settings_window->set_all_sources(all_sources);
+
     m_settings_window->start_preview();
     m_settings_window->show();
     m_settings_window->raise();
     m_settings_window->activateWindow();
+}
+
+void MainWindow::on_settings_source_name_changed(Source *src, const QString &new_name) {
+    if (!src || new_name.isEmpty()) return;
+    src->display_name = new_name;
+    setting_bar->set_selection_text(new_name);
+
+    QListWidget *list = control_bar->source_control()->source_list();
+    for (int i = 0; i < list->count(); ++i) {
+        QListWidgetItem *item = list->item(i);
+        QString text = item->text();
+        int paren_idx = text.indexOf(" (");
+        if (paren_idx >= 0) {
+            QString suffix = text.mid(paren_idx);
+            item->setText(new_name + suffix);
+            break;
+        }
+    }
 }
 
 void MainWindow::init_layout() {
