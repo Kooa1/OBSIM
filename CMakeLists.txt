@@ -13,6 +13,9 @@ if (WIN32)
     # 明确使用 MSVC 版本的 Qt（根据你的编译器）
     set(CMAKE_PREFIX_PATH "D:/application/Qt/6.9.0/msvc2022_64")
     
+    # OpenCV
+    set(OpenCV_DIR "D:/src/opencv/build")
+    
     # SDL2 配置
     include_directories("D:/src/SDL2-2.32.8/include")
     link_directories("D:/src/SDL2-2.32.8/lib/x64")

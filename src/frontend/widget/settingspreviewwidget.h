@@ -12,6 +12,10 @@ public:
 
 protected:
     QWidget* create_control_area() override;
+
+private:
+    QListWidget *m_param_list = nullptr;
+    QWidget *m_param_right = nullptr;
 };
 
 #endif

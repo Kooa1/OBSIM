@@ -119,6 +119,53 @@ void PreviewBaseWidget::add_control_area() {
     m_splitter->setStretchFactor(1, 0);
 }
 
+PreviewBaseWidget::SplitControlPanel
+PreviewBaseWidget::create_split_panel(const QString &title, QWidget *parent) {
+    SplitControlPanel result;
+
+    auto *h_splitter = new QSplitter(Qt::Horizontal, parent);
+    h_splitter->setChildrenCollapsible(false);
+    result.splitter = h_splitter;
+
+    auto *left_widget = new QWidget(h_splitter);
+    auto *left_layout = new QVBoxLayout(left_widget);
+    left_layout->setContentsMargins(4, 4, 4, 4);
+    left_layout->setSpacing(4);
+
+    auto *title_bar = new QHBoxLayout();
+    auto *title_label = new QLabel(title, left_widget);
+    title_label->setStyleSheet("font-weight: bold; font-size: 13px; color: white;");
+    title_bar->addWidget(title_label);
+    title_bar->addStretch();
+    left_layout->addLayout(title_bar);
+
+    result.list_widget = new QListWidget(left_widget);
+    result.list_widget->setAlternatingRowColors(true);
+    left_layout->addWidget(result.list_widget);
+
+    auto *btn_layout = new QHBoxLayout();
+    result.btn_add = new QPushButton("＋", left_widget);
+    result.btn_remove = new QPushButton("－", left_widget);
+    result.btn_add->setFixedSize(28, 28);
+    result.btn_remove->setFixedSize(28, 28);
+    btn_layout->addStretch();
+    btn_layout->addWidget(result.btn_add);
+    btn_layout->addWidget(result.btn_remove);
+    left_layout->addLayout(btn_layout);
+
+    h_splitter->addWidget(left_widget);
+
+    result.right_panel = new QWidget(h_splitter);
+    result.right_panel->setStyleSheet("background: #2a2a2a;");
+    h_splitter->addWidget(result.right_panel);
+
+    h_splitter->setStretchFactor(0, 0);
+    h_splitter->setStretchFactor(1, 1);
+    h_splitter->setSizes({200, 400});
+
+    return result;
+}
+
 void PreviewBaseWidget::closeEvent(QCloseEvent *event) {
     stop_preview();
     emit close_requested();

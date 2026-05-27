@@ -8,13 +8,22 @@ SettingsPreviewWidget::SettingsPreviewWidget(QWidget *parent)
 }
 
 QWidget* SettingsPreviewWidget::create_control_area() {
-    auto *widget = new QWidget(this);
-    widget->setMinimumHeight(60);
-    widget->setStyleSheet("background: #333333;");
-    auto *layout = new QVBoxLayout(widget);
-    auto *label = new QLabel("源设置控制区（待实现）", widget);
-    label->setStyleSheet("color: #999999; font-size: 12px; background: transparent;");
-    label->setAlignment(Qt::AlignCenter);
-    layout->addWidget(label);
-    return widget;
+    auto *container = new QWidget(this);
+    auto *layout = new QVBoxLayout(container);
+    layout->setContentsMargins(0, 0, 0, 0);
+
+    auto panel = create_split_panel("源属性", container);
+
+    panel.list_widget->addItem("位置");
+    panel.list_widget->addItem("缩放");
+    panel.list_widget->addItem("旋转");
+    panel.list_widget->addItem("裁剪");
+    panel.list_widget->addItem("不透明度");
+
+    layout->addWidget(panel.splitter);
+
+    m_param_list = panel.list_widget;
+    m_param_right = panel.right_panel;
+
+    return container;
 }

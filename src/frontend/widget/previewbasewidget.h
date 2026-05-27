@@ -5,8 +5,12 @@
 #include <QSplitter>
 #include <QCloseEvent>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QGuiApplication>
 #include <QScreen>
+#include <QListWidget>
+#include <QPushButton>
+#include <QLabel>
 #include <QtOpenGLWidgets/QOpenGLWidget>
 
 class Source;
@@ -28,6 +32,15 @@ protected:
     void closeEvent(QCloseEvent *event) override;
     virtual QWidget* create_control_area() = 0;
     void add_control_area();
+
+    struct SplitControlPanel {
+        QSplitter *splitter;
+        QListWidget *list_widget;
+        QWidget *right_panel;
+        QPushButton *btn_add;
+        QPushButton *btn_remove;
+    };
+    SplitControlPanel create_split_panel(const QString &title, QWidget *parent);
 
     Source *m_source = nullptr;
     QTimer *m_render_timer = nullptr;
