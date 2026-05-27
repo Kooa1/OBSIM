@@ -1,4 +1,4 @@
-#include "../base/filterpreviewwidget.h"
+#include "filterpreviewwidget.h"
 
 FilterPreviewWidget::FilterPreviewWidget(QWidget *parent)
     : PreviewBaseWidget(parent) {
