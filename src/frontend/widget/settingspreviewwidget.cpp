@@ -3,6 +3,8 @@
 #include "../../core/screencapturesource.h"
 #include "../../core/textsource.h"
 #include "../../core/imagesource.h"
+#include <QPushButton>
+#include <QHBoxLayout>
 
 SettingsPreviewWidget::SettingsPreviewWidget(QWidget *parent)
     : PreviewBaseWidget(parent) {
@@ -41,6 +43,8 @@ void SettingsPreviewWidget::populate_source_list() {
         m_name_edit->setText(m_source->display_name);
         m_name_edit->blockSignals(false);
     }
+
+    m_original_name = m_source->display_name;
 }
 
 QWidget* SettingsPreviewWidget::create_control_area() {
@@ -62,6 +66,14 @@ QWidget* SettingsPreviewWidget::create_control_area() {
 
     layout->addStretch();
 
+    auto *btn_layout = new QHBoxLayout();
+    btn_layout->addStretch();
+    auto *cancel_btn = new QPushButton("取消");
+    auto *apply_btn = new QPushButton("确定");
+    btn_layout->addWidget(cancel_btn);
+    btn_layout->addWidget(apply_btn);
+    layout->addLayout(btn_layout);
+
     connect(m_source_combo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [this](int index) {
         if (index < 0) return;
@@ -73,13 +85,28 @@ QWidget* SettingsPreviewWidget::create_control_area() {
         m_name_edit->blockSignals(true);
         m_name_edit->setText(src->display_name);
         m_name_edit->blockSignals(false);
+        m_original_name = src->display_name;
     });
 
-    connect(m_name_edit, &QLineEdit::textChanged, this, [this](const QString &text) {
-        if (m_source && !text.trimmed().isEmpty()) {
-            emit source_name_changed(m_source, text.trimmed());
-        }
-    });
+    connect(m_name_edit, &QLineEdit::textChanged, this, [](const QString &) {});
+
+    connect(apply_btn, &QPushButton::clicked, this, &SettingsPreviewWidget::on_apply);
+    connect(cancel_btn, &QPushButton::clicked, this, &SettingsPreviewWidget::on_cancel);
 
     return container;
+}
+
+void SettingsPreviewWidget::on_apply() {
+    QString new_name = m_name_edit->text().trimmed();
+    if (m_source && !new_name.isEmpty() && new_name != m_original_name) {
+        emit source_name_changed(m_source, new_name);
+    }
+    close();
+}
+
+void SettingsPreviewWidget::on_cancel() {
+    if (m_name_edit) {
+        m_name_edit->setText(m_original_name);
+    }
+    close();
 }

@@ -774,13 +774,18 @@ void MainWindow::on_settings_source_name_changed(Source *src, const QString &new
     setting_bar->set_selection_text(new_name);
 
     QListWidget *list = control_bar->source_control()->source_list();
-    for (int i = 0; i < list->count(); ++i) {
-        QListWidgetItem *item = list->item(i);
-        QString text = item->text();
-        int paren_idx = text.indexOf(" (");
-        if (paren_idx >= 0) {
-            QString suffix = text.mid(paren_idx);
-            item->setText(new_name + suffix);
+    for (int i = 0; i < static_cast<int>(scene_preview_widget->source_count()); ++i) {
+        if (scene_preview_widget->source_at(i) == src) {
+            int list_row = list->count() - 1 - i;
+            if (list_row >= 0 && list_row < list->count()) {
+                QListWidgetItem *item = list->item(list_row);
+                QString text = item->text();
+                int paren_idx = text.indexOf(" (");
+                if (paren_idx >= 0) {
+                    QString suffix = text.mid(paren_idx);
+                    item->setText(new_name + suffix);
+                }
+            }
             break;
         }
     }

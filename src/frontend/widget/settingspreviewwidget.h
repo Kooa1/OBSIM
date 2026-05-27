@@ -26,6 +26,11 @@ private:
     QComboBox *m_source_combo = nullptr;
     QLineEdit *m_name_edit = nullptr;
     QVector<Source*> m_all_sources;
+    QString m_original_name;
+
+private slots:
+    void on_apply();
+    void on_cancel();
 };
 
 #endif
