@@ -43,8 +43,17 @@ void FilteredVideoCaptor::resume() {
     VideoCaptor::resume();
 }
 
+void FilteredVideoCaptor::push_frame(AVFramePtr frame) {
+    auto copy = frame;
+    VideoCaptor::push_frame(std::move(frame));
+    if (m_raw_queue) {
+        m_raw_queue->push_no_wait(std::move(copy));
+    }
+}
+
 void FilteredVideoCaptor::start_filter() {
     if (m_filter_running.load()) return;
+    m_raw_queue = std::make_unique<DataSafeQueue<AVFramePtr>>(8);
     m_filtered_queue = std::make_unique<DataSafeQueue<AVFramePtr>>(64);
     m_filter_enabled.store(true);
     m_filter_running.store(true);
@@ -59,14 +68,19 @@ void FilteredVideoCaptor::stop_filter() {
     if (m_filter_thread.joinable()) {
         m_filter_thread.join();
     }
+    if (m_raw_queue) {
+        m_raw_queue->clean_queue();
+        m_raw_queue.reset();
+    }
     if (m_filtered_queue) {
         m_filtered_queue->clean_queue();
+        m_filtered_queue.reset();
     }
 }
 
 void FilteredVideoCaptor::filter_loop() {
     while (m_filter_running.load()) {
-        auto frame = queue->try_pop_drain();
+        auto frame = m_raw_queue ? m_raw_queue->try_pop_drain() : std::nullopt;
         if (!frame.has_value() || !frame.value()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;

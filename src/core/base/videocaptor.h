@@ -52,8 +52,9 @@ protected:
     virtual void init_ctx();
     void init_sws_ctx();
     void capture_loop();
-    void receive_frame0(AVPacketPtr packet);
-    void receive_frame1(AVPacketPtr packet);
+    virtual void receive_frame0(AVPacketPtr packet);
+    virtual void receive_frame1(AVPacketPtr packet);
+    virtual void push_frame(AVFramePtr frame);
     void notify_frame_ready();
 
     // ===== 子类必须实现 =====

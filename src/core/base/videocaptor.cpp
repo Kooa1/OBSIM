@@ -51,6 +51,10 @@ std::optional<AVFramePtr> VideoCaptor::try_pop_frame() {
     return queue->try_pop_drain();
 }
 
+void VideoCaptor::push_frame(AVFramePtr frame) {
+    queue->push_no_wait(std::move(frame));
+}
+
 void VideoCaptor::apply_config(const CaptorConfig &config) {
     m_config = config;
 }
@@ -195,7 +199,7 @@ void VideoCaptor::receive_frame0(AVPacketPtr obj_packet) {
                         dest_frame->data, dest_frame->linesize);
         if (ret < 0) continue;
 
-        queue->push_no_wait(std::move(dest_frame));
+        push_frame(std::move(dest_frame));
         notify_frame_ready();
         std::this_thread::sleep_for(std::chrono::microseconds(1));
     }
@@ -220,7 +224,7 @@ void VideoCaptor::receive_frame1(AVPacketPtr obj_packet) {
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
         if (ret < 0) continue;
 
-        queue->push_no_wait(std::move(ultimate_frame));
+        push_frame(std::move(ultimate_frame));
         notify_frame_ready();
         std::this_thread::sleep_for(std::chrono::microseconds(1));
     }

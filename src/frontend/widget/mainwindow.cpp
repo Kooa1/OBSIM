@@ -706,10 +706,21 @@ void MainWindow::rebuild_source_list() {
 
 void MainWindow::on_filter_requested(Source *source) {
     if (!source) return;
+
+    if (m_filtered_source) {
+        m_filtered_source->visible = true;
+    }
+    source->visible = false;
+    m_filtered_source = source;
+
     if (!m_filter_window) {
         m_filter_window = new FilterPreviewWidget(nullptr);
         connect(m_filter_window, &FilterPreviewWidget::close_requested,
                 this, [this]() {
+                    if (m_filtered_source) {
+                        m_filtered_source->visible = true;
+                        m_filtered_source = nullptr;
+                    }
                     if (m_filter_window) m_filter_window->deleteLater();
                 });
     }

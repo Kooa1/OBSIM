@@ -25,9 +25,11 @@ public:
     bool is_filter_running() const { return m_filter_running.load(); }
 
 protected:
+    void push_frame(AVFramePtr frame) override;
     void filter_loop();
 
     std::unique_ptr<OpenCVFilter> m_filter;
+    std::unique_ptr<DataSafeQueue<AVFramePtr>> m_raw_queue;
     std::unique_ptr<DataSafeQueue<AVFramePtr>> m_filtered_queue;
     std::thread m_filter_thread;
     std::atomic<bool> m_filter_running{false};

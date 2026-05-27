@@ -109,6 +109,7 @@ private:
 
     QPointer<FilterPreviewWidget> m_filter_window;
     QPointer<SettingsPreviewWidget> m_settings_window;
+    Source *m_filtered_source = nullptr;
 };
 
 #endif //MAINWINDOW_H
