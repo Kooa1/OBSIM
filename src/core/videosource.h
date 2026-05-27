@@ -8,6 +8,8 @@
 #include "base/source.h"
 #include "base/videocaptor.h"
 
+class OpenCVFilter;
+
 class VideoSource : public Source {
 public:
     explicit VideoSource(std::unique_ptr<VideoCaptor> captor);
@@ -21,6 +23,10 @@ public:
     void stop_capture();
     void pause_capture();
     void resume_capture();
+    OpenCVFilter* filter();
+    bool update_filtered_frame();
+    void start_filter();
+    void stop_filter();
 
 protected:
     void create_texture(int width, int height);

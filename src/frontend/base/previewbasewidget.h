@@ -4,6 +4,7 @@
 #include <QTimer>
 #include <QSplitter>
 #include <QCloseEvent>
+#include <QShowEvent>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGuiApplication>
@@ -46,6 +47,8 @@ protected:
     QTimer *m_render_timer = nullptr;
     QSplitter *m_splitter = nullptr;
     QWidget *m_control_area = nullptr;
+
+    virtual void on_frame_update();
 
 private:
     class PreviewGLWidget : public QOpenGLWidget {

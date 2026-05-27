@@ -5,8 +5,8 @@
 // #include <vld.h>
 #include <QApplication>
 
-#include "utils/PCH.h"
-#include "frontend/widget/mainwindow.h"
+#include "src/utils/PCH.h"
+#include "src/frontend/widget/mainwindow.h"
 
 extern "C" {
 #include <libavdevice/avdevice.h>

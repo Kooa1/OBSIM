@@ -1,4 +1,5 @@
 #include "videosource.h"
+#include "filter/filteredvideocaptor.h"
 
 VideoSource::VideoSource(std::unique_ptr<VideoCaptor> captor)
     : m_capture(std::move(captor))
@@ -107,4 +108,33 @@ void VideoSource::upload_frame_to_texture(const AVFramePtr& frame) {
     glBindTexture(GL_TEXTURE_2D, m_texture_id);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, fw, fh,
                     GL_BGRA, GL_UNSIGNED_BYTE, frame->data[0]);
+}
+
+OpenCVFilter* VideoSource::filter() {
+    auto *fc = dynamic_cast<FilteredVideoCaptor*>(m_capture.get());
+    return fc ? fc->filter() : nullptr;
+}
+
+bool VideoSource::update_filtered_frame() {
+    if (!m_capture || !m_capture->is_running()) return false;
+
+    auto *fc = dynamic_cast<FilteredVideoCaptor*>(m_capture.get());
+    if (!fc) return update_frame();
+
+    auto frame = fc->try_pop_filtered_frame();
+    if (frame.has_value()) {
+        upload_frame_to_texture(std::move(frame.value()));
+        return true;
+    }
+    return false;
+}
+
+void VideoSource::start_filter() {
+    auto *fc = dynamic_cast<FilteredVideoCaptor*>(m_capture.get());
+    if (fc) fc->start_filter();
+}
+
+void VideoSource::stop_filter() {
+    auto *fc = dynamic_cast<FilteredVideoCaptor*>(m_capture.get());
+    if (fc) fc->stop_filter();
 }

@@ -52,6 +52,9 @@ find_package(Qt6 COMPONENTS
         REQUIRED
 )
 
+# 查找 OpenCV
+find_package(OpenCV REQUIRED)
+
 # 查找 OpenGL（跨平台）
 find_package(OpenGL REQUIRED)
 
@@ -77,7 +80,7 @@ file(GLOB_RECURSE SOURCE_FILES
 add_executable(OBSIM
         ${SOURCE_FILES}
         ${HEADER_FILES}
-        src/main.cpp
+        main.cpp
 )
 
 target_compile_definitions(OBSIM PRIVATE
@@ -96,6 +99,9 @@ if (WIN32)
             vld
             SDL2main
             SDL2
+            opencv_core
+            opencv_imgproc
+            opencv_imgcodecs
             Qt6::OpenGL
             Qt6::OpenGLWidgets
             Qt6::Multimedia
@@ -114,6 +120,9 @@ if (WIN32)
 elseif (APPLE)
     target_link_libraries(OBSIM
             SDL2
+            opencv_core
+            opencv_imgproc
+            opencv_imgcodecs
             Qt6::OpenGL
             Qt6::OpenGLWidgets
             Qt6::Multimedia
@@ -135,6 +144,20 @@ endif ()
 if (MSVC)
     add_compile_options(/Zc:__cplusplus)
 endif ()
+
+# Unit test for OpenCVFilter
+add_executable(opencv_filter_test
+    test/test_opencv_filter.cpp
+)
+target_include_directories(opencv_filter_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${OpenCV_INCLUDE_DIRS}
+)
+target_link_libraries(opencv_filter_test
+    opencv_core
+    opencv_imgproc
+    opencv_imgcodecs
+)
 
 # Windows 平台部署
 if (WIN32)

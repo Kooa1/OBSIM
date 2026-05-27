@@ -45,7 +45,7 @@ void PreviewBaseWidget::PreviewGLWidget::paintGL() {
     glTranslatef(viewX, viewY, 0);
     glScalef(viewW / srcW, viewH / srcH, 1);
 
-    src->update_frame();
+    m_owner->on_frame_update();
     src->render();
 }
 
@@ -117,6 +117,10 @@ void PreviewBaseWidget::add_control_area() {
     m_splitter->addWidget(m_control_area);
     m_splitter->setStretchFactor(0, 1);
     m_splitter->setStretchFactor(1, 0);
+}
+
+void PreviewBaseWidget::on_frame_update() {
+    if (m_source) m_source->update_frame();
 }
 
 PreviewBaseWidget::SplitControlPanel
