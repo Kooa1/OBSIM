@@ -108,7 +108,7 @@ void TextSource::rebuild_texture() {
     int h = size.height();
     if (w <= 0 || h <= 0) return;
 
-    QImage image(w, h, QImage::Format_ARGB32_Premultiplied);
+    QImage image(w, h, QImage::Format_ARGB32);
     image.fill(Qt::transparent); {
         QPainter painter(&image);
         painter.setRenderHint(QPainter::Antialiasing);
@@ -116,8 +116,6 @@ void TextSource::rebuild_texture() {
         painter.setPen(m_color);
         painter.drawText(QRect(0, 0, w, h), Qt::AlignLeft | Qt::AlignTop, m_text);
     }
-
-    QImage glImage = image.convertToFormat(QImage::Format_RGBA8888);
 
     m_tex_width = w;
     m_tex_height = h;
@@ -129,7 +127,7 @@ void TextSource::rebuild_texture() {
     this->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     this->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     this->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_tex_width, m_tex_height, 0,
-                       GL_RGBA, GL_UNSIGNED_BYTE, glImage.constBits());
+                       GL_BGRA, GL_UNSIGNED_BYTE, image.constBits());
 }
 
 QSize TextSource::calculate_text_size() const {

@@ -158,7 +158,7 @@ void ImageSource::ensure_texture() {
     QImage img = load_image_file(m_file_path);
     if (img.isNull()) return;
 
-    QImage glImage = img.convertToFormat(QImage::Format_RGBA8888);
+    QImage glImage = img.convertToFormat(QImage::Format_ARGB32);
 
     m_tex_width = glImage.width();
     m_tex_height = glImage.height();
@@ -170,7 +170,7 @@ void ImageSource::ensure_texture() {
     this->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     this->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     this->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_tex_width, m_tex_height, 0,
-                       GL_RGBA, GL_UNSIGNED_BYTE, glImage.constBits());
+                       GL_BGRA, GL_UNSIGNED_BYTE, glImage.constBits());
 }
 
 void ImageSource::load_resources() {
