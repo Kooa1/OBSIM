@@ -5,6 +5,20 @@ AudioManager::AudioManager(QObject *parent)
     m_system_audio = std::make_unique<SystemAudioCaptor>();
     m_mic_audio = std::make_unique<MicAudioCaptor>();
 
+    setup_callbacks();
+}
+
+AudioManager::AudioManager(
+    std::unique_ptr<SystemAudioCaptor> system,
+    std::unique_ptr<MicAudioCaptor> mic,
+    QObject *parent)
+    : QObject(parent)
+    , m_system_audio(std::move(system))
+    , m_mic_audio(std::move(mic)) {
+    setup_callbacks();
+}
+
+void AudioManager::setup_callbacks() {
     QPointer<AudioManager> self(this);
 
     // ✅ 系统音频回调

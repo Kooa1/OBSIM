@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
     QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
     QApplication a(argc, argv);
 
-    auto main_window = new MainWindow();
+    MainWindow main_window;
 
     return QApplication::exec();
 

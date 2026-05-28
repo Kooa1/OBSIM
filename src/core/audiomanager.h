@@ -26,6 +26,11 @@ class AudioManager : public QObject {
 public:
     explicit AudioManager(QObject *parent = nullptr);
 
+    explicit AudioManager(
+        std::unique_ptr<SystemAudioCaptor> system,
+        std::unique_ptr<MicAudioCaptor> mic,
+        QObject *parent = nullptr);
+
     ~AudioManager() override;
 
     // 启动/停止所有音频采集
@@ -51,6 +56,7 @@ public:
 
 private:
     void calculate_level_from_frame(const AVFrame *frame, std::atomic<float> &level_store);
+    void setup_callbacks();
 
 private:
     std::unique_ptr<SystemAudioCaptor> m_system_audio;

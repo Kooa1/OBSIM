@@ -690,9 +690,9 @@ void Recoder::reset_state() {
     m_mic_silence_samples = 0;
 
     for (int ch = 0; ch < 2; ch++) {
-        m_audio_fifo[ch].clear();
-        m_sys_fifo[ch].clear();
-        m_mic_fifo[ch].clear();
+        std::deque<float>().swap(m_audio_fifo[ch]);
+        std::deque<float>().swap(m_sys_fifo[ch]);
+        std::deque<float>().swap(m_mic_fifo[ch]);
     }
 
     if (m_video_queue) m_video_queue->clean_queue();

@@ -22,3 +22,8 @@
 #include <string>
 
 #endif //PCH_H
+
+#ifdef _DEBUG
+#define VLD_FORCE_COPY 1
+#include <vld.h>
+#endif
