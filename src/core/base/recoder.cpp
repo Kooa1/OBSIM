@@ -434,34 +434,12 @@ void Recoder::process_video_frame() {
     sws_scale(m_sws_ctx.get(), src_slice, src_stride, 0, cap_h,
               m_yuv_frame->data, m_yuv_frame->linesize);
 
+    m_video_pts++;
     if (m_has_audio && m_audio_enc_ctx) {
-        double audio_time = static_cast<double>(m_audio_clock) / AUDIO_SAMPLE_RATE;
-        double video_time = static_cast<double>(m_video_pts) / m_fps;
-        double diff = video_time - audio_time;
-        double abs_diff = diff >= 0.0 ? diff : -diff;
-
-        if (abs_diff <= SYNC_MIN_THRESHOLD) {
-            m_video_pts++;
-        } else if (abs_diff > SYNC_DISCARD_THRESHOLD) {
-            if (diff > 0.0) {
-            } else {
-                m_video_pts += 2;
-            }
-        } else if (abs_diff > SYNC_MAX_THRESHOLD) {
-            double adjustment = diff * 0.5;
-            double ticks = adjustment * m_fps;
-            int64_t pts_delta = static_cast<int64_t>(1.0 - (ticks >= 0.0 ? ticks + 0.5 : ticks - 0.5));
-            if (pts_delta < 0) pts_delta = 0;
-            m_video_pts += pts_delta;
-        } else {
-            double adjustment = diff * 0.2;
-            double ticks = adjustment * m_fps;
-            int64_t pts_delta = static_cast<int64_t>(1.0 - (ticks >= 0.0 ? ticks + 0.5 : ticks - 0.5));
-            if (pts_delta < 0) pts_delta = 0;
-            m_video_pts += pts_delta;
+        int64_t expected_pts = m_audio_clock * m_fps / AUDIO_SAMPLE_RATE;
+        if (expected_pts > m_video_pts) {
+            m_video_pts = expected_pts;
         }
-    } else {
-        m_video_pts++;
     }
 
     encode_video_frame(m_video_pts);
@@ -563,33 +541,12 @@ void Recoder::drain_video_frames() {
 
         encode_video_frame(m_video_pts);
 
+        m_video_pts++;
         if (m_has_audio && m_audio_enc_ctx) {
-            double audio_time = static_cast<double>(m_audio_clock) / AUDIO_SAMPLE_RATE;
-            double video_time = static_cast<double>(m_video_pts) / m_fps;
-            double diff = video_time - audio_time;
-            double abs_diff = diff >= 0.0 ? diff : -diff;
-
-            if (abs_diff <= SYNC_MIN_THRESHOLD) {
-                m_video_pts++;
-            } else if (abs_diff > SYNC_DISCARD_THRESHOLD) {
-                if (diff <= 0.0) {
-                    m_video_pts += 2;
-                }
-            } else if (abs_diff > SYNC_MAX_THRESHOLD) {
-                double adjustment = diff * 0.5;
-                double ticks = adjustment * m_fps;
-                int64_t pts_delta = static_cast<int64_t>(1.0 - (ticks >= 0.0 ? ticks + 0.5 : ticks - 0.5));
-                if (pts_delta < 0) pts_delta = 0;
-                m_video_pts += pts_delta;
-            } else {
-                double adjustment = diff * 0.2;
-                double ticks = adjustment * m_fps;
-                int64_t pts_delta = static_cast<int64_t>(1.0 - (ticks >= 0.0 ? ticks + 0.5 : ticks - 0.5));
-                if (pts_delta < 0) pts_delta = 0;
-                m_video_pts += pts_delta;
+            int64_t expected_pts = m_audio_clock * m_fps / AUDIO_SAMPLE_RATE;
+            if (expected_pts > m_video_pts) {
+                m_video_pts = expected_pts;
             }
-        } else {
-            m_video_pts++;
         }
     }
 }
