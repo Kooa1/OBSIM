@@ -1,4 +1,5 @@
 #include "controlbar.h"
+#include <QMenu>
 
 // ==================== 场景控制块 ====================
 
@@ -225,7 +226,7 @@ AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString 
     layout->setContentsMargins(0, 2, 0, 2);
     layout->setSpacing(2);
 
-    // 第一行：名称 + 静音按钮
+    // 第一行：名称 + 静音按钮 + 设置按钮
     auto *top_row = new QHBoxLayout();
     tw.name_label = new QLabel(name);
 
@@ -233,9 +234,23 @@ AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString 
     tw.mute_btn->setFixedSize(24, 24);
     tw.mute_btn->setCheckable(true);
 
+    tw.settings_btn = new QPushButton("···");
+    tw.settings_btn->setFixedSize(24, 24);
+    tw.settings_btn->setStyleSheet(
+        "QPushButton {"
+        "  border: none;"
+        "  font-weight: bold;"
+        "  color: #aaa;"
+        "}"
+        "QPushButton:hover {"
+        "  color: #fff;"
+        "}"
+    );
+
     top_row->addWidget(tw.name_label);
     top_row->addStretch();
     top_row->addWidget(tw.mute_btn);
+    top_row->addWidget(tw.settings_btn);
 
     // 第二行：音量滑块
     tw.volume_slider = new QSlider(Qt::Horizontal);
@@ -283,6 +298,14 @@ AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString 
                              slider->setEnabled(true);
                          }
                          emit track_muted_changed(name, checked);
+                     });
+
+    QObject::connect(tw.settings_btn, &QPushButton::clicked, this,
+                     [this, name, btn = tw.settings_btn]() {
+                         QMenu menu(btn);
+                         QAction *placeholder = menu.addAction("设备选择（开发中）");
+                         placeholder->setEnabled(false);
+                         menu.exec(btn->mapToGlobal(QPoint(0, btn->height())));
                      });
 
     return tw;

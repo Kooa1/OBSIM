@@ -137,6 +137,7 @@ private:
         QSlider *volume_slider;
         QProgressBar *level_meter;
         QPushButton *mute_btn;
+        QPushButton *settings_btn;
     };
 
     QVBoxLayout *m_tracks_layout;
