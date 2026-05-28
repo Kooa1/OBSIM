@@ -18,6 +18,8 @@ void AudioCaptor::stop() {
     if (cap_thread.joinable()) {
         cap_thread.join();
     }
+    av_format_context.reset();
+    av_codec_context.reset();
     if (queue) {
         queue->clean_queue();
     }
