@@ -24,6 +24,9 @@ bool MainWindow::init_UI() {
 
     // 初始化音频管理器（独立于视频预览）
     m_audio_manager = std::make_unique<AudioManager>(this);
+    control_bar->audio_mixer()->sync_audio_devices(
+        m_audio_manager->current_system_device_id(),
+        QString::fromStdString(m_audio_manager->current_mic_device_name()));
 
     // 初始化录制器
     m_recoder = std::make_unique<FileRecoder>();
@@ -164,6 +167,11 @@ void MainWindow::load_audio_settings() {
             }
             // 启动采集（此时已应用保存的设备）
             m_audio_manager->start_all();
+
+            // 同步当前设备到混音器菜单
+            control_bar->audio_mixer()->sync_audio_devices(
+                m_audio_manager->current_system_device_id(),
+                QString::fromStdString(m_audio_manager->current_mic_device_name()));
         }
 
         if (m_recoder) {

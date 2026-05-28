@@ -20,6 +20,8 @@ public:
     explicit SystemAudioCaptor(const QString &device_id);
     ~SystemAudioCaptor() override;
 
+    const QString& device_id() const { return m_device_id; }
+
 protected:
     void init_ctx() override;
     void capture_loop() override;

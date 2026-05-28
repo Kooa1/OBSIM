@@ -42,8 +42,24 @@ public:
     void set_system_audio_device(const QString &device_id);
     void set_mic_audio_device(const std::string &device_name);
 
-    QString current_system_device_id() const { return m_system_device_id; }
-    std::string current_mic_device_name() const { return m_mic_device_name; }
+    QString current_system_device_id() const {
+        if (!m_system_device_id.isEmpty()) return m_system_device_id;
+        if (m_system_audio) return m_system_audio->device_id();
+        return {};
+    }
+    std::string current_mic_device_name() const {
+        if (!m_mic_device_name.empty()) return m_mic_device_name;
+        if (m_mic_audio) {
+            const char *dev = m_mic_audio->get_device_name();
+            if (dev) {
+                std::string s(dev);
+                auto pos = s.find("audio=");
+                if (pos == 0) return s.substr(6);
+                return s;
+            }
+        }
+        return {};
+    }
 
     // 获取指定音轨的电平（0.0 ~ 1.0）
     float get_system_audio_level() const { return m_system_level.load(); }

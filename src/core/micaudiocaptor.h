@@ -12,9 +12,10 @@ public:
     explicit MicAudioCaptor(const std::string &device_name);
     ~MicAudioCaptor() override = default;
 
+    const char* get_device_name() const override;
+
 protected:
     const char* get_input_format_name() const override;
-    const char* get_device_name() const override;
     void setup_options(AVDictionary** opts) override;
 
 private:

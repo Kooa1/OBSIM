@@ -123,6 +123,11 @@ public:
     void update_track_level(const QString &name, float level);
 
     void set_track_muted(const QString &name, bool muted);
+
+    void sync_audio_devices(const QString &system_device_id, const QString &mic_device_name) {
+        m_selected_system_device_id = system_device_id;
+        m_selected_mic_device_name = mic_device_name;
+    }
     void set_track_volume(const QString &name, float volume);
 
 signals:
