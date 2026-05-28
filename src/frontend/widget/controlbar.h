@@ -147,6 +147,10 @@ private:
     QVBoxLayout *m_tracks_layout;
     std::map<QString, TrackWidget> m_tracks;
 
+    // 跟踪当前选中的音频设备（用于菜单高亮）
+    QString m_selected_system_device_id;
+    QString m_selected_mic_device_name;
+
     TrackWidget create_track_widget(const QString &name, float volume);
 };
 

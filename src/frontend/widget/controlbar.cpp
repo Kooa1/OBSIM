@@ -4,7 +4,8 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QMenu>
-#include <QActionGroup>
+#include <QPainter>
+#include <QStyleOptionButton>
 
 // ==================== 场景控制块 ====================
 
@@ -309,38 +310,59 @@ AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString 
                      [this, name, btn = tw.settings_btn]() {
                          DeviceManager dm;
                          QMenu menu(btn);
-                         auto *group = new QActionGroup(&menu);
+
+                         QStyle *style = qApp->style();
+                         QPixmap radio_on_px(16, 16);
+                         QPixmap radio_off_px(16, 16);
+                         radio_on_px.fill(Qt::transparent);
+                         radio_off_px.fill(Qt::transparent);
+                         {
+                             QPainter p(&radio_on_px);
+                             QStyleOptionButton opt;
+                             opt.rect = QRect(0, 0, 16, 16);
+                             opt.state = QStyle::State_On | QStyle::State_Enabled;
+                             style->drawControl(QStyle::CE_RadioButton, &opt, &p);
+                         }
+                         {
+                             QPainter p(&radio_off_px);
+                             QStyleOptionButton opt;
+                             opt.rect = QRect(0, 0, 16, 16);
+                             opt.state = QStyle::State_Off | QStyle::State_Enabled;
+                             style->drawControl(QStyle::CE_RadioButton, &opt, &p);
+                         }
+                         QIcon radio_on(radio_on_px);
+                         QIcon radio_off(radio_off_px);
 
                          if (name == "桌面音频") {
                              auto devices = dm.get_all_audio_outputs();
                              for (const auto &dev : devices) {
-                                 QAction *action = group->addAction(dev.name);
-                                 action->setCheckable(true);
+                                 bool selected = m_selected_system_device_id.isEmpty()
+                                     ? dev.is_default
+                                     : (dev.id == m_selected_system_device_id);
+                                 QAction *action = menu.addAction(dev.name);
+                                 action->setIcon(selected ? radio_on : radio_off);
                                  action->setData(dev.id);
-                                 if (dev.is_default) {
-                                     action->setChecked(true);
-                                 }
-                                 menu.addAction(action);
                              }
                          } else if (name == "麦克风") {
                              auto devices = dm.get_all_audio_inputs();
                              for (const auto &dev : devices) {
-                                 QAction *action = group->addAction(dev.name);
-                                 action->setCheckable(true);
+                                 bool selected = m_selected_mic_device_name.isEmpty()
+                                     ? dev.is_default
+                                     : (dev.raw_name == m_selected_mic_device_name);
+                                 QAction *action = menu.addAction(dev.name);
+                                 action->setIcon(selected ? radio_on : radio_off);
                                  action->setData(dev.raw_name);
-                                 if (dev.is_default) {
-                                     action->setChecked(true);
-                                 }
-                                 menu.addAction(action);
                              }
                          }
 
                          QAction *selected = menu.exec(btn->mapToGlobal(QPoint(0, btn->height())));
                          if (selected) {
                              if (name == "桌面音频") {
-                                 emit system_audio_device_selected(selected->data().toString());
+                                 m_selected_system_device_id = selected->data().toString();
+                                 emit system_audio_device_selected(m_selected_system_device_id);
                              } else if (name == "麦克风") {
-                                 emit mic_audio_device_selected(selected->data().toString());
+                                 m_selected_mic_device_name = selected->data().toString();
+                                 emit mic_audio_device_selected(m_selected_mic_device_name);
                              }
                          }
                      });

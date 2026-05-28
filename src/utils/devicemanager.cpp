@@ -3,6 +3,8 @@
 //
 
 #include "devicemanager.h"
+#include <QAudioDevice>
+#include <QMediaDevices>
 
 extern "C" {
 #include <libavdevice/avdevice.h>
@@ -234,6 +236,12 @@ QVector<AudioInputInfo> DeviceManager::get_all_audio_inputs() const {
         info.name = QString::fromUtf8(dev->device_description);
         info.raw_name = QString::fromUtf8(dev->device_name);
         info.is_default = (i == device_list->default_device);
+        if (!info.is_default && device_list->default_device < 0) {
+            QAudioDevice default_input = QMediaDevices::defaultAudioInput();
+            if (!default_input.isNull()) {
+                info.is_default = (info.name == default_input.description());
+            }
+        }
         inputs.append(info);
     }
 
