@@ -261,10 +261,12 @@ void FilterPreviewWidget::on_reset() {
         m_param_stack->removeWidget(page);
         delete page;
     }
+    emit filter_params_changed();
 }
 
 void FilterPreviewWidget::on_apply() {
     inject_current_params();
     m_applying = true;
     emit apply_confirmed();
+    emit filter_params_changed();
 }

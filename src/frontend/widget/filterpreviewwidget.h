@@ -19,6 +19,7 @@ public:
 
 signals:
     void apply_confirmed();
+    void filter_params_changed();
 
 protected:
     QWidget* create_control_area() override;

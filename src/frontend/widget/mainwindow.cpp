@@ -196,6 +196,14 @@ struct SourceSaveData {
     int font_size;
     QString color_name;
     QString file_path;
+    // filter params
+    bool filter_enable_flip = false;
+    int filter_flip_code = 0;
+    bool filter_enable_grayscale = false;
+    bool filter_enable_color_adjust = false;
+    float filter_brightness = 0.0f;
+    float filter_contrast = 1.0f;
+    float filter_saturation = 1.0f;
 };
 
 void MainWindow::save_sources() {
@@ -242,6 +250,20 @@ void MainWindow::save_sources() {
                 item.color_name = ts->color().name();
             } else if (auto *is = dynamic_cast<ImageSource *>(src)) {
                 item.file_path = is->file_path();
+            }
+
+            // filter params
+            if (auto *vs = dynamic_cast<VideoSource *>(src)) {
+                if (auto *f = vs->filter()) {
+                    FilterParams fp = f->params();
+                    item.filter_enable_flip = fp.enable_flip;
+                    item.filter_flip_code = fp.flip_code;
+                    item.filter_enable_grayscale = fp.enable_grayscale;
+                    item.filter_enable_color_adjust = fp.enable_color_adjust;
+                    item.filter_brightness = fp.brightness;
+                    item.filter_contrast = fp.contrast;
+                    item.filter_saturation = fp.saturation;
+                }
             }
 
             entry.sources.push_back(std::move(item));
@@ -297,6 +319,15 @@ void MainWindow::save_sources() {
                 } else if (item.type == "Image") {
                     settings.setValue("file_path", item.file_path);
                 }
+
+                // filter params
+                settings.setValue("filter_enable_flip", item.filter_enable_flip);
+                settings.setValue("filter_flip_code", item.filter_flip_code);
+                settings.setValue("filter_enable_grayscale", item.filter_enable_grayscale);
+                settings.setValue("filter_enable_color_adjust", item.filter_enable_color_adjust);
+                settings.setValue("filter_brightness", item.filter_brightness);
+                settings.setValue("filter_contrast", item.filter_contrast);
+                settings.setValue("filter_saturation", item.filter_saturation);
 
                 settings.endGroup(); // Source_N
             }
@@ -369,6 +400,14 @@ void MainWindow::load_sources() {
                             } else if (item.type == "Camera") {
                             }
 
+                            item.filter_enable_flip = settings.value("filter_enable_flip", false).toBool();
+                            item.filter_flip_code = settings.value("filter_flip_code", 0).toInt();
+                            item.filter_enable_grayscale = settings.value("filter_enable_grayscale", false).toBool();
+                            item.filter_enable_color_adjust = settings.value("filter_enable_color_adjust", false).toBool();
+                            item.filter_brightness = settings.value("filter_brightness", 0.0f).toFloat();
+                            item.filter_contrast = settings.value("filter_contrast", 1.0f).toFloat();
+                            item.filter_saturation = settings.value("filter_saturation", 1.0f).toFloat();
+
                             entry.sources.push_back(std::move(item));
                             settings.endGroup(); // Source_N
                         }
@@ -416,6 +455,14 @@ void MainWindow::load_sources() {
                             item.file_path = settings.value("file_path").toString();
                         } else if (item.type == "Camera") {
                         }
+
+                        item.filter_enable_flip = settings.value("filter_enable_flip", false).toBool();
+                        item.filter_flip_code = settings.value("filter_flip_code", 0).toInt();
+                        item.filter_enable_grayscale = settings.value("filter_enable_grayscale", false).toBool();
+                        item.filter_enable_color_adjust = settings.value("filter_enable_color_adjust", false).toBool();
+                        item.filter_brightness = settings.value("filter_brightness", 0.0f).toFloat();
+                        item.filter_contrast = settings.value("filter_contrast", 1.0f).toFloat();
+                        item.filter_saturation = settings.value("filter_saturation", 1.0f).toFloat();
 
                         entry.sources.push_back(std::move(item));
                         settings.endGroup();
@@ -478,6 +525,21 @@ void MainWindow::load_sources() {
                 src->visible = item.visible;
                 src->rotation = item.rotation;
                 src->lock_aspect_ratio = item.lock_aspect_ratio;
+
+                // 加载滤镜参数
+                if (auto *vs = dynamic_cast<VideoSource *>(src)) {
+                    if (auto *f = vs->filter()) {
+                        FilterParams fp;
+                        fp.enable_flip = item.filter_enable_flip;
+                        fp.flip_code = item.filter_flip_code;
+                        fp.enable_grayscale = item.filter_enable_grayscale;
+                        fp.enable_color_adjust = item.filter_enable_color_adjust;
+                        fp.brightness = item.filter_brightness;
+                        fp.contrast = item.filter_contrast;
+                        fp.saturation = item.filter_saturation;
+                        f->set_params(fp);
+                    }
+                }
             }
         }
 
@@ -731,6 +793,8 @@ void MainWindow::on_filter_requested(Source *source) {
                     }
                     if (m_filter_window) m_filter_window->hide();
                 });
+        connect(m_filter_window, &FilterPreviewWidget::filter_params_changed,
+                this, &MainWindow::save_sources);
     }
     m_filter_window->set_source(source);
     m_filter_window->start_preview();
@@ -789,6 +853,7 @@ void MainWindow::on_settings_source_name_changed(Source *src, const QString &new
             break;
         }
     }
+    save_sources();
 }
 
 void MainWindow::init_layout() {

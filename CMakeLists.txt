@@ -14,15 +14,15 @@ if (WIN32)
     set(CMAKE_PREFIX_PATH "D:/application/Qt/6.9.0/msvc2022_64")
     
     # OpenCV
-    set(OpenCV_DIR "D:/src/opencv/build")
+    set(OpenCV_DIR "D:/develop-src/opencv/build")
     
     # SDL2 配置
-    include_directories("D:/src/SDL2-2.32.8/include")
-    link_directories("D:/src/SDL2-2.32.8/lib/x64")
+    include_directories("D:/develop-src/SDL2-2.32.8/include")
+    link_directories("D:/develop-src/SDL2-2.32.8/lib/x64")
     
     # FFmpeg 配置
-    include_directories("D:/src/ffmpeg-7.1.1-full_build-shared/include")
-    link_directories("D:/src/ffmpeg-7.1.1-full_build-shared/lib")
+    include_directories("D:/develop-src/ffmpeg-7.1.1/include")
+    link_directories("D:/develop-src/ffmpeg-7.1.1/lib")
     
     include_directories("D:/application/Visual Leak Detector/include")
     link_directories("D:/application/Visual Leak Detector/lib/Win64")
