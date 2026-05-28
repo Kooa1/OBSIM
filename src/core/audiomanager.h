@@ -42,6 +42,9 @@ public:
 
     void disable_recording();
 
+    void enable_recording_once();
+    void disable_recording_once();
+
     DataSafeQueue<AVFramePtr> *system_record_queue() const { return m_system_record_queue.get(); }
 
     DataSafeQueue<AVFramePtr> *mic_record_queue() const { return m_mic_record_queue.get(); }
@@ -60,6 +63,8 @@ private:
 
     std::unique_ptr<DataSafeQueue<AVFramePtr>> m_system_record_queue;
     std::unique_ptr<DataSafeQueue<AVFramePtr>> m_mic_record_queue;
+
+    std::atomic<int> m_record_ref_count{0};
 
 signals:
     void levels_updated(float system_level, float mic_level);

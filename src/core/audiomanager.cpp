@@ -144,6 +144,20 @@ void AudioManager::disable_recording() {
     m_mic_record_queue.reset();
 }
 
+void AudioManager::enable_recording_once() {
+    int prev = m_record_ref_count.fetch_add(1);
+    if (prev == 0) {
+        enable_recording();
+    }
+}
+
+void AudioManager::disable_recording_once() {
+    int prev = m_record_ref_count.fetch_sub(1);
+    if (prev <= 1) {
+        disable_recording();
+    }
+}
+
 void AudioManager::calculate_level_from_frame(const AVFrame* frame, std::atomic<float>& level_store) {
     if (!frame || frame->nb_samples <= 0) {
         float current = level_store.load();

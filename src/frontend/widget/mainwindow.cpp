@@ -177,7 +177,7 @@ void MainWindow::on_recording_started(const QString &output_path) {
     QString file_path = output_path + "/recording_" + timestamp + ".mp4";
 
     // 启用音频录制队列
-    m_audio_manager->enable_recording();
+    m_audio_manager->enable_recording_once();
 
     // 启动录制器
     m_recoder->start(file_path.toStdString(),
@@ -205,7 +205,7 @@ void MainWindow::on_recording_stopped() {
 
     m_recoder->stop();
 
-    m_audio_manager->disable_recording();
+    m_audio_manager->disable_recording_once();
 
     av_log(nullptr, AV_LOG_INFO, "recording stopped\n");
 }
@@ -213,7 +213,7 @@ void MainWindow::on_recording_stopped() {
 void MainWindow::on_streaming_started(const QString &rtmp_url) {
     if (!m_stream_push || !scene_preview_widget || !m_audio_manager) return;
 
-    m_audio_manager->enable_recording();
+    m_audio_manager->enable_recording_once();
 
     m_stream_push->start(rtmp_url.toStdString(),
                          static_cast<int>(ScenePreviewWidget::CANVAS_W),
@@ -239,7 +239,7 @@ void MainWindow::on_streaming_stopped() {
 
     m_stream_push->stop();
 
-    m_audio_manager->disable_recording();
+    m_audio_manager->disable_recording_once();
 
     av_log(nullptr, AV_LOG_INFO, "streaming stopped\n");
 }
