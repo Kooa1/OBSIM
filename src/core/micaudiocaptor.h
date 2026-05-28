@@ -9,6 +9,7 @@
 class MicAudioCaptor : public AudioCaptor {
 public:
     MicAudioCaptor();
+    explicit MicAudioCaptor(const std::string &device_name);
     ~MicAudioCaptor() override = default;
 
 protected:

@@ -24,7 +24,6 @@ bool MainWindow::init_UI() {
 
     // 初始化音频管理器（独立于视频预览）
     m_audio_manager = std::make_unique<AudioManager>(this);
-    m_audio_manager->start_all();
 
     // 初始化录制器
     m_recoder = std::make_unique<FileRecoder>();
@@ -76,6 +75,22 @@ void MainWindow::connect_audio_signals() {
         save_audio_settings();
     });
 
+    connect(control_bar->audio_mixer(), &AudioMixerBlock::system_audio_device_selected,
+            this, [this](const QString &device_id) {
+        if (m_audio_manager) {
+            m_audio_manager->set_system_audio_device(device_id);
+            save_audio_settings();
+        }
+    });
+
+    connect(control_bar->audio_mixer(), &AudioMixerBlock::mic_audio_device_selected,
+            this, [this](const QString &device_name) {
+        if (m_audio_manager) {
+            m_audio_manager->set_mic_audio_device(device_name.toStdString());
+            save_audio_settings();
+        }
+    });
+
 }
 
 void MainWindow::save_audio_settings() {
@@ -98,6 +113,11 @@ void MainWindow::save_audio_settings() {
         settings.setValue("mic_volume", mic_vol);
         settings.setValue("mic_muted", mic_muted);
 
+        if (m_audio_manager) {
+            settings.setValue("system_audio_device", m_audio_manager->current_system_device_id());
+            settings.setValue("mic_audio_device", QString::fromStdString(m_audio_manager->current_mic_device_name()));
+        }
+
         settings.endGroup();
     });
 }
@@ -108,6 +128,8 @@ void MainWindow::load_audio_settings() {
         bool sys_muted = false;
         float mic_vol = 0.7f;
         bool mic_muted = false;
+        QString system_audio_device;
+        QString mic_audio_device;
     };
 
     QFuture<AudioLoadResult> future =
@@ -119,6 +141,8 @@ void MainWindow::load_audio_settings() {
                 r.sys_muted = settings.value("system_muted", false).toBool();
                 r.mic_vol = settings.value("mic_volume", 0.7f).toFloat();
                 r.mic_muted = settings.value("mic_muted", false).toBool();
+                r.system_audio_device = settings.value("system_audio_device", "").toString();
+                r.mic_audio_device = settings.value("mic_audio_device", "").toString();
                 settings.endGroup();
                 return r;
             });
@@ -129,6 +153,18 @@ void MainWindow::load_audio_settings() {
             [this, guard, watcher]() {
         if (!guard) { watcher->deleteLater(); return; }
         auto r = watcher->result();
+
+        // 先应用已保存的设备（在 start_all 之前）
+        if (m_audio_manager) {
+            if (!r.system_audio_device.isEmpty()) {
+                m_audio_manager->set_system_audio_device(r.system_audio_device);
+            }
+            if (!r.mic_audio_device.isEmpty()) {
+                m_audio_manager->set_mic_audio_device(r.mic_audio_device.toStdString());
+            }
+            // 启动采集（此时已应用保存的设备）
+            m_audio_manager->start_all();
+        }
 
         if (m_recoder) {
             m_recoder->set_system_volume(r.sys_vol);

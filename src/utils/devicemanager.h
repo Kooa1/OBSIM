@@ -8,6 +8,9 @@
 #include "PCH.h"
 #include <QMediaDevices>
 #include <QCameraDevice>
+#include <windows.h>
+#include <mmdeviceapi.h>
+#include <functiondiscoverykeys.h>
 
 struct DisplayInfo {
     int index; // 屏幕索引
@@ -26,6 +29,18 @@ struct CameraInfo {
     std::string name;    // 摄像头名称/描述
     QByteArray id;       // 摄像头唯一标识符
     bool is_default;     // 是否为系统默认摄像头
+};
+
+struct AudioOutputInfo {
+    QString id;          // WASAPI 设备 ID
+    QString name;        // 设备友好名称（如 "扬声器 (Realtek Audio)"）
+    bool is_default;     // 是否为系统默认播放设备
+};
+
+struct AudioInputInfo {
+    QString name;        // DShow 设备描述（友好名称，如 "麦克风 (Realtek Audio)"）
+    QString raw_name;    // DShow 原始设备名（用于 "audio=XXX" 构造）
+    bool is_default;     // 是否为系统默认录音设备
 };
 
 class DeviceManager : public QObject {
@@ -60,6 +75,18 @@ public:
 
     // 判断指定屏幕是否为主屏
     bool is_primary_screen(int index) const;
+
+    // 获取所有 WASAPI 音频输出设备（系统音频）
+    QVector<AudioOutputInfo> get_all_audio_outputs() const;
+
+    // 获取所有 DShow 音频输入设备（麦克风）
+    QVector<AudioInputInfo> get_all_audio_inputs() const;
+
+    // 获取默认音频输出设备
+    AudioOutputInfo get_default_audio_output() const;
+
+    // 获取默认音频输入设备
+    AudioInputInfo get_default_audio_input() const;
 
 private:
     DisplayInfo convert_to_display_info(QScreen *screen, int index, bool is_primary) const;

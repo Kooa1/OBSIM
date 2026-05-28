@@ -4,6 +4,10 @@
 
 #include "devicemanager.h"
 
+extern "C" {
+#include <libavdevice/avdevice.h>
+}
+
 DeviceManager::DeviceManager(QObject *parent) : QObject(parent) {
 }
 
@@ -130,6 +134,129 @@ bool DeviceManager::is_primary_screen(int index) const {
         return false;
     }
     return (screens[index] == QGuiApplication::primaryScreen());
+}
+
+QVector<AudioOutputInfo> DeviceManager::get_all_audio_outputs() const {
+    QVector<AudioOutputInfo> outputs;
+
+    HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    bool com_initialized = SUCCEEDED(hr);
+    if (FAILED(hr) && hr != RPC_E_CHANGED_MODE) return outputs;
+
+    IMMDeviceEnumerator *enumerator = nullptr;
+    hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr,
+                          CLSCTX_ALL, __uuidof(IMMDeviceEnumerator),
+                          reinterpret_cast<void**>(&enumerator));
+    if (FAILED(hr) || !enumerator) {
+        if (com_initialized) CoUninitialize();
+        return outputs;
+    }
+
+    // Get default device for comparison
+    IMMDevice *default_device = nullptr;
+    QString default_id;
+    if (SUCCEEDED(enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &default_device))) {
+        LPWSTR def_id_str = nullptr;
+        if (SUCCEEDED(default_device->GetId(&def_id_str))) {
+            default_id = QString::fromWCharArray(def_id_str);
+            CoTaskMemFree(def_id_str);
+        }
+        default_device->Release();
+    }
+
+    IMMDeviceCollection *collection = nullptr;
+    hr = enumerator->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &collection);
+    if (SUCCEEDED(hr) && collection) {
+        UINT count = 0;
+        collection->GetCount(&count);
+
+        for (UINT i = 0; i < count; ++i) {
+            IMMDevice *device = nullptr;
+            if (FAILED(collection->Item(i, &device))) continue;
+
+            AudioOutputInfo info;
+
+            // Get device ID
+            LPWSTR id_str = nullptr;
+            if (SUCCEEDED(device->GetId(&id_str))) {
+                info.id = QString::fromWCharArray(id_str);
+                CoTaskMemFree(id_str);
+            }
+
+            // Get friendly name
+            IPropertyStore *props = nullptr;
+            if (SUCCEEDED(device->OpenPropertyStore(STGM_READ, &props))) {
+                PROPVARIANT var;
+                PropVariantInit(&var);
+                if (SUCCEEDED(props->GetValue(PKEY_Device_FriendlyName, &var)) &&
+                    var.vt == VT_LPWSTR) {
+                    info.name = QString::fromWCharArray(var.pwszVal);
+                }
+                PropVariantClear(&var);
+                props->Release();
+            }
+
+            info.is_default = (!default_id.isEmpty() && info.id == default_id);
+            outputs.append(info);
+            device->Release();
+        }
+        collection->Release();
+    }
+
+    enumerator->Release();
+    if (com_initialized) CoUninitialize();
+    return outputs;
+}
+
+QVector<AudioInputInfo> DeviceManager::get_all_audio_inputs() const {
+    QVector<AudioInputInfo> inputs;
+
+    AVDeviceInfoList *device_list = nullptr;
+    const AVInputFormat *fmt = av_find_input_format("dshow");
+    if (!fmt) return inputs;
+    int ret = avdevice_list_input_sources(fmt, nullptr, nullptr, &device_list);
+    if (ret < 0 || !device_list) return inputs;
+
+    for (int i = 0; i < device_list->nb_devices; ++i) {
+        AVDeviceInfo *dev = device_list->devices[i];
+        if (!dev) continue;
+
+        bool is_audio = false;
+        for (int j = 0; j < dev->nb_media_types; ++j) {
+            if (dev->media_types[j] == AVMEDIA_TYPE_AUDIO) {
+                is_audio = true;
+                break;
+            }
+        }
+        if (!is_audio) continue;
+
+        AudioInputInfo info;
+        info.name = QString::fromUtf8(dev->device_description);
+        info.raw_name = QString::fromUtf8(dev->device_name);
+        info.is_default = (i == device_list->default_device);
+        inputs.append(info);
+    }
+
+    avdevice_free_list_devices(&device_list);
+    return inputs;
+}
+
+AudioOutputInfo DeviceManager::get_default_audio_output() const {
+    auto devices = get_all_audio_outputs();
+    for (const auto &dev : devices) {
+        if (dev.is_default) return dev;
+    }
+    if (!devices.isEmpty()) return devices[0];
+    return AudioOutputInfo{};
+}
+
+AudioInputInfo DeviceManager::get_default_audio_input() const {
+    auto devices = get_all_audio_inputs();
+    for (const auto &dev : devices) {
+        if (dev.is_default) return dev;
+    }
+    if (!devices.isEmpty()) return devices[0];
+    return AudioInputInfo{};
 }
 
 DisplayInfo DeviceManager::convert_to_display_info(QScreen *screen, int index, bool is_primary) const {

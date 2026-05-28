@@ -130,6 +130,10 @@ signals:
 
     void track_muted_changed(const QString &name, bool muted);
 
+    void system_audio_device_selected(const QString &device_id);
+
+    void mic_audio_device_selected(const QString &device_name);
+
 private:
     struct TrackWidget {
         QWidget *container;

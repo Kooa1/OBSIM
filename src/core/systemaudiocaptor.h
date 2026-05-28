@@ -17,6 +17,7 @@ struct IAudioCaptureClient;
 class SystemAudioCaptor : public AudioCaptor {
 public:
     SystemAudioCaptor();
+    explicit SystemAudioCaptor(const QString &device_id);
     ~SystemAudioCaptor() override;
 
 protected:
@@ -30,6 +31,7 @@ protected:
 private:
     void cleanup_wasapi();
 
+    QString m_device_id;
     IMMDeviceEnumerator* m_enumerator = nullptr;
     IMMDevice* m_device = nullptr;
     IAudioClient* m_audio_client = nullptr;

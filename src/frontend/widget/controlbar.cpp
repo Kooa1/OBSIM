@@ -1,5 +1,10 @@
 #include "controlbar.h"
+#include <QColorDialog>
+#include <QFontComboBox>
+#include <QFileDialog>
+#include <QMessageBox>
 #include <QMenu>
+#include <QActionGroup>
 
 // ==================== 场景控制块 ====================
 
@@ -302,10 +307,42 @@ AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString 
 
     QObject::connect(tw.settings_btn, &QPushButton::clicked, this,
                      [this, name, btn = tw.settings_btn]() {
+                         DeviceManager dm;
                          QMenu menu(btn);
-                         QAction *placeholder = menu.addAction("设备选择（开发中）");
-                         placeholder->setEnabled(false);
-                         menu.exec(btn->mapToGlobal(QPoint(0, btn->height())));
+                         auto *group = new QActionGroup(&menu);
+
+                         if (name == "桌面音频") {
+                             auto devices = dm.get_all_audio_outputs();
+                             for (const auto &dev : devices) {
+                                 QAction *action = group->addAction(dev.name);
+                                 action->setCheckable(true);
+                                 action->setData(dev.id);
+                                 if (dev.is_default) {
+                                     action->setChecked(true);
+                                 }
+                                 menu.addAction(action);
+                             }
+                         } else if (name == "麦克风") {
+                             auto devices = dm.get_all_audio_inputs();
+                             for (const auto &dev : devices) {
+                                 QAction *action = group->addAction(dev.name);
+                                 action->setCheckable(true);
+                                 action->setData(dev.raw_name);
+                                 if (dev.is_default) {
+                                     action->setChecked(true);
+                                 }
+                                 menu.addAction(action);
+                             }
+                         }
+
+                         QAction *selected = menu.exec(btn->mapToGlobal(QPoint(0, btn->height())));
+                         if (selected) {
+                             if (name == "桌面音频") {
+                                 emit system_audio_device_selected(selected->data().toString());
+                             } else if (name == "麦克风") {
+                                 emit mic_audio_device_selected(selected->data().toString());
+                             }
+                         }
                      });
 
     return tw;

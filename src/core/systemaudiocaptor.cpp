@@ -12,6 +12,11 @@ SystemAudioCaptor::SystemAudioCaptor() {
     init_ctx();
 }
 
+SystemAudioCaptor::SystemAudioCaptor(const QString &device_id)
+    : m_device_id(device_id) {
+    init_ctx();
+}
+
 SystemAudioCaptor::~SystemAudioCaptor() {
     if (m_initialized) {
         is_capturing.store(false);
@@ -72,8 +77,13 @@ void SystemAudioCaptor::capture_loop() {
         return;
     }
 
-    // Get default render endpoint (speaker/headphones)
-    hr = m_enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &m_device);
+    // Get the audio endpoint device
+    if (m_device_id.isEmpty()) {
+        hr = m_enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &m_device);
+    } else {
+        hr = m_enumerator->GetDevice(
+            reinterpret_cast<LPCWSTR>(m_device_id.utf16()), &m_device);
+    }
     if (FAILED(hr)) {
         cleanup_wasapi();
         CoUninitialize();

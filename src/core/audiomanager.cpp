@@ -144,6 +144,86 @@ void AudioManager::stop_all() {
     if (m_mic_audio) m_mic_audio->stop();
 }
 
+void AudioManager::set_system_audio_device(const QString &device_id) {
+    bool was_running = m_system_audio && m_system_audio->is_running();
+
+    if (m_system_audio) {
+        m_system_audio->stop();
+    }
+
+    m_system_device_id = device_id;
+
+    auto new_captor = std::make_unique<SystemAudioCaptor>(device_id);
+
+    if (m_system_record_queue) {
+        new_captor->set_record_queue(m_system_record_queue.get());
+    }
+
+    QPointer<AudioManager> self(this);
+    new_captor->set_frame_ready_callback([self]() {
+        if (self) {
+            auto frame = self->m_system_audio->try_pop_frame();
+            if (frame.has_value()) {
+                self->calculate_level_from_frame(frame.value().get(), self->m_system_level);
+                QMetaObject::invokeMethod(self, [self]() {
+                    if (self) emit self->levels_updated(
+                        self->m_system_level.load(), self->m_mic_level.load());
+                }, Qt::QueuedConnection);
+            }
+        }
+    });
+
+    m_system_audio = std::move(new_captor);
+
+    if (was_running) {
+        m_system_level.store(0.0f);
+        m_system_audio->start();
+        if (!m_level_emit_timer->isActive()) {
+            m_level_emit_timer->start(16);
+        }
+    }
+}
+
+void AudioManager::set_mic_audio_device(const std::string &device_name) {
+    bool was_running = m_mic_audio && m_mic_audio->is_running();
+
+    if (m_mic_audio) {
+        m_mic_audio->stop();
+    }
+
+    m_mic_device_name = device_name;
+
+    auto new_captor = std::make_unique<MicAudioCaptor>(device_name);
+
+    if (m_mic_record_queue) {
+        new_captor->set_record_queue(m_mic_record_queue.get());
+    }
+
+    QPointer<AudioManager> self(this);
+    new_captor->set_frame_ready_callback([self]() {
+        if (self) {
+            auto frame = self->m_mic_audio->try_pop_frame();
+            if (frame.has_value()) {
+                self->calculate_level_from_frame(frame.value().get(), self->m_mic_level);
+                QMetaObject::invokeMethod(self, [self]() {
+                    if (self) emit self->levels_updated(
+                        self->m_system_level.load(), self->m_mic_level.load());
+                }, Qt::QueuedConnection);
+            }
+        }
+    });
+
+    m_mic_audio = std::move(new_captor);
+
+    if (was_running) {
+        m_mic_level.store(0.0f);
+        m_mic_audio->start();
+        if (!m_level_emit_timer->isActive()) {
+            m_level_emit_timer->start(16);
+        }
+    }
+}
+
 void AudioManager::enable_recording() {
     m_system_record_queue = std::make_unique<DataSafeQueue<AVFramePtr>>(120);
     m_mic_record_queue = std::make_unique<DataSafeQueue<AVFramePtr>>(120);

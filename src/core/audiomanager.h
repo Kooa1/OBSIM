@@ -38,6 +38,13 @@ public:
 
     void stop_all();
 
+    // 动态更换音频采集设备
+    void set_system_audio_device(const QString &device_id);
+    void set_mic_audio_device(const std::string &device_name);
+
+    QString current_system_device_id() const { return m_system_device_id; }
+    std::string current_mic_device_name() const { return m_mic_device_name; }
+
     // 获取指定音轨的电平（0.0 ~ 1.0）
     float get_system_audio_level() const { return m_system_level.load(); }
     float get_mic_audio_level() const { return m_mic_level.load(); }
@@ -69,6 +76,9 @@ private:
 
     std::unique_ptr<DataSafeQueue<AVFramePtr>> m_system_record_queue;
     std::unique_ptr<DataSafeQueue<AVFramePtr>> m_mic_record_queue;
+
+    QString m_system_device_id;
+    std::string m_mic_device_name;
 
     std::atomic<int> m_record_ref_count{0};
 
