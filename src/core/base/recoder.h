@@ -98,6 +98,10 @@ private:
     static constexpr int AUDIO_FRAME_SAMPLES = 1024;
     static constexpr size_t MAX_FIFO_SIZE = 48000 * 10;
 
+    static constexpr double SYNC_MIN_THRESHOLD = 0.015;
+    static constexpr double SYNC_MAX_THRESHOLD = 0.050;
+    static constexpr double SYNC_DISCARD_THRESHOLD = 0.100;
+
     std::atomic<bool> m_recording{false};
     std::thread m_encode_thread;
     std::unique_ptr<DataSafeQueue<VideoFrame> > m_video_queue;
