@@ -45,6 +45,13 @@ public:
 
     void set_system_volume(float vol) { m_system_volume.store(vol); }
     void set_mic_volume(float vol) { m_mic_volume.store(vol); }
+    float get_system_volume() const { return m_system_volume.load(); }
+    float get_mic_volume() const { return m_mic_volume.load(); }
+
+    void set_system_muted(bool muted) { m_system_muted.store(muted); }
+    void set_mic_muted(bool muted) { m_mic_muted.store(muted); }
+    bool is_system_muted() const { return m_system_muted.load(); }
+    bool is_mic_muted() const { return m_mic_muted.load(); }
 
     void feed_frame(const uint8_t *data, int stride, int capture_w, int capture_h);
 
@@ -133,6 +140,8 @@ private:
 
     std::atomic<float> m_system_volume{0.7f};
     std::atomic<float> m_mic_volume{0.7f};
+    std::atomic<bool> m_system_muted{false};
+    std::atomic<bool> m_mic_muted{false};
 };
 
 #endif

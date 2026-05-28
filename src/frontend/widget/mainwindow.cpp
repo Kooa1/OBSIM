@@ -36,6 +36,7 @@ bool MainWindow::init_UI() {
     connect_recorder_signals();
     load_settings();
     load_sources();
+    load_audio_settings();
 
     // 初始化场景列表 UI
     for (int i = 0; i < scene_preview_widget->scene_count(); ++i) {
@@ -60,8 +61,99 @@ void MainWindow::connect_audio_signals() {
             m_recoder->set_mic_volume(volume);
             m_stream_push->set_mic_volume(volume);
         }
+        save_audio_settings();
     });
 
+    connect(control_bar->audio_mixer(), &AudioMixerBlock::track_muted_changed,
+            this, [this](const QString &name, bool muted) {
+        if (name == "桌面音频") {
+            if (m_recoder) m_recoder->set_system_muted(muted);
+            if (m_stream_push) m_stream_push->set_system_muted(muted);
+        } else if (name == "麦克风") {
+            if (m_recoder) m_recoder->set_mic_muted(muted);
+            if (m_stream_push) m_stream_push->set_mic_muted(muted);
+        }
+        save_audio_settings();
+    });
+
+}
+
+void MainWindow::save_audio_settings() {
+    auto *mixer = control_bar->audio_mixer();
+    if (!mixer) return;
+
+    AsyncSettings::async_save([this](QSettings &settings) {
+        auto *mixer = control_bar->audio_mixer();
+        if (!mixer) return;
+
+        settings.beginGroup("Audio");
+
+        float sys_vol = m_recoder ? m_recoder->get_system_volume() : 0.7f;
+        bool sys_muted = m_recoder ? m_recoder->is_system_muted() : false;
+        settings.setValue("system_volume", sys_vol);
+        settings.setValue("system_muted", sys_muted);
+
+        float mic_vol = m_recoder ? m_recoder->get_mic_volume() : 0.7f;
+        bool mic_muted = m_recoder ? m_recoder->is_mic_muted() : false;
+        settings.setValue("mic_volume", mic_vol);
+        settings.setValue("mic_muted", mic_muted);
+
+        settings.endGroup();
+    });
+}
+
+void MainWindow::load_audio_settings() {
+    struct AudioLoadResult {
+        float sys_vol = 0.7f;
+        bool sys_muted = false;
+        float mic_vol = 0.7f;
+        bool mic_muted = false;
+    };
+
+    QFuture<AudioLoadResult> future =
+        AsyncSettings::async_load<AudioLoadResult>(
+            [](QSettings &settings) -> AudioLoadResult {
+                AudioLoadResult r;
+                settings.beginGroup("Audio");
+                r.sys_vol = settings.value("system_volume", 0.7f).toFloat();
+                r.sys_muted = settings.value("system_muted", false).toBool();
+                r.mic_vol = settings.value("mic_volume", 0.7f).toFloat();
+                r.mic_muted = settings.value("mic_muted", false).toBool();
+                settings.endGroup();
+                return r;
+            });
+
+    auto *watcher = new QFutureWatcher<AudioLoadResult>(this);
+    QPointer<MainWindow> guard(this);
+    connect(watcher, &QFutureWatcher<AudioLoadResult>::finished, this,
+            [this, guard, watcher]() {
+        if (!guard) { watcher->deleteLater(); return; }
+        auto r = watcher->result();
+
+        if (m_recoder) {
+            m_recoder->set_system_volume(r.sys_vol);
+            m_recoder->set_system_muted(r.sys_muted);
+            m_recoder->set_mic_volume(r.mic_vol);
+            m_recoder->set_mic_muted(r.mic_muted);
+        }
+        if (m_stream_push) {
+            m_stream_push->set_system_volume(r.sys_vol);
+            m_stream_push->set_system_muted(r.sys_muted);
+            m_stream_push->set_mic_volume(r.mic_vol);
+            m_stream_push->set_mic_muted(r.mic_muted);
+        }
+
+        auto *mixer = control_bar->audio_mixer();
+        if (mixer) {
+            mixer->set_track_muted("桌面音频", r.sys_muted);
+            mixer->set_track_muted("麦克风", r.mic_muted);
+            mixer->set_track_volume("桌面音频", r.sys_vol);
+            mixer->set_track_volume("麦克风", r.mic_vol);
+        }
+
+        watcher->deleteLater();
+    });
+    watcher->setFuture(future);
 }
 
 void MainWindow::connect_recorder_signals() {

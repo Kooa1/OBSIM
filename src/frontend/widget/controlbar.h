@@ -122,6 +122,9 @@ public:
 
     void update_track_level(const QString &name, float level);
 
+    void set_track_muted(const QString &name, bool muted);
+    void set_track_volume(const QString &name, float volume);
+
 signals:
     void track_volume_changed(const QString &name, float volume);
 

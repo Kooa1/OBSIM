@@ -274,7 +274,14 @@ AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString 
                      });
 
     QObject::connect(tw.mute_btn, &QPushButton::toggled, this,
-                     [this, name](bool checked) {
+                     [this, name, slider = tw.volume_slider, btn = tw.mute_btn](bool checked) {
+                         if (checked) {
+                             btn->setText("🔇");
+                             slider->setEnabled(false);
+                         } else {
+                             btn->setText("🔊");
+                             slider->setEnabled(true);
+                         }
                          emit track_muted_changed(name, checked);
                      });
 
@@ -304,6 +311,30 @@ void AudioMixerBlock::clear_tracks() {
         delete tw.container;
     }
     m_tracks.clear();
+}
+
+void AudioMixerBlock::set_track_muted(const QString &name, bool muted) {
+    auto it = m_tracks.find(name);
+    if (it == m_tracks.end()) return;
+
+    it->second.mute_btn->blockSignals(true);
+    it->second.volume_slider->blockSignals(true);
+
+    it->second.mute_btn->setChecked(muted);
+    it->second.mute_btn->setText(muted ? "🔇" : "🔊");
+    it->second.volume_slider->setEnabled(!muted);
+
+    it->second.mute_btn->blockSignals(false);
+    it->second.volume_slider->blockSignals(false);
+}
+
+void AudioMixerBlock::set_track_volume(const QString &name, float volume) {
+    auto it = m_tracks.find(name);
+    if (it == m_tracks.end()) return;
+
+    it->second.volume_slider->blockSignals(true);
+    it->second.volume_slider->setValue(static_cast<int>(volume * 100));
+    it->second.volume_slider->blockSignals(false);
 }
 
 void AudioMixerBlock::update_track_level(const QString &name, float level) {

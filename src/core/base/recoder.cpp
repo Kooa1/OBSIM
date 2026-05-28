@@ -319,7 +319,7 @@ void Recoder::process_system_audio() {
                 }
                 float *d0 = (float *) out->data[0];
                 float *d1 = (float *) out->data[1];
-                float sys_vol = m_system_volume.load();
+                float sys_vol = m_system_muted.load() ? 0.0f : m_system_volume.load();
                 for (int i = 0; i < converted; ++i) {
                     m_sys_fifo[0].push_back(d0[i] * sys_vol);
                     m_sys_fifo[1].push_back(d1[i] * sys_vol);
@@ -361,7 +361,7 @@ void Recoder::process_mic_audio() {
 
                 float *d0 = (float *) out->data[0];
                 float *d1 = (float *) out->data[1];
-                float mic_vol = m_mic_volume.load();
+                float mic_vol = m_mic_muted.load() ? 0.0f : m_mic_volume.load();
                 for (int i = 0; i < converted; ++i) {
                     m_mic_fifo[0].push_back(d0[i] * mic_vol);
                     m_mic_fifo[1].push_back(d1[i] * mic_vol);

@@ -92,6 +92,8 @@ private:
     void load_settings();
     void save_sources();
     void load_sources();
+    void save_audio_settings();
+    void load_audio_settings();
     QString type_display_suffix(Source *src);
 
     QVBoxLayout *main_layout = nullptr;
