@@ -18,9 +18,8 @@ ScenePreviewWidget::ScenePreviewWidget(QWidget *parent)
         update();
     });
     m_render_timer->setTimerType(Qt::PreciseTimer);
-    m_render_timer->start(16); // 60fps
+    m_render_timer->start(16);
 
-    // 默认创建一个场景
     add_scene("场景 1");
 }
 
@@ -152,8 +151,6 @@ void ScenePreviewWidget::move_source_down(int index) {
     std::swap(storage[index], storage[index - 1]);
 }
 
-// ==================== 多场景管理 ====================
-
 size_t ScenePreviewWidget::source_count() const {
     return current_storage().size();
 }
@@ -190,7 +187,6 @@ void ScenePreviewWidget::clear_all_scenes() {
 void ScenePreviewWidget::remove_scene(int index) {
     if (index < 0 || index >= static_cast<int>(m_scene_list.size())) return;
 
-    // 停止所有 VideoSource 的捕获
     for (auto &src : m_scene_list[index].source_storage) {
         auto *video_src = dynamic_cast<VideoSource *>(src.get());
         if (video_src) {
@@ -200,7 +196,6 @@ void ScenePreviewWidget::remove_scene(int index) {
 
     m_scene_list.erase(m_scene_list.begin() + index);
 
-    // 调整当前场景索引
     if (m_scene_list.empty()) {
         add_scene("场景 1");
         m_current_scene_index = 0;
@@ -215,7 +210,6 @@ void ScenePreviewWidget::switch_to_scene(int index) {
     if (index < 0 || index >= static_cast<int>(m_scene_list.size())) return;
     if (index == m_current_scene_index) return;
 
-    // 暂停当前场景的所有视频源
     for (auto &src : current_storage()) {
         auto *video_src = dynamic_cast<VideoSource *>(src.get());
         if (video_src) video_src->pause_capture();
@@ -223,7 +217,6 @@ void ScenePreviewWidget::switch_to_scene(int index) {
 
     m_current_scene_index = index;
 
-    // 恢复新场景的所有视频源
     for (auto &src : current_storage()) {
         auto *video_src = dynamic_cast<VideoSource *>(src.get());
         if (video_src) video_src->resume_capture();
@@ -241,8 +234,6 @@ void ScenePreviewWidget::pause_all_non_current_scenes() {
         }
     }
 }
-
-// ==================== 渲染方法 ====================
 
 void ScenePreviewWidget::setup_viewport_and_clear() {
     const int w = this->width() * devicePixelRatio();
@@ -295,7 +286,7 @@ void ScenePreviewWidget::render_source_stencil_for_selected() {
 
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
-    // 3a. 选中源覆盖区域：模板值设为 1
+    // Step 3a: set stencil value to 1 for selected source area
     glStencilFunc(GL_ALWAYS, 1, 0xFF);
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
@@ -312,7 +303,7 @@ void ScenePreviewWidget::render_source_stencil_for_selected() {
         glPopMatrix();
     }
 
-    // 3b. 画布矩形区域：将画布内的模板值恢复为 2
+    // Step 3b: restore stencil value to 2 for canvas area
     glLoadIdentity();
 
     glStencilFunc(GL_ALWAYS, 2, 0xFF);
@@ -468,7 +459,6 @@ void ScenePreviewWidget::paintGL() {
     update_all_video_sources();
     rendering_view();
 
-    // 录制帧捕获（按设定帧率节流）
     if (m_frame_capture_callback) {
         auto now = std::chrono::steady_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -481,7 +471,7 @@ void ScenePreviewWidget::paintGL() {
             int stride = w * 4;
             std::vector<uint8_t> pixels(stride * h);
             glReadPixels(m_viewX, m_viewY, w, h, GL_BGRA, GL_UNSIGNED_BYTE, pixels.data());
-            // OpenGL 读出的图像是上下颠倒的，需要翻转
+            // OpenGL reads image upside down, flip vertically
             std::vector<uint8_t> flipped(stride * h);
             for (int y = 0; y < h; ++y) {
                 memcpy(flipped.data() + y * stride,

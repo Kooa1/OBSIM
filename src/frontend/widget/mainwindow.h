@@ -1,7 +1,3 @@
-//
-// Created by 66 on 2025/8/21.
-//
-
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
@@ -33,29 +29,29 @@
 
 struct CaptorConfig;
 
+/// @brief Main application window managing scenes, sources, recording and streaming
 class MainWindow : public QWidget {
     Q_OBJECT
 
 public:
+    /// @brief Constructor
     explicit MainWindow();
 
     ~MainWindow() override;
 
+    /// @brief Initialize all UI components
+    /// @return True if initialization succeeded
     bool init_UI();
 
+    /// @brief Connect audio-related signals and slots
     void connect_audio_signals();
 
 private:
     void init_layout();
-
     void init_conn();
-
     void connect_signal();
-
     void connect_recorder_signals();
-
     void center_on_primary_screen(QWidget *window);
-
     void adjust_window_screen(QWidget *window = nullptr,
                               double target_aspect_ratio = 16.0 / 9.0,
                               double screen_occupancy_ratio = 0.78);
@@ -96,23 +92,19 @@ private:
     void load_audio_settings();
     QString type_display_suffix(Source *src);
 
-    QVBoxLayout *main_layout = nullptr;
+    QVBoxLayout *main_layout = nullptr;            ///< Main layout
+    QSplitter *main_splitter = nullptr;             ///< Main splitter
+    ScenePreviewWidget *scene_preview_widget = nullptr; ///< Scene preview
+    SettingBar *setting_bar = nullptr;              ///< Setting bar
+    ControlBar *control_bar = nullptr;              ///< Control bar
 
-    QSplitter *main_splitter = nullptr;
+    std::unique_ptr<AudioManager> m_audio_manager;  ///< Audio manager
+    std::unique_ptr<FileRecoder> m_recoder;          ///< File recorder
+    std::unique_ptr<StreamPush> m_stream_push;       ///< Stream pusher
 
-    ScenePreviewWidget *scene_preview_widget = nullptr;
-
-    SettingBar *setting_bar = nullptr;
-
-    ControlBar *control_bar = nullptr;
-
-    std::unique_ptr<AudioManager> m_audio_manager;
-    std::unique_ptr<FileRecoder> m_recoder;
-    std::unique_ptr<StreamPush> m_stream_push;
-
-    QPointer<FilterPreviewWidget> m_filter_window;
-    QPointer<SettingsPreviewWidget> m_settings_window;
-    Source *m_filtered_source = nullptr;
+    QPointer<FilterPreviewWidget> m_filter_window;   ///< Filter preview window
+    QPointer<SettingsPreviewWidget> m_settings_window; ///< Settings preview window
+    Source *m_filtered_source = nullptr;              ///< Source being filtered
 };
 
 #endif //MAINWINDOW_H

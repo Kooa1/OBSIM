@@ -18,14 +18,12 @@ void SettingsDialog::init_ui() {
 
     auto *splitter = new QSplitter(Qt::Horizontal, this);
 
-    // 左侧页面列表
     m_page_list = new QListWidget();
     m_page_list->setFixedWidth(120);
     m_page_list->addItem("输出");
     m_page_list->addItem("直播");
     m_page_list->setCurrentRow(0);
 
-    // 右侧页面栈
     m_page_stack = new QStackedWidget();
     init_output_page();
     init_streaming_page();
@@ -39,7 +37,6 @@ void SettingsDialog::init_ui() {
 
     connect(m_page_list, &QListWidget::currentRowChanged, m_page_stack, &QStackedWidget::setCurrentIndex);
 
-    // 底部按钮
     auto *btn_layout = new QHBoxLayout();
     btn_layout->addStretch();
     auto *ok_btn = new QPushButton("确定");

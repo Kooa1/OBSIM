@@ -11,14 +11,21 @@
 
 class OpenCVFilter;
 
+/// @brief Preview widget for applying and adjusting filters on a video source
 class FilterPreviewWidget : public PreviewBaseWidget {
     Q_OBJECT
 public:
+    /// @brief Constructor
+    /// @param parent Parent widget
     explicit FilterPreviewWidget(QWidget *parent = nullptr);
+    /// @brief Set the source to filter
+    /// @param source Pointer to source
     void set_source(Source *source);
 
 signals:
+    /// @brief Emitted when apply is confirmed
     void apply_confirmed();
+    /// @brief Emitted when any filter parameter changes
     void filter_params_changed();
 
 protected:
@@ -45,11 +52,11 @@ private:
     QWidget* create_color_adjust_page();
     QWidget* create_no_param_page(const char *text);
 
-    OpenCVFilter *m_filter = nullptr;
-    QListWidget *m_param_list = nullptr;
-    QStackedWidget *m_param_stack = nullptr;
-    FilterParams m_pending_params;
-    bool m_applying = false;
+    OpenCVFilter *m_filter = nullptr;        ///< OpenCV filter instance
+    QListWidget *m_param_list = nullptr;     ///< Parameter list widget
+    QStackedWidget *m_param_stack = nullptr; ///< Parameter page stack
+    FilterParams m_pending_params;           ///< Pending filter parameters
+    bool m_applying = false;                 ///< Whether apply is in progress
 };
 
 #endif

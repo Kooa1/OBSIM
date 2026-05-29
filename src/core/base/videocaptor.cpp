@@ -1,7 +1,3 @@
-//
-// Created by 66 on 2026/5/11.
-//
-
 #include "videocaptor.h"
 
 VideoCaptor::~VideoCaptor() {
@@ -62,7 +58,7 @@ void VideoCaptor::apply_config(const CaptorConfig &config) {
     m_config = config;
 }
 
-// ========== FFmpeg 初始化（通用流程） ==========
+// FFmpeg initialization: open input, find streams, prepare decoder
 void VideoCaptor::init_ctx() {
     av_input_format = av_find_input_format(get_input_format_name());
     if (!av_input_format) {
@@ -149,7 +145,7 @@ void VideoCaptor::init_sws_ctx() {
     }
 }
 
-// ========== 采集循环 ==========
+// Capture loop: reads packets from input and dispatches to decode function
 void VideoCaptor::capture_loop() {
     while (is_capturing.load()) {
         if (is_paused_.load()) {
@@ -168,11 +164,10 @@ void VideoCaptor::capture_loop() {
     }
 }
 
-// ========== 需要格式转换的接收函数 ==========
+// Receive function with pixel format conversion (sws_scale)
 void VideoCaptor::receive_frame0(AVPacketPtr obj_packet) {
     auto packet = std::move(obj_packet);
     int ret = 0;
-    // 处理 EAGAIN：内部队列满时短暂休眠再重试
     while ((ret = avcodec_send_packet(av_codec_context.get(), packet.get())) == AVERROR(EAGAIN)) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
@@ -208,7 +203,7 @@ void VideoCaptor::receive_frame0(AVPacketPtr obj_packet) {
     }
 }
 
-// ========== 无需格式转换的接收函数 ==========
+// Receive function without pixel format conversion
 void VideoCaptor::receive_frame1(AVPacketPtr obj_packet) {
     auto packet = std::move(obj_packet);
     int ret = 0;

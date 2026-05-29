@@ -24,6 +24,8 @@ extern "C" {
 #include <libavutil/opt.h>
 }
 
+/// @brief Base class for audio capture from various input devices (e.g. microphone, system audio).
+/// Manages FFmpeg decoding pipeline, audio frame queue, and optional pass-through to a recording queue.
 class AudioCaptor {
 public:
     using FrameReadyCallback = std::function<void()>;
@@ -53,37 +55,36 @@ protected:
 
     void notify_frame_ready();
 
-    // 推送帧到录音队列（如果存在）
+    /// @brief Pushes a frame to the recording queue if available.
     void push_to_record_queue(const AVFramePtr &frame);
 
-    // ===== 子类必须实现 =====
+    /// @brief Returns the FFmpeg input format name (e.g. "dshow", "alsa").
     virtual const char *get_input_format_name() const = 0;
-
+    /// @brief Returns the device name for audio input.
     virtual const char *get_device_name() const = 0;
-
+    /// @brief Sets up FFmpeg options before opening the audio input device.
     virtual void setup_options(AVDictionary **opts) {
     }
 
-    // ===== 成员变量（protected 允许子类访问） =====
-    bool m_initialized = false;
-    std::unique_ptr<DataSafeQueue<AVFramePtr>> queue;
-    DataSafeQueue<AVFramePtr> *record_queue = nullptr;
-    std::atomic_bool is_capturing{false};
-    std::thread cap_thread;
-    FrameReadyCallback frame_ready_callback;
-    std::mutex callback_mutex;
+    bool m_initialized = false;                         ///< Whether the audio capture context is initialized.
+    std::unique_ptr<DataSafeQueue<AVFramePtr>> queue;   ///< Frame queue for decoded audio frames.
+    DataSafeQueue<AVFramePtr> *record_queue = nullptr;  ///< Optional queue for recording pass-through.
+    std::atomic_bool is_capturing{false};               ///< Whether capture is active.
+    std::thread cap_thread;                             ///< Capture thread.
+    FrameReadyCallback frame_ready_callback;             ///< Callback invoked when a new frame is ready.
+    std::mutex callback_mutex;                          ///< Mutex protecting frame_ready_callback.
 
 private:
 
-    std::function<void(AVPacketPtr)> decode_func;
+    std::function<void(AVPacketPtr)> decode_func;       ///< Decode dispatch function.
 
-    const AVInputFormat *av_input_format = nullptr;
-    const AVCodec *av_decoder = nullptr;
-    AVFormatContextPtr av_format_context = nullptr;
-    AVCodecContextPtr av_codec_context = nullptr;
-    AVDictionary *options = nullptr;
-    AVStreamPtr audio_stream = nullptr;
-    int audio_index = -1;
+    const AVInputFormat *av_input_format = nullptr;     ///< FFmpeg input format.
+    const AVCodec *av_decoder = nullptr;                ///< FFmpeg audio decoder.
+    AVFormatContextPtr av_format_context = nullptr;      ///< FFmpeg format context.
+    AVCodecContextPtr av_codec_context = nullptr;        ///< FFmpeg codec context.
+    AVDictionary *options = nullptr;                    ///< FFmpeg options dictionary.
+    AVStreamPtr audio_stream = nullptr;                 ///< Audio stream reference.
+    int audio_index = -1;                               ///< Index of the audio stream.
 };
 
 #endif

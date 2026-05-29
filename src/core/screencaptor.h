@@ -3,10 +3,13 @@
 
 #include "base/videocaptor.h"
 
+/// @brief Screen capture implementation using gdigrab on Windows.
 class ScreenCaptor : public VideoCaptor {
 public:
     ScreenCaptor();
     ~ScreenCaptor() override = default;
+
+    /// @brief Applies capture configuration (resolution, offset, etc.).
     void apply_config(const CaptorConfig &config) override;
 
 protected:

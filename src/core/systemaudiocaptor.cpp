@@ -192,7 +192,6 @@ void SystemAudioCaptor::capture_loop() {
                     }
                     frame->linesize[0] = data_size;
 
-                    // 推送录音队列（如果启用）
                     push_to_record_queue(frame);
 
                     queue->push_no_wait(std::move(frame));

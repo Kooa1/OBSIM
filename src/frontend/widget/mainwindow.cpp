@@ -1,7 +1,3 @@
-//
-// Created by 66 on 2025/8/21.
-//
-
 #include "mainwindow.h"
 
 MainWindow::MainWindow()
@@ -22,13 +18,11 @@ bool MainWindow::init_UI() {
     setting_bar = new SettingBar(this);
     control_bar = new ControlBar(this);
 
-    // 初始化音频管理器（独立于视频预览）
     m_audio_manager = std::make_unique<AudioManager>(this);
     control_bar->audio_mixer()->sync_audio_devices(
         m_audio_manager->current_system_device_id(),
         QString::fromStdString(m_audio_manager->current_mic_device_name()));
 
-    // 初始化录制器
     m_recoder = std::make_unique<FileRecoder>();
     m_stream_push = std::make_unique<StreamPush>();
 
@@ -40,7 +34,6 @@ bool MainWindow::init_UI() {
     load_sources();
     load_audio_settings();
 
-    // 初始化场景列表 UI
     for (int i = 0; i < scene_preview_widget->scene_count(); ++i) {
         control_bar->scene_control()->add_item(scene_preview_widget->scene_name_at(i));
     }
@@ -157,7 +150,6 @@ void MainWindow::load_audio_settings() {
         if (!guard) { watcher->deleteLater(); return; }
         auto r = watcher->result();
 
-        // 先应用已保存的设备（在 start_all 之前）
         if (m_audio_manager) {
             if (!r.system_audio_device.isEmpty()) {
                 m_audio_manager->set_system_audio_device(r.system_audio_device);
@@ -165,10 +157,8 @@ void MainWindow::load_audio_settings() {
             if (!r.mic_audio_device.isEmpty()) {
                 m_audio_manager->set_mic_audio_device(r.mic_audio_device.toStdString());
             }
-            // 启动采集（此时已应用保存的设备）
             m_audio_manager->start_all();
 
-            // 同步当前设备到混音器菜单
             control_bar->audio_mixer()->sync_audio_devices(
                 m_audio_manager->current_system_device_id(),
                 QString::fromStdString(m_audio_manager->current_mic_device_name()));
@@ -220,10 +210,8 @@ void MainWindow::on_recording_started(const QString &output_path) {
     QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd_HH-mm-ss");
     QString file_path = output_path + "/recording_" + timestamp + ".mp4";
 
-    // 启用音频录制队列
     m_audio_manager->enable_recording_once();
 
-    // 启动录制器
     m_recoder->start(file_path.toStdString(),
                      static_cast<int>(ScenePreviewWidget::CANVAS_W),
                      static_cast<int>(ScenePreviewWidget::CANVAS_H),
@@ -231,7 +219,6 @@ void MainWindow::on_recording_started(const QString &output_path) {
                      m_audio_manager->system_record_queue(),
                      m_audio_manager->mic_record_queue());
 
-    // 设置 OpenGL 帧捕获回调
     scene_preview_widget->set_frame_capture_callback(
         [this](const uint8_t *data, int stride, int w, int h) {
             if (m_recoder && m_recoder->is_recording()) {
@@ -332,7 +319,6 @@ struct SourceSaveData {
     int font_size;
     QString color_name;
     QString file_path;
-    // filter params
     bool filter_enable_flip = false;
     int filter_flip_code = 0;
     bool filter_enable_grayscale = false;
@@ -346,7 +332,6 @@ void MainWindow::save_sources() {
     int scene_count = scene_preview_widget->scene_count();
     if (scene_count == 0) return;
 
-    // 收集所有场景数据
     struct SceneSaveEntry {
         QString name;
         std::vector<SourceSaveData> sources;
@@ -388,7 +373,6 @@ void MainWindow::save_sources() {
                 item.file_path = is->file_path();
             }
 
-            // filter params
             if (auto *vs = dynamic_cast<VideoSource *>(src)) {
                 if (auto *f = vs->filter()) {
                     FilterParams fp = f->params();
@@ -456,7 +440,6 @@ void MainWindow::save_sources() {
                     settings.setValue("file_path", item.file_path);
                 }
 
-                // filter params
                 settings.setValue("filter_enable_flip", item.filter_enable_flip);
                 settings.setValue("filter_flip_code", item.filter_flip_code);
                 settings.setValue("filter_enable_grayscale", item.filter_enable_grayscale);
@@ -476,7 +459,6 @@ void MainWindow::save_sources() {
 }
 
 void MainWindow::load_sources() {
-    // 加载数据结构
     struct SceneLoadEntry {
         QString name;
         std::vector<SourceSaveData> sources;
@@ -491,7 +473,6 @@ void MainWindow::load_sources() {
             [](QSettings &settings) -> LoadResult {
                 LoadResult result;
 
-                // 优先读取新格式 Scenes/
                 int scene_count = settings.value("Scenes/count", -1).toInt();
                 if (scene_count > 0) {
                     result.current_index = settings.value("Scenes/current_index", 0).toInt();
@@ -555,7 +536,6 @@ void MainWindow::load_sources() {
                     return result;
                 }
 
-                // 兼容旧格式：Sources/ 组 → 迁移为场景 0
                 settings.beginGroup("Sources");
                 int count = settings.value("count", 0).toInt();
                 if (count > 0) {
@@ -622,10 +602,9 @@ void MainWindow::load_sources() {
 
         if (result.scenes.empty()) {
             watcher->deleteLater();
-            return; // 保留默认场景
+            return;
         }
 
-        // 清空现有场景，用加载数据重建
         scene_preview_widget->clear_all_scenes();
 
         for (auto &entry : result.scenes) {
@@ -662,7 +641,6 @@ void MainWindow::load_sources() {
                 src->rotation = item.rotation;
                 src->lock_aspect_ratio = item.lock_aspect_ratio;
 
-                // 加载滤镜参数
                 if (auto *vs = dynamic_cast<VideoSource *>(src)) {
                     if (auto *f = vs->filter()) {
                         FilterParams fp;
@@ -679,15 +657,12 @@ void MainWindow::load_sources() {
             }
         }
 
-        // 恢复当前场景
         int restore_idx = std::clamp(result.current_index, 0,
                                      scene_preview_widget->scene_count() - 1);
         scene_preview_widget->switch_to_scene(restore_idx);
 
-        // 暂停所有非当前场景的视频源（避免后台采集浪费资源）
         scene_preview_widget->pause_all_non_current_scenes();
 
-        // 重建场景列表 UI
         QListWidget *scene_list = control_bar->scene_control()->scene_list();
         scene_list->clear();
         for (int i = 0; i < scene_preview_widget->scene_count(); ++i) {
@@ -695,7 +670,6 @@ void MainWindow::load_sources() {
         }
         scene_list->setCurrentRow(restore_idx);
 
-        // 重建源列表 UI
         QListWidget *list = control_bar->source_control()->source_list();
         list->clear();
         for (int i = static_cast<int>(scene_preview_widget->source_count()) - 1; i >= 0; --i) {
@@ -740,7 +714,6 @@ void MainWindow::connect_signal() {
     connect(scene_preview_widget, &ScenePreviewWidget::source_position_changed,
             this, &MainWindow::save_sources);
 
-    // 场景控制信号
     connect(control_bar->scene_control(), &SceneControlBlock::scene_added,
             this, &MainWindow::on_scene_added);
     connect(control_bar->scene_control(), &SceneControlBlock::scene_removed,
@@ -748,7 +721,6 @@ void MainWindow::connect_signal() {
     connect(control_bar->scene_control(), &SceneControlBlock::scene_selection_changed,
             this, &MainWindow::on_scene_selection_changed);
 
-    // 滤镜/设置预览窗口信号
     connect(setting_bar, &SettingBar::filter_clicked,
             this, &MainWindow::on_filter_requested);
     connect(setting_bar, &SettingBar::settings_clicked,
@@ -872,7 +844,6 @@ void MainWindow::on_scene_removed(int index) {
     if (!scene_preview_widget) return;
     scene_preview_widget->remove_scene(index);
 
-    // 删除场景后同步 UI
     rebuild_source_list();
     save_sources();
 }
@@ -881,7 +852,6 @@ void MainWindow::on_scene_selection_changed(int index) {
     if (!scene_preview_widget) return;
     scene_preview_widget->switch_to_scene(index);
 
-    // 切换场景时重建源列表
     rebuild_source_list();
 }
 
@@ -1018,55 +988,42 @@ void MainWindow::init_layout() {
 void MainWindow::center_on_primary_screen(QWidget *window) {
     if (!window) return;
 
-    // 获取主屏幕
     const QScreen *primary_screen = QGuiApplication::primaryScreen();
     if (!primary_screen) return;
 
-    // 获取主屏幕的可用区域（排除任务栏等）
     const QRect screenGeometry = primary_screen->availableGeometry();
 
-    // 获取窗口大小
     const QSize windowSize = window->size();
 
-    // 计算居中位置
     const int x = screenGeometry.x() + (screenGeometry.width() - windowSize.width()) / 2;
     const int y = screenGeometry.y() + (screenGeometry.height() - windowSize.height()) / 2;
 
-    // 移动窗口到中心位置
     window->move(x, y);
 }
 
 void MainWindow::adjust_window_screen(QWidget *window, double target_aspect_ratio, double screen_occupancy_ratio) {
     if (!window) return;
 
-    // 1. 获取主屏幕可用区域（排除任务栏等）
     const QScreen *screen = QGuiApplication::primaryScreen();
     const QRect available = screen->availableGeometry();
 
-    // 屏幕原始大小（调试用）
     QRect screen_rect = screen->geometry();
 
-    // 2. 计算目标窗口高度（占可用高度的百分比）
     int target_height = static_cast<int>(available.height() * screen_occupancy_ratio);
 
-    // 3. 根据宽高比计算目标宽度
     int target_width = static_cast<int>(target_height * target_aspect_ratio);
 
-    // 4. 边界检查：如果计算出的宽度超过屏幕可用宽度，则以宽度为准重新计算
     if (target_width > available.width() * 0.95) {
         target_width = static_cast<int>(available.width() * 0.95);
         target_height = static_cast<int>(target_width / target_aspect_ratio);
     }
 
-    // 5. 设置窗口最小尺寸（防止过小）
     constexpr int min_width = 1024;
     constexpr int min_height = 768;
     window->setMinimumSize(min_width, min_height);
 
-    // 6. 应用尺寸
     window->resize(target_width, target_height);
 
-    // 7. 居中显示
     const int x = available.x() + (available.width() - target_width) / 2;
     const int y = available.y() + (available.height() - target_height) / 2;
     window->move(x, y);

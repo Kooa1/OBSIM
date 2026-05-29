@@ -121,7 +121,7 @@ file(GLOB_RECURSE FRONTEND_SOURCES
 )
 
 add_executable(OBSIM
-        main.cpp
+        src/main.cpp
         ${FRONTEND_SOURCES}
         resources/resources.qrc
 )

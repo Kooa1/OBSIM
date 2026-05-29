@@ -7,6 +7,7 @@ void ScreenCaptor::apply_config(const CaptorConfig &config) {
 }
 
 void ScreenCaptor::setup_options(AVDictionary** opts) {
+    // Set capture frame rate to 60 fps
     av_dict_set(opts, "framerate", "60", 0);
     if (m_config.width > 0 && m_config.height > 0) {
         std::string video_size = std::to_string(m_config.width) + "x" + std::to_string(m_config.height);

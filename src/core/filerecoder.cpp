@@ -8,6 +8,7 @@ void FileRecoder::start(const std::string &output_path, int canvas_w, int canvas
 }
 
 AVFormatOutputContextPtr FileRecoder::create_format_context() {
+    // Allocate MP4 muxer context
     AVFormatContext *ctx = nullptr;
     avformat_alloc_output_context2(&ctx, nullptr, "mp4",
                                    m_output_path.c_str());

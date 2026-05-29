@@ -7,8 +7,6 @@
 #include <QPainter>
 #include <QStyleOptionButton>
 
-// ==================== 场景控制块 ====================
-
 SceneControlBlock::SceneControlBlock(QWidget *parent)
     : ControlBlock("场景", parent) {
     m_scene_list = new QListWidget();
@@ -33,7 +31,6 @@ SceneControlBlock::SceneControlBlock(QWidget *parent)
         if (!ok || name.trimmed().isEmpty()) return;
         name = name.trimmed();
 
-        // 确保不重名
         auto items = m_scene_list->findItems(name, Qt::MatchFixedString);
         if (!items.isEmpty()) {
             QMessageBox::information(this, "提示", "场景名已存在，请使用其他名称");
@@ -82,8 +79,6 @@ void SceneControlBlock::remove_item(int index) {
     }
 }
 
-
-// ==================== 输入源控制块 ====================
 
 SourceControlBlock::SourceControlBlock(QWidget *parent)
     : ControlBlock("输入源", parent) {
@@ -203,14 +198,11 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
                         QString::fromStdString(cameras[idx].name), name);
                     m_source_list->insertItem(0, name + " (" + type + ")");
                 }
-                // idx < 0 表示用户未选择有效摄像头，不创建采集源
+                // idx < 0 means user cancelled camera selection, skip source creation
             }
         }
     });
 }
-
-
-// ==================== OBS 风格电平条控件 ====================
 
 class LevelMeterWidget : public QWidget {
     Q_OBJECT
@@ -265,8 +257,6 @@ private:
     float m_value = 0.0f;
 };
 
-// ==================== 混音控制块 ====================
-
 AudioMixerBlock::AudioMixerBlock(QWidget *parent)
     : ControlBlock("混音器", parent) {
     m_tracks_layout = new QVBoxLayout();
@@ -274,7 +264,6 @@ AudioMixerBlock::AudioMixerBlock(QWidget *parent)
     m_content_layout->addLayout(m_tracks_layout);
     m_content_layout->addStretch();
 
-    // 默认添加几条音轨
     add_track("桌面音频", 0.3f);
     add_track("麦克风", 0.3f);
 }
@@ -287,7 +276,6 @@ AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString 
     layout->setContentsMargins(0, 2, 0, 2);
     layout->setSpacing(2);
 
-    // 第一行：名称 + 静音按钮 + 设置按钮
     auto *top_row = new QHBoxLayout();
     tw.name_label = new QLabel(name);
 
@@ -304,12 +292,10 @@ AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString 
     top_row->addWidget(tw.mute_btn);
     top_row->addWidget(tw.settings_btn);
 
-    // 第二行：音量滑块
     tw.volume_slider = new QSlider(Qt::Horizontal);
     tw.volume_slider->setRange(0, 100);
     tw.volume_slider->setValue(static_cast<int>(volume * 100));
 
-    // 第三行：电平表（OBS 风格双层绘制）
     tw.level_meter = new LevelMeterWidget();
     tw.level_meter->setFixedHeight(8);
 
@@ -317,7 +303,6 @@ AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString 
     layout->addWidget(tw.volume_slider);
     layout->addWidget(tw.level_meter);
 
-    // 信号连接
     QObject::connect(tw.volume_slider, &QSlider::valueChanged, this,
                      [this, name](int value) {
                          emit track_volume_changed(name, value / 100.0f);
@@ -457,8 +442,6 @@ void AudioMixerBlock::update_track_level(const QString &name, float level) {
 }
 
 
-// ==================== 直播录制块 ====================
-
 StreamRecordBlock::StreamRecordBlock(QWidget *parent)
     : ControlBlock("直播 / 录制", parent) {
     m_btn_start_stream = new QPushButton("🔴 开始直播");
@@ -520,8 +503,6 @@ StreamRecordBlock::StreamRecordBlock(QWidget *parent)
     connect(m_btn_exit, &QPushButton::clicked, qApp, &QApplication::quit);
 }
 
-
-// ==================== 文字源配置对话框 ====================
 
 TextSourceDialog::TextSourceDialog(QWidget *parent)
     : QDialog(parent), m_color(Qt::white) {
@@ -627,8 +608,6 @@ QColor TextSourceDialog::selected_color() const {
 }
 
 
-// ==================== 图片源配置对话框 ====================
-
 ImageSourceDialog::ImageSourceDialog(QWidget *parent)
     : QDialog(parent) {
     setWindowTitle("添加图片源");
@@ -693,8 +672,6 @@ QString ImageSourceDialog::file_path() const {
 }
 
 
-// ==================== 输入源类型选择对话框 ====================
-
 SourceTypeDialog::SourceTypeDialog(QWidget *parent)
     : QDialog(parent) {
     setWindowTitle("选择输入源类型");
@@ -734,8 +711,6 @@ SourceTypeDialog::SourceTypeDialog(QWidget *parent)
     layout->addWidget(btn_display);
 }
 
-
-// ==================== 输入源命名对话框 ====================
 
 SourceNameDialog::SourceNameDialog(const QVector<DisplayInfo> &displays,
                                    const QVector<CameraInfo> &cameras,
@@ -785,7 +760,6 @@ SourceNameDialog::SourceNameDialog(const QVector<DisplayInfo> &displays,
     QPushButton *ok_btn = button_box->button(QDialogButtonBox::Ok);
     ok_btn->setEnabled(false);
 
-    // 名称文本变化时更新确定按钮状态
     auto update_ok_btn = [this, ok_btn, is_camera_type]() {
         bool name_valid = !m_name_edit->text().trimmed().isEmpty();
         bool camera_valid = !is_camera_type ||
@@ -821,8 +795,6 @@ int SourceNameDialog::selected_camera_index() const {
 }
 
 
-// ==================== 总控制栏 ====================
-
 ControlBar::ControlBar(QWidget *parent) : QWidget(parent) {
     setMinimumHeight(220);
     init_UI();
@@ -853,7 +825,6 @@ void ControlBar::init_control_blocks() {
 }
 
 void ControlBar::init_layout() {
-    // 场景 | 输入源 | 混音器 | 直播录制
     main_splitter->addWidget(m_scene_block);
     main_splitter->addWidget(m_source_block);
     main_splitter->addWidget(m_audio_mixer_block);

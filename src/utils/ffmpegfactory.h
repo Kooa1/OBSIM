@@ -1,7 +1,3 @@
-//
-// Created by 66 on 2025/8/24.
-//
-
 #ifndef ZPLAYER_FFMPEGFACTORY_H
 #define ZPLAYER_FFMPEGFACTORY_H
 
@@ -14,6 +10,7 @@ extern "C" {
 #include "libswresample/swresample.h"
 };
 
+/// @brief Custom deleter for AVFormatContext (input)
 struct AVFormatContextDeleter {
     void operator()(AVFormatContext *context) const {
         if (context) {
@@ -22,6 +19,7 @@ struct AVFormatContextDeleter {
     }
 };
 
+/// @brief Custom deleter for AVCodecContext
 struct AVCodecContextDeleter {
     void operator()(AVCodecContext *context) const {
         if (context) {
@@ -30,6 +28,7 @@ struct AVCodecContextDeleter {
     }
 };
 
+/// @brief Custom deleter for SwsContext
 struct SwsContextDeleter {
     void operator()(struct SwsContext *context) const {
         if (context) {
@@ -38,6 +37,7 @@ struct SwsContextDeleter {
     }
 };
 
+/// @brief Custom deleter for AVPacket
 struct AVPacketDeleter {
     void operator()(AVPacket *packet) const {
         if (packet) {
@@ -46,6 +46,7 @@ struct AVPacketDeleter {
     }
 };
 
+/// @brief Custom deleter for AVStream (no-op)
 struct AVStreamDeleter {
     void operator()(AVStream *stream) const {
         if (stream) {
@@ -53,6 +54,7 @@ struct AVStreamDeleter {
     }
 };
 
+/// @brief Custom deleter for AVFrame
 struct AVFrameDeleter {
     void operator()(AVFrame *frame) const {
         if (frame) {
@@ -61,6 +63,7 @@ struct AVFrameDeleter {
     }
 };
 
+/// @brief Custom deleter for AVFormatContext (output)
 struct AVFormatOutputContextDeleter {
     void operator()(AVFormatContext *context) const {
         if (context) {
@@ -70,6 +73,7 @@ struct AVFormatOutputContextDeleter {
     }
 };
 
+/// @brief Custom deleter for SwrContext
 struct SwrContextDeleter {
     void operator()(SwrContext *context) const {
         if (context) {
@@ -79,21 +83,23 @@ struct SwrContextDeleter {
 };
 
 
-using AVFormatContextPtr = std::shared_ptr<AVFormatContext>;
-using AVFormatOutputContextPtr = std::unique_ptr<AVFormatContext, AVFormatOutputContextDeleter>;
-using AVCodecContextPtr = std::unique_ptr<AVCodecContext, AVCodecContextDeleter>;
-using SwsContextPtr = std::unique_ptr<struct SwsContext, SwsContextDeleter>;
-using AVPacketPtr = std::shared_ptr<AVPacket>;
-using AVFramePtr = std::shared_ptr<AVFrame>;
-using AVStreamPtr = std::unique_ptr<AVStream, AVStreamDeleter>;
-using SwrContextPtr = std::unique_ptr<SwrContext, SwrContextDeleter>;
+using AVFormatContextPtr = std::shared_ptr<AVFormatContext>; ///< Shared input format context
+using AVFormatOutputContextPtr = std::unique_ptr<AVFormatContext, AVFormatOutputContextDeleter>; ///< Unique output format context
+using AVCodecContextPtr = std::unique_ptr<AVCodecContext, AVCodecContextDeleter>; ///< Unique codec context
+using SwsContextPtr = std::unique_ptr<struct SwsContext, SwsContextDeleter>; ///< Unique swscale context
+using AVPacketPtr = std::shared_ptr<AVPacket>; ///< Shared packet
+using AVFramePtr = std::shared_ptr<AVFrame>; ///< Shared frame
+using AVStreamPtr = std::unique_ptr<AVStream, AVStreamDeleter>; ///< Unique stream
+using SwrContextPtr = std::unique_ptr<SwrContext, SwrContextDeleter>; ///< Unique swresample context
 
+/// @brief Create an AVFormatOutputContext for the given filename
 inline AVFormatOutputContextPtr make_output_context(const char *filename, const char *fmt_name = nullptr) {
     AVFormatContext *ctx = nullptr;
     avformat_alloc_output_context2(&ctx, nullptr, fmt_name, filename);
     return AVFormatOutputContextPtr(ctx);
 }
 
+/// @brief Get an AVStream by index from an AVFormatContext
 inline AVStreamPtr get_stream_by_index(AVFormatContextPtr *avFormatContext, int stream_index) {
     if (!avFormatContext || stream_index < 0 ||
         stream_index >= static_cast<int>(avFormatContext->get()->nb_streams)) {

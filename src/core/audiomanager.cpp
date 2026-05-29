@@ -21,7 +21,7 @@ AudioManager::AudioManager(
 void AudioManager::setup_callbacks() {
     QPointer<AudioManager> self(this);
 
-    // ✅ 系统音频回调
+    // System audio callback
     m_system_audio->set_frame_ready_callback([self]() {
         if (self) {
             auto frame = self->m_system_audio->try_pop_frame();
@@ -40,7 +40,7 @@ void AudioManager::setup_callbacks() {
         }
     });
 
-    // ✅ 麦克风回调
+    // Microphone callback
     m_mic_audio->set_frame_ready_callback([self]() {
         if (self) {
             auto frame = self->m_mic_audio->try_pop_frame();
@@ -59,7 +59,7 @@ void AudioManager::setup_callbacks() {
         }
     });
 
-    // 60Hz 定时器：UI 刷新 + 帧间过渡衰减（补偿 dshow 低帧率，消除阶梯感）
+    // 60 Hz timer for UI refresh and inter-frame decay compensation
     m_level_emit_timer = new QTimer(this);
     connect(m_level_emit_timer, &QTimer::timeout, this, [this]() {
         float mic = m_mic_level.load();
@@ -72,41 +72,41 @@ void AudioManager::setup_callbacks() {
     });
 }
 
-// 辅助函数：根据 AVSampleFormat 安全地提取样本值
+// Helper: safely extract sample value based on AVSampleFormat
 static float get_sample_from_plane(const uint8_t *plane, int sample_index, AVSampleFormat fmt) {
     switch (fmt) {
         case AV_SAMPLE_FMT_U8: {
-            // 无符号 8 位：[0, 255] -> [-1.0, 1.0]
+            // Unsigned 8-bit: [0, 255] -> [-1.0, 1.0]
             const auto *data = reinterpret_cast<const uint8_t *>(plane);
             return (static_cast<float>(data[sample_index]) - 128.0f) / 128.0f;
         }
         case AV_SAMPLE_FMT_S16:
         case AV_SAMPLE_FMT_S16P: {
-            // 有符号 16 位：[-32768, 32767] -> [-1.0, 1.0]
+            // Signed 16-bit: [-32768, 32767] -> [-1.0, 1.0]
             const auto *data = reinterpret_cast<const int16_t *>(plane);
             return static_cast<float>(data[sample_index]) / 32768.0f;
         }
         case AV_SAMPLE_FMT_S32:
         case AV_SAMPLE_FMT_S32P: {
-            // 有符号 32 位：[-2^31, 2^31-1] -> [-1.0, 1.0]
+            // Signed 32-bit: [-2^31, 2^31-1] -> [-1.0, 1.0]
             const auto *data = reinterpret_cast<const int32_t *>(plane);
             return static_cast<float>(data[sample_index]) / 2147483648.0f;
         }
         case AV_SAMPLE_FMT_FLT:
         case AV_SAMPLE_FMT_FLTP: {
-            // 浮点 32 位：已经是 [-1.0, 1.0] 范围
+            // Float 32-bit: already in [-1.0, 1.0] range
             const auto *data = reinterpret_cast<const float *>(plane);
             return data[sample_index];
         }
         case AV_SAMPLE_FMT_DBL:
         case AV_SAMPLE_FMT_DBLP: {
-            // 双精度浮点 64 位：已经是 [-1.0, 1.0] 范围
+            // Double 64-bit: already in [-1.0, 1.0] range
             const auto *data = reinterpret_cast<const double *>(plane);
             return static_cast<float>(data[sample_index]);
         }
         case AV_SAMPLE_FMT_S64:
         case AV_SAMPLE_FMT_S64P: {
-            // 有符号 64 位
+            // Signed 64-bit
             const auto *data = reinterpret_cast<const int64_t *>(plane);
             return static_cast<float>(data[sample_index]) / 9223372036854775808.0f;
         }
@@ -122,7 +122,6 @@ AudioManager::~AudioManager() {
 }
 
 void AudioManager::start_all() {
-    // 重置电平值
     m_system_level.store(0.0f);
     m_mic_level.store(0.0f);
 
@@ -131,9 +130,8 @@ void AudioManager::start_all() {
 
     if ((m_system_audio && m_system_audio->is_running()) ||
         (m_mic_audio && m_mic_audio->is_running())) {
-        m_level_emit_timer->start(16); // 改为 60Hz（16ms）
+        m_level_emit_timer->start(16);
 
-        // 立即发射初始电平值
         emit levels_updated(0.0f, 0.0f);
         }
 }
@@ -290,7 +288,6 @@ void AudioManager::calculate_level_from_frame(const AVFrame* frame, std::atomic<
     bool is_mic = (&level_store == &m_mic_level);
 
     if (is_mic) {
-        // ===== 麦克风（完全参考系统电平代码结构） =====
         float level;
         if (rms < 0.008f) {
             level = 0.0f;
@@ -305,7 +302,6 @@ void AudioManager::calculate_level_from_frame(const AVFrame* frame, std::atomic<
             smoothed = current * 0.8f + level * 0.2f;
         }
     } else {
-        // ===== 系统音频 =====
         float level = std::min(1.0f, std::sqrt(rms) * 1.5f);
         if (level < 0.005f) level = 0.0f;
 

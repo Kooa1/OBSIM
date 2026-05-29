@@ -1,15 +1,12 @@
-//
-// Created by 66 on 2026/4/30.
-//
 // scene.cpp
 #include "scene.h"
 
 
-// ==================== 源管理 ====================
+// Source management
 
 Scene::Scene() {
-    m_snap_threshold = 25.0f; // 25 个逻辑像素内触发吸附
-    m_snap_enabled = true; // 默认开启
+    m_snap_threshold = 25.0f;
+    m_snap_enabled = true;
 }
 
 void Scene::add_source(Source *source) {
@@ -63,10 +60,10 @@ void Scene::move_down(Source *source) {
     }
 }
 
-// ==================== 选中状态 ====================
+// Selection state
 
 void Scene::set_selected_source(Source *source) {
-    // 取消旧选中的标记
+    // Deselect the previously selected source
     if (m_selected_source) {
         m_selected_source->selected = false;
     }
@@ -80,10 +77,10 @@ void Scene::clear_selection() {
     set_selected_source(nullptr);
 }
 
-// ==================== 命中测试 ====================
+// Hit testing
 
 Source *Scene::hit_test(const QPointF &canvas_pos) const {
-    // 从顶层向底层遍历
+    // Traverse from topmost to bottommost
     for (auto it = sources.rbegin(); it != sources.rend(); ++it) {
         Source *source = *it;
         if (source->visible && source->hit_test(canvas_pos)) {
@@ -93,7 +90,7 @@ Source *Scene::hit_test(const QPointF &canvas_pos) const {
     return nullptr;
 }
 
-// ==================== 交互状态机 ====================
+// Interaction state machine
 
 bool Scene::on_mouse_press(const QPointF &canvas_pos) {
     m_mouse_pos = canvas_pos;
@@ -101,6 +98,7 @@ bool Scene::on_mouse_press(const QPointF &canvas_pos) {
 
     if (hit) {
         set_selected_source(hit);
+        // Detect resize handle at the given canvas position
         ResizeHandle handle = get_handle_at_pos(hit, canvas_pos);
 
         if (handle != ResizeHandle::None) {
@@ -116,8 +114,8 @@ bool Scene::on_mouse_press(const QPointF &canvas_pos) {
         m_drag_start_pos_y = hit->pos_y;
         m_drag_start_width = hit->base_width;
         m_drag_start_height = hit->base_height;
-        m_drag_start_scale_x = hit->scale_x; // ✅ 记录
-        m_drag_start_scale_y = hit->scale_y; // ✅ 记录
+        m_drag_start_scale_x = hit->scale_x;
+        m_drag_start_scale_y = hit->scale_y;
 
         return true;
     } else {
@@ -131,12 +129,12 @@ bool Scene::on_mouse_move(const QPointF &canvas_pos) {
     m_mouse_pos = canvas_pos;
     m_current_snap_lines.clear();
 
-    // 🖱️ 悬停检测（非拖动/缩放模式时）
+    // Hover detection (non-drag/resize mode)
     if (m_mode == InteractionMode::None) {
         Source *hit = hit_test(canvas_pos);
         if (hit != m_hovered_source) {
             m_hovered_source = hit;
-            return true; // 需要重绘
+            return true;
         }
     } else {
         m_hovered_source = nullptr;
@@ -166,7 +164,7 @@ bool Scene::on_mouse_move(const QPointF &canvas_pos) {
         float dx = canvas_pos.x() - m_drag_start_mouse.x();
         float dy = canvas_pos.y() - m_drag_start_mouse.y();
 
-        // ✅ 基于拖拽前的尺寸计算新的 scale
+        // Compute new scale based on pre-drag dimensions
         float start_w = m_drag_start_width * m_drag_start_scale_x;
         float start_h = m_drag_start_height * m_drag_start_scale_y;
         float aspect = m_drag_start_width / m_drag_start_height;
@@ -235,13 +233,13 @@ bool Scene::on_mouse_move(const QPointF &canvas_pos) {
                 break;
         }
 
-        // ✅ 只修改 scale，不动 base
+        // Only modify scale, leave base dimensions unchanged
         m_selected_source->pos_x = new_x;
         m_selected_source->pos_y = new_y;
         m_selected_source->scale_x = new_w / m_drag_start_width;
         m_selected_source->scale_y = new_h / m_drag_start_height;
 
-        // 🧲 检查满屏吸附
+        // Check fullscreen snap
         snap_to_fullscreen(m_selected_source);
 
         return true;
@@ -253,13 +251,13 @@ bool Scene::on_mouse_move(const QPointF &canvas_pos) {
 void Scene::on_mouse_release() {
     m_mode = InteractionMode::None;
     m_active_handle = ResizeHandle::None;
-    m_current_snap_lines.clear(); // ← 加这一行
+    m_current_snap_lines.clear();
 }
 
-// ==================== 选中框绘制 ====================
+// Selection box rendering
 
 void Scene::render_selection_box() {
-    // 先绘制悬停框
+    // Render hover box first
     render_hover_box();
 
     if (!m_selected_source || !m_selected_source->visible) return;
@@ -272,7 +270,7 @@ void Scene::render_selection_box() {
     float w = bounds.width();
     float h = bounds.height();
 
-    // 绘制红色加粗边框
+    // Draw thickened red selection border
     glLineWidth(3.0f);
     glColor4f(1.0f, 0.2f, 0.2f, 1.0f);
 
@@ -283,21 +281,21 @@ void Scene::render_selection_box() {
     glVertex2f(x, y + h);
     glEnd();
 
-    // ========== 绘制8个控点（纯红色实心大圆点） ==========
-    const float handle_radius = 8.0f; // 圆点半径（原来6，加大到8）
-    const int segments = 16; // 圆的分段数
+    // Draw 8 resize handles as solid white circles
+    const float handle_radius = 8.0f;
+    const int segments = 16;
 
     struct {
         float cx, cy;
     } handles[] = {
-                {x, y}, // TopLeft
-                {x + w / 2, y}, // Top
-                {x + w, y}, // TopRight
-                {x, y + h / 2}, // Left
-                {x + w, y + h / 2}, // Right
-                {x, y + h}, // BottomLeft
-                {x + w / 2, y + h}, // Bottom
-                {x + w, y + h} // BottomRight
+                {x, y},                  // TopLeft
+                {x + w / 2, y},          // Top
+                {x + w, y},              // TopRight
+                {x, y + h / 2},          // Left
+                {x + w, y + h / 2},      // Right
+                {x, y + h},              // BottomLeft
+                {x + w / 2, y + h},      // Bottom
+                {x + w, y + h}           // BottomRight
             };
 
     glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
@@ -315,22 +313,22 @@ void Scene::render_selection_box() {
     glLineWidth(1.0f);
 }
 
-// ==================== 辅助函数 ====================
+// Helper functions
 
 void Scene::render_snap_lines() {
     if (m_current_snap_lines.empty()) return;
 
     glLineWidth(1.0f);
-    glColor4f(1.0f, 0.0f, 0.0f, 0.8f); // 半透明红色辅助线
+    glColor4f(1.0f, 0.0f, 0.0f, 0.8f); // Semi-transparent red guide lines
 
     for (const auto &line: m_current_snap_lines) {
         glBegin(GL_LINES);
         if (line.orientation == SnapLine::Vertical) {
             glVertex2f(line.position, 0.0f);
-            glVertex2f(line.position, 1080.0f); // 画布高度
+            glVertex2f(line.position, 1080.0f); // Canvas height
         } else {
             glVertex2f(0.0f, line.position);
-            glVertex2f(1920.0f, line.position); // 画布宽度
+            glVertex2f(1920.0f, line.position); // Canvas width
         }
         glEnd();
     }
@@ -343,10 +341,10 @@ Qt::CursorShape Scene::get_cursor_for_current_pos() const {
         return cursor_for_handle(m_active_handle);
     }
     if (m_mode == InteractionMode::Dragging) {
-        return Qt::ArrowCursor; // 拖动中用普通箭头，不用手势
+        return Qt::ArrowCursor; // Use normal arrow during drag, not hand
     }
 
-    // 检测鼠标是否在控点上
+    // Check if mouse is on a resize handle
     if (m_selected_source && m_selected_source->visible) {
         ResizeHandle handle = get_handle_at_pos(m_selected_source, m_mouse_pos);
         if (handle != ResizeHandle::None) {
@@ -354,7 +352,6 @@ Qt::CursorShape Scene::get_cursor_for_current_pos() const {
         }
     }
 
-    // 悬停在源上时保持默认箭头
     return Qt::ArrowCursor;
 }
 
@@ -362,7 +359,7 @@ ResizeHandle Scene::get_handle_at_pos(Source *source, const QPointF &canvas_pos)
     if (!source) return ResizeHandle::None;
 
     QRectF bounds = source->get_bounding_rect();
-    const float handle_size = 24.0f; // 点击容差范围（保持不变）
+    const float handle_size = 24.0f; // Click tolerance range
     const float half = handle_size / 2.0f;
 
     float x = bounds.x();
@@ -370,18 +367,18 @@ ResizeHandle Scene::get_handle_at_pos(Source *source, const QPointF &canvas_pos)
     float w = bounds.width();
     float h = bounds.height();
 
-    // 检测8个控点区域（向源内部偏移，而非外部）
+    // Detect 8 handle regions (extending inward from corners / midpoints)
     struct {
         QRectF rect;
         ResizeHandle handle;
     } regions[] = {
-                // 四角：从顶点向内延伸
+                // Four corners: extending inward from vertex
                 {QRectF(x, y, handle_size, handle_size), ResizeHandle::TopLeft},
                 {QRectF(x + w - handle_size, y, handle_size, handle_size), ResizeHandle::TopRight},
                 {QRectF(x, y + h - handle_size, handle_size, handle_size), ResizeHandle::BottomLeft},
                 {QRectF(x + w - handle_size, y + h - handle_size, handle_size, handle_size), ResizeHandle::BottomRight},
 
-                // 四边中点：从边中点向两侧延伸
+                // Four edge midpoints: extending from center
                 {QRectF(x + w / 2 - half, y, handle_size, handle_size), ResizeHandle::Top},
                 {QRectF(x + w / 2 - half, y + h - handle_size, handle_size, handle_size), ResizeHandle::Bottom},
                 {QRectF(x, y + h / 2 - half, handle_size, handle_size), ResizeHandle::Left},
@@ -430,7 +427,7 @@ QPointF Scene::snap_position(const QPointF &proposed_pos,
     const float top = proposed_pos.y();
     const float bottom = proposed_pos.y() + height;
 
-    // ---- X 轴吸附（只对齐左右边缘） ----
+    // X-axis snap (align left/right edges only)
     float best_dist_x = m_snap_threshold + 1.0f;
     SnapLine best_line_x;
     bool has_x = false;
@@ -457,7 +454,7 @@ QPointF Scene::snap_position(const QPointF &proposed_pos,
         m_current_snap_lines.push_back(best_line_x);
     }
 
-    // ---- Y 轴吸附（只对齐上下边缘） ----
+    // Y-axis snap (align top/bottom edges only)
     float best_dist_y = m_snap_threshold + 1.0f;
     SnapLine best_line_y;
     bool has_y = false;
@@ -513,7 +510,7 @@ void Scene::snap_to_fullscreen(Source *source) {
 
     if (!corner_snap && !edge_snap_w && !edge_snap_h) return;
 
-    // ✅ 等比缩放满屏
+    // Scale to fill canvas while maintaining aspect ratio
     float scale_x = canvas_w / source->base_width;
     float scale_y = canvas_h / source->base_height;
     float scale = std::max(scale_x, scale_y);
@@ -530,23 +527,23 @@ void Scene::collect_snap_targets(Source *exclude_source,
     const float canvas_w = 1920.0f;
     const float canvas_h = 1080.0f;
 
-    // 画布边界（垂直方向用 X，水平方向用 Y）
+    // Canvas boundaries (vertical for X-axis, horizontal for Y-axis)
     out_vertical.push_back({0.0f, SnapTarget::CanvasEdge, nullptr});
     out_vertical.push_back({canvas_w, SnapTarget::CanvasEdge, nullptr});
     out_horizontal.push_back({0.0f, SnapTarget::CanvasEdge, nullptr});
     out_horizontal.push_back({canvas_h, SnapTarget::CanvasEdge, nullptr});
 
-    // 其他源的边
+    // Other sources' edges
     for (Source *src: sources) {
         if (src == exclude_source || !src->visible) continue;
 
         QRectF bounds = src->get_bounding_rect();
 
-        // 垂直边 → X 轴吸附
+        // Vertical edges -> X-axis snap
         out_vertical.push_back({static_cast<float>(bounds.left()), SnapTarget::SourceEdge, src});
         out_vertical.push_back({static_cast<float>(bounds.right()), SnapTarget::SourceEdge, src});
 
-        // 水平边 → Y 轴吸附
+        // Horizontal edges -> Y-axis snap
         out_horizontal.push_back({static_cast<float>(bounds.top()), SnapTarget::SourceEdge, src});
         out_horizontal.push_back({static_cast<float>(bounds.bottom()), SnapTarget::SourceEdge, src});
     }
@@ -554,7 +551,7 @@ void Scene::collect_snap_targets(Source *exclude_source,
 
 void Scene::render_hover_box() {
     if (!m_hovered_source || !m_hovered_source->visible) return;
-    // 如果正在选中这个源，不画悬停框（选中框已覆盖）
+    // Skip if this source is already selected (selection box covers it)
     if (m_hovered_source == m_selected_source) return;
 
     QRectF bounds = m_hovered_source->get_bounding_rect();
@@ -563,7 +560,7 @@ void Scene::render_hover_box() {
     float w = bounds.width();
     float h = bounds.height();
 
-    // 白色半透明边框，比选中框细
+    // White semi-transparent border, thinner than selection box
     glLineWidth(2.0f);
     glColor4f(1.0f, 1.0f, 1.0f, 0.6f);
 

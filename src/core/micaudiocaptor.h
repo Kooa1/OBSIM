@@ -6,9 +6,13 @@
 
 #include "base/audiocaptor.h"
 
+/// @brief Microphone audio captor that captures audio from microphone via DShow
 class MicAudioCaptor : public AudioCaptor {
 public:
+    /// @brief Constructor using default microphone device
     MicAudioCaptor();
+    /// @brief Constructor with specific device name
+    /// @param device_name Microphone device name
     explicit MicAudioCaptor(const std::string &device_name);
     ~MicAudioCaptor() override = default;
 
@@ -19,7 +23,7 @@ protected:
     void setup_options(AVDictionary** opts) override;
 
 private:
-    std::string m_device_name;  // 存储设备名
+    std::string m_device_name; ///< Microphone device name
 };
 
 #endif

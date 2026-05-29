@@ -1,7 +1,3 @@
-//
-// Created by 66 on 2026/4/26.
-//
-
 #include "devicemanager.h"
 #include <QAudioDevice>
 #include <QMediaDevices>
@@ -14,10 +10,8 @@ DeviceManager::DeviceManager(QObject *parent) : QObject(parent) {
 }
 
 void DeviceManager::run() {
-    // 创建 DeviceManager 实例
     DeviceManager device_manager;
 
-    // 获取所有显示器信息
     QVector<DisplayInfo> displays = device_manager.get_all_displays();
 
     for (const DisplayInfo &info: displays) {
@@ -32,13 +26,10 @@ void DeviceManager::run() {
         }
     }
 
-    // 获取主屏幕信息
     DisplayInfo primary = device_manager.get_primary_display();
 
-    // 获取屏幕数量
     int screen_count = device_manager.get_display_count();
 
-    // 获取所有摄像头信息
     QVector<CameraInfo> cameras = device_manager.get_all_cameras();
 
     for (const CameraInfo &cam: cameras) {
@@ -47,7 +38,6 @@ void DeviceManager::run() {
         qDebug() << "  默认设备:" << (cam.is_default ? "是" : "否");
     }
 
-    // 获取摄像头数量
     int camera_count = device_manager.get_camera_count();
 }
 
@@ -99,7 +89,7 @@ DisplayInfo DeviceManager::get_primary_display() const {
         }
     }
 
-    return DisplayInfo{}; // 返回空结构体
+    return DisplayInfo{};
 }
 
 DisplayInfo DeviceManager::get_display(int index) const {

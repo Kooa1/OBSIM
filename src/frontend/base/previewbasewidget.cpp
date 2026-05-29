@@ -161,7 +161,6 @@ PreviewBaseWidget::create_split_panel(const QString &title, QWidget *parent) {
     h_splitter->addWidget(left_widget);
 
     result.right_panel = new QWidget(h_splitter);
-    // result.right_panel->setStyleSheet("background: #2a2a2a;");
     h_splitter->addWidget(result.right_panel);
 
     h_splitter->setStretchFactor(0, 0);

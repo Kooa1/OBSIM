@@ -19,6 +19,7 @@ AVFormatOutputContextPtr StreamPush::create_format_context() {
 }
 
 bool StreamPush::open_io(AVFormatOutputContextPtr &fmt_ctx) {
+    // Open network connection to RTMP server
     av_log(nullptr, AV_LOG_INFO, "streampush: connecting to %s\n", m_rtmp_url.c_str());
     int ret = avio_open(&fmt_ctx->pb, m_rtmp_url.c_str(), AVIO_FLAG_WRITE);
     if (ret < 0) {

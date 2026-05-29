@@ -14,6 +14,7 @@
 
 using std::cout;
 
+/// @brief Thread-safe bounded queue with pause/stop support
 template<typename T>
 class DataSafeQueue {
 private:
@@ -40,6 +41,7 @@ public:
 
     DataSafeQueue operator=(const DataSafeQueue &other) = delete;
 
+    /// @brief Push an item, blocks if queue is full until space becomes available
     bool push(T value) {
         std::unique_lock<std::mutex> lock(q_mutex);
         if (data_queue.size() >= max_size) {
@@ -59,6 +61,7 @@ public:
         return true;
     }
 
+    /// @brief Pop an item, blocks if queue is empty
     std::optional<T> pop() {
         std::unique_lock<std::mutex> lock(q_mutex);
         if (stop_request.load(std::memory_order_acquire)) {
@@ -81,6 +84,7 @@ public:
         return std::move(value);
     }
 
+    /// @brief Try to push without blocking, retry once after a short sleep
     bool try_push(T value) {
         std::unique_lock<std::mutex> lock(q_mutex);
         if (data_queue.size() >= max_size) {
@@ -96,17 +100,13 @@ public:
         return true;
     }
 
+    /// @brief Try to pop with a 1-second timeout
     std::optional<T> try_pop() {
         std::unique_lock<std::mutex> lock(q_mutex);
         if (stop_request.load(std::memory_order_acquire)) {
             return std::nullopt;
         }
         if (data_queue.empty()) {
-            // cv_not_empty.wait(lock, [this]() {
-            //     return !data_queue.empty() ||
-            //            pause_request.load(std::memory_order_acquire) ||
-            //            stop_request.load(std::memory_order_acquire);
-            // });
             cv_not_empty.wait_for(lock, std::chrono::seconds(1), [this]() {
                 return !data_queue.empty() ||
                        pause_request.load(std::memory_order_acquire) ||
@@ -127,11 +127,11 @@ public:
         return value;
     }
 
+    /// @brief Drain all but the last item, then pop it
     bool pop_with_drain(T &out) {
         std::unique_lock<std::mutex> lock(q_mutex);
         if (data_queue.empty()) return false;
 
-        // 循环取出所有帧，只留最后一个
         while (data_queue.size() > 1) {
             data_queue.pop();
         }
@@ -144,23 +144,21 @@ public:
         return true;
     }
 
+    /// @brief Atomically swap the queue and keep only the latest item
     std::optional<T> try_pop_drain() {
         std::queue<T> temp; {
             std::unique_lock<std::mutex> lock(q_mutex);
             if (data_queue.empty()) return std::nullopt;
 
-            // O(1) 交换，持锁时间极短
             std::swap(temp, data_queue);
             lock.unlock();
             cv_not_full.notify_one();
         }
 
-        // 锁外处理：丢弃旧帧，只保留最新帧
         std::optional<T> result;
         if (temp.size() == 1) {
             result = std::move(temp.front());
         } else {
-            // 移到最后一个
             while (temp.size() > 1) {
                 temp.pop();
             }
@@ -170,10 +168,11 @@ public:
         return result;
     }
 
+    /// @brief Push without blocking, discard oldest item if full
     bool push_no_wait(T value) {
         std::unique_lock<std::mutex> lock(q_mutex);
         if (data_queue.size() >= max_size) {
-            data_queue.pop(); // 丢弃最旧的帧（自动释放 AVFramePtr 引用）
+            data_queue.pop();
         }
         data_queue.push(std::move(value));
         cv_not_empty.notify_one();
@@ -181,6 +180,7 @@ public:
         return true;
     }
 
+    /// @brief Push a default-constructed poison pill to unblock consumers
     inline void push_poison_pill() {
         std::unique_lock<std::mutex> lock(q_mutex);
         data_queue.push(std::move(T()));
@@ -215,10 +215,12 @@ public:
         return stop_request.load(std::memory_order_acquire);
     }
 
+    /// @brief Wake up a producer waiting on not_full
     inline void nut_full_wake_up() {
         cv_not_full.notify_one();
     }
 
+    /// @brief Wake up a consumer waiting on not_empty
     inline void nut_empty_wake_up() {
         cv_not_empty.notify_one();
     }
@@ -231,12 +233,14 @@ public:
         stop_request.store(state, std::memory_order_release);
     }
 
+    /// @brief Signal stop and wake up all waiting threads
     inline void stop_work() {
         stop_request.store(true, std::memory_order_release);
         cv_not_empty.notify_one();
         cv_not_full.notify_one();
     }
 
+    /// @brief Clear the queue and reset pause/stop flags
     void clean_queue() {
         std::unique_lock<std::mutex> lock(q_mutex);
         pause_request.store(false, std::memory_order_release);

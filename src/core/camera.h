@@ -1,14 +1,12 @@
-//
-// Created by 66 on 2025/12/18.
-//
-
 #ifndef MONITORSERVER_CAPTOR_H
 #define MONITORSERVER_CAPTOR_H
 
 #include "base/videocaptor.h"
 
+/// @brief Camera capture implementation using dshow (Windows) or avfoundation (macOS).
 class Camera : public VideoCaptor {
 public:
+    /// @brief Constructs a Camera with an optional device description.
     explicit Camera(std::string device_description = "");
     ~Camera() override = default;
 
@@ -18,8 +16,8 @@ protected:
     void setup_options(AVDictionary** opts) override;
 
 private:
-    std::string m_device_description;
-    std::string m_device_url;
+    std::string m_device_description; ///< User-readable device description
+    std::string m_device_url; ///< FFmpeg device URL (e.g. "video=USB Video Device")
 };
 
 #endif

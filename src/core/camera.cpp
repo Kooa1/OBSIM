@@ -1,14 +1,10 @@
-//
-// Created by 66 on 2025/12/18.
-//
-
 #include "camera.h"
 
 Camera::Camera(std::string device_description)
     : m_device_description(std::move(device_description)) {
     av_log_set_level(AV_LOG_INFO);
 
-    // 构建设备 URL
+    // Build the device URL based on platform
     if (m_device_description.empty()) {
 #ifdef _WIN32
         m_device_url = "video=USB Video Device";

@@ -9,7 +9,6 @@ Recoder::~Recoder() {
 void Recoder::start(const std::string &output_path, int canvas_w, int canvas_h, int fps,
                         DataSafeQueue<AVFramePtr> *system_audio_src,
                         DataSafeQueue<AVFramePtr> *mic_audio_src) {
-    // 必须先更新音频队列指针，再调 stop()，否则 stop() 会访问已销毁的旧队列
     m_system_audio_src = system_audio_src;
     m_mic_audio_src = mic_audio_src;
 
@@ -131,6 +130,7 @@ bool Recoder::encode_audio_frame() {
     return true;
 }
 
+// Initialize FFmpeg encoding contexts: video encoder, audio encoder, output format
 bool Recoder::init_contexts() {
     m_fmt_ctx = create_format_context();
     if (!m_fmt_ctx) {
@@ -288,6 +288,7 @@ bool Recoder::init_contexts() {
     return true;
 }
 
+// Process system audio: resample, apply volume, push to FIFO
 void Recoder::process_system_audio() {
     while (!m_system_audio_src->is_empty()) {
         auto frame = m_system_audio_src->try_pop();
@@ -329,6 +330,7 @@ void Recoder::process_system_audio() {
     }
 }
 
+// Process mic audio: resample, apply volume, push to FIFO
 void Recoder::process_mic_audio() {
     while (!m_mic_audio_src->is_empty()) {
         auto frame = m_mic_audio_src->try_pop();
@@ -371,6 +373,7 @@ void Recoder::process_mic_audio() {
     }
 }
 
+// Mix system and mic audio FIFOs into the main audio FIFO with soft clipping
 void Recoder::mix_audio_streams() {
     size_t mix_length = 0;
     if (!m_sys_fifo[0].empty() && !m_mic_fifo[0].empty()) {
@@ -410,6 +413,7 @@ void Recoder::mix_audio_streams() {
     m_audio_clock += mix_length;
 }
 
+// Pop and process a video frame: BGRA -> YUV conversion then encode
 void Recoder::process_video_frame() {
     auto video_data = m_video_queue ? m_video_queue->try_pop() : std::nullopt;
     if (!video_data) return;
@@ -445,6 +449,7 @@ void Recoder::process_video_frame() {
     encode_video_frame(m_video_pts);
 }
 
+// Pop samples from mixed FIFO and encode audio frames
 void Recoder::encode_audio_frames_from_fifo() {
     if (!m_audio_frame) return;
     while ((int) m_audio_fifo[0].size() >= m_audio_frame_size) {
@@ -468,6 +473,7 @@ void Recoder::encode_audio_frames_from_fifo() {
     }
 }
 
+// Main encoding loop: processes video and audio frames while recording
 void Recoder::main_encode_loop() {
     int iter_counter = 0;
     while (m_recording.load()) {
@@ -517,6 +523,7 @@ void Recoder::main_encode_loop() {
     }
 }
 
+// Drain remaining video frames from the queue
 void Recoder::drain_video_frames() {
     while (m_video_queue && !m_video_queue->is_empty()) {
         auto video_data = m_video_queue->try_pop();
@@ -551,6 +558,7 @@ void Recoder::drain_video_frames() {
     }
 }
 
+// Flush SWR contexts and encode remaining audio samples
 void Recoder::drain_audio_residual() {
     if (!m_has_audio) return;
 
@@ -637,6 +645,7 @@ void Recoder::drain_audio_residual() {
     }
 }
 
+// Flush both encoders and write the output file trailer
 void Recoder::flush_encoders_and_write_trailer() {
     avcodec_send_frame(m_video_enc_ctx.get(), nullptr);
     while (avcodec_receive_packet(m_video_enc_ctx.get(), m_pkt.get()) == 0) {
@@ -663,6 +672,7 @@ void Recoder::flush_encoders_and_write_trailer() {
     av_write_trailer(m_fmt_ctx.get());
 }
 
+// Reset all encoding state to initial values
 void Recoder::reset_state() {
     m_fmt_ctx.reset();
     m_video_enc_ctx.reset();
@@ -698,6 +708,7 @@ void Recoder::reset_state() {
     if (m_video_queue) m_video_queue->clean_queue();
 }
 
+// Top-level encoding loop: init, main loop, drain, flush, cleanup
 void Recoder::encoding_loop() {
     if (!init_contexts()) {
         av_log(nullptr, AV_LOG_ERROR, "recording failed\n");

@@ -1,7 +1,3 @@
-//
-// Created by 66 on 2026/5/11.
-//
-
 #ifndef OBSIM_VIDEOCAPTOR_H
 #define OBSIM_VIDEOCAPTOR_H
 
@@ -25,6 +21,7 @@ extern "C" {
 #include <libavutil/imgutils.h>
 }
 
+/// @brief Configuration for video capture region and offset.
 struct CaptorConfig {
     int offset_x = 0;
     int offset_y = 0;
@@ -32,6 +29,8 @@ struct CaptorConfig {
     int height = 0;
 };
 
+/// @brief Base class for video capture from various input sources (e.g. screen, camera).
+/// Manages FFmpeg decoding pipeline, frame queue, and capture lifecycle.
 class VideoCaptor {
 public:
     using FrameReadyCallback = std::function<void()>;
@@ -47,10 +46,12 @@ public:
     std::optional<AVFramePtr> try_pop_frame();
     bool is_running() const { return is_capturing.load(); }
 
-    // ===== 子类必须实现 =====
+    /// @brief Returns the FFmpeg input format name (e.g. "gdigrab", "dshow").
     virtual const char* get_input_format_name() const = 0;
+    /// @brief Returns the device name or URL for the input source.
     virtual const char* get_device_name() const = 0;
-    virtual void setup_options(AVDictionary** opts) {}  // 可选的选项设置
+    /// @brief Sets up FFmpeg options before opening the input device.
+    virtual void setup_options(AVDictionary** opts) {}
 
 protected:
     virtual void apply_config(const CaptorConfig &config);
@@ -62,28 +63,27 @@ protected:
     virtual void push_frame(AVFramePtr frame);
     void notify_frame_ready();
 
-    // ===== 成员变量 =====
-    std::unique_ptr<DataSafeQueue<AVFramePtr>> queue;
-    std::atomic_bool is_capturing{false};
-    std::atomic_bool is_paused_{false};
-    std::thread cap_thread;
-    FrameReadyCallback frame_ready_callback;
-    std::mutex callback_mutex;
+    std::unique_ptr<DataSafeQueue<AVFramePtr>> queue;   ///< Frame queue for decoded video frames.
+    std::atomic_bool is_capturing{false};               ///< Whether capture is active.
+    std::atomic_bool is_paused_{false};                 ///< Whether capture is paused.
+    std::thread cap_thread;                             ///< Capture thread.
+    FrameReadyCallback frame_ready_callback;             ///< Callback invoked when a new frame is ready.
+    std::mutex callback_mutex;                          ///< Mutex protecting frame_ready_callback.
 
-    std::function<void(AVPacketPtr)> decode_func;
-    enum AVPixelFormat target_pixel_format = AV_PIX_FMT_BGRA;
-    bool change_fmt = false;
+    std::function<void(AVPacketPtr)> decode_func;       ///< Selected decode function based on pixel format.
+    enum AVPixelFormat target_pixel_format = AV_PIX_FMT_BGRA;  ///< Target pixel format for output.
+    bool change_fmt = false;                            ///< Whether pixel format conversion is needed.
 
-    CaptorConfig m_config;
+    CaptorConfig m_config;                              ///< Capture region configuration.
 
-    const AVInputFormat* av_input_format = nullptr;
-    const AVCodec* av_decoder = nullptr;
-    AVFormatContextPtr av_format_context = nullptr;
-    AVCodecContextPtr av_codec_context = nullptr;
-    AVDictionary* options = nullptr;
-    AVStreamPtr video_stream = nullptr;
-    SwsContextPtr sws_context = nullptr;
-    int video_index = -1;
+    const AVInputFormat* av_input_format = nullptr;     ///< FFmpeg input format.
+    const AVCodec* av_decoder = nullptr;                ///< FFmpeg video decoder.
+    AVFormatContextPtr av_format_context = nullptr;      ///< FFmpeg format context.
+    AVCodecContextPtr av_codec_context = nullptr;        ///< FFmpeg codec context.
+    AVDictionary* options = nullptr;                    ///< FFmpeg options dictionary.
+    AVStreamPtr video_stream = nullptr;                 ///< Video stream reference.
+    SwsContextPtr sws_context = nullptr;                ///< SWS scaling context for pixel format conversion.
+    int video_index = -1;                               ///< Index of the video stream.
 };
 
 #endif
