@@ -210,6 +210,61 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
 }
 
 
+// ==================== OBS 风格电平条控件 ====================
+
+class LevelMeterWidget : public QWidget {
+    Q_OBJECT
+public:
+    explicit LevelMeterWidget(QWidget *parent = nullptr)
+        : QWidget(parent) {
+        setFixedHeight(8);
+    }
+
+    Q_INVOKABLE void setValue(float value) {
+        m_value = std::clamp(value, 0.0f, 1.0f);
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing, true);
+
+        const float w = static_cast<float>(width());
+        const float h = static_cast<float>(height());
+        const float level_w = m_value * w;
+
+        QColor dim_green(30, 80, 30);
+        QColor dim_yellow(80, 80, 20);
+        QColor dim_red(80, 25, 25);
+
+        QColor bright_green(76, 200, 76);
+        QColor bright_yellow(220, 220, 60);
+        QColor bright_red(240, 60, 60);
+
+        const QRectF full_rect(0, 0, w, h);
+
+        QLinearGradient bg_grad(0, 0, w, 0);
+        bg_grad.setColorAt(0.0, dim_green);
+        bg_grad.setColorAt(0.6, dim_yellow);
+        bg_grad.setColorAt(0.85, dim_red);
+        bg_grad.setColorAt(1.0, dim_red);
+        p.fillRect(full_rect, bg_grad);
+
+        if (level_w > 0.0f) {
+            QLinearGradient fg_grad(0, 0, w, 0);
+            fg_grad.setColorAt(0.0, bright_green);
+            fg_grad.setColorAt(0.6, bright_yellow);
+            fg_grad.setColorAt(0.85, bright_red);
+            fg_grad.setColorAt(1.0, bright_red);
+            p.fillRect(QRectF(0, 0, level_w, h), fg_grad);
+        }
+    }
+
+private:
+    float m_value = 0.0f;
+};
+
 // ==================== 混音控制块 ====================
 
 AudioMixerBlock::AudioMixerBlock(QWidget *parent)
@@ -263,26 +318,9 @@ AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString 
     tw.volume_slider->setRange(0, 100);
     tw.volume_slider->setValue(static_cast<int>(volume * 100));
 
-    // 第三行：电平表（带颜色渐变效果）
-    tw.level_meter = new QProgressBar();
-    tw.level_meter->setRange(0, 100);
-    tw.level_meter->setValue(0);
-    tw.level_meter->setTextVisible(false);
+    // 第三行：电平表（OBS 风格双层绘制）
+    tw.level_meter = new LevelMeterWidget();
     tw.level_meter->setFixedHeight(8);
-
-    // 动态颜色样式：低电平绿色，中电平黄色，高电平红色
-    tw.level_meter->setStyleSheet(
-        "QProgressBar {"
-        "  background-color: #2a2a2a;"
-        "  border: 1px solid #555;"
-        "  border-radius: 2px;"
-        "}"
-        "QProgressBar::chunk {"
-        "  background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,"
-        "    stop:0 #4CAF50, stop:0.6 #FFEB3B, stop:0.85 #FF9800, stop:1 #F44336);"
-        "  border-radius: 1px;"
-        "}"
-    );
 
     layout->addLayout(top_row);
     layout->addWidget(tw.volume_slider);
@@ -422,10 +460,8 @@ void AudioMixerBlock::set_track_volume(const QString &name, float volume) {
 void AudioMixerBlock::update_track_level(const QString &name, float level) {
     auto it = m_tracks.find(name);
     if (it != m_tracks.end()) {
-        int value = static_cast<int>(level * 100);
-        // 用 QMetaObject::invokeMethod 确保 UI 更新在主线程
         QMetaObject::invokeMethod(it->second.level_meter, "setValue",
-                                  Qt::QueuedConnection, Q_ARG(int, value));
+                                  Qt::QueuedConnection, Q_ARG(float, level));
     }
 }
 
@@ -839,3 +875,5 @@ void ControlBar::init_layout() {
 
     main_layout->addWidget(main_splitter);
 }
+
+#include "controlbar.moc"

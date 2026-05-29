@@ -104,6 +104,8 @@ private:
 };
 
 
+class LevelMeterWidget;
+
 // ==================== 混音控制块 ====================
 class AudioMixerBlock : public ControlBlock {
     Q_OBJECT
@@ -111,19 +113,11 @@ class AudioMixerBlock : public ControlBlock {
 public:
     explicit AudioMixerBlock(QWidget *parent = nullptr);
 
-    // 添加一个音轨
     void add_track(const QString &name, float volume = 1.0f);
-
-    // 移除一个音轨
     void remove_track(const QString &name);
-
-    // 清空所有音轨
     void clear_tracks();
-
     void update_track_level(const QString &name, float level);
-
     void set_track_muted(const QString &name, bool muted);
-
     void sync_audio_devices(const QString &system_device_id, const QString &mic_device_name) {
         m_selected_system_device_id = system_device_id;
         m_selected_mic_device_name = mic_device_name;
@@ -132,11 +126,8 @@ public:
 
 signals:
     void track_volume_changed(const QString &name, float volume);
-
     void track_muted_changed(const QString &name, bool muted);
-
     void system_audio_device_selected(const QString &device_id);
-
     void mic_audio_device_selected(const QString &device_name);
 
 private:
@@ -144,7 +135,7 @@ private:
         QWidget *container;
         QLabel *name_label;
         QSlider *volume_slider;
-        QProgressBar *level_meter;
+        LevelMeterWidget *level_meter;
         QPushButton *mute_btn;
         QPushButton *settings_btn;
     };
