@@ -123,6 +123,7 @@ file(GLOB_RECURSE FRONTEND_SOURCES
 add_executable(OBSIM
         main.cpp
         ${FRONTEND_SOURCES}
+        resources/resources.qrc
 )
 
 target_compile_definitions(OBSIM PRIVATE

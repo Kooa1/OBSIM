@@ -139,7 +139,7 @@ PreviewBaseWidget::create_split_panel(const QString &title, QWidget *parent) {
 
     auto *title_bar = new QHBoxLayout();
     auto *title_label = new QLabel(title, left_widget);
-    title_label->setStyleSheet("font-weight: bold; font-size: 13px; color: white;");
+    title_label->setObjectName("block_title");
     title_bar->addWidget(title_label);
     title_bar->addStretch();
     left_layout->addLayout(title_bar);

@@ -297,16 +297,7 @@ AudioMixerBlock::TrackWidget AudioMixerBlock::create_track_widget(const QString 
 
     tw.settings_btn = new QPushButton("···");
     tw.settings_btn->setFixedSize(24, 24);
-    tw.settings_btn->setStyleSheet(
-        "QPushButton {"
-        "  border: none;"
-        "  font-weight: bold;"
-        "  color: #aaa;"
-        "}"
-        "QPushButton:hover {"
-        "  color: #fff;"
-        "}"
-    );
+    tw.settings_btn->setObjectName("mixer_settings_btn");
 
     top_row->addWidget(tw.name_label);
     top_row->addStretch();

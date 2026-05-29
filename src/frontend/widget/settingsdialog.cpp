@@ -70,7 +70,7 @@ void SettingsDialog::init_output_page() {
     layout->setContentsMargins(16, 16, 16, 16);
 
     auto *title = new QLabel("录像输出路径");
-    title->setStyleSheet("font-weight: bold; font-size: 14px;");
+    title->setObjectName("settings_title");
     layout->addWidget(title);
     layout->addSpacing(8);
 
@@ -127,7 +127,7 @@ void SettingsDialog::init_streaming_page() {
     layout->setContentsMargins(16, 16, 16, 16);
 
     auto *title = new QLabel("推流设置");
-    title->setStyleSheet("font-weight: bold; font-size: 14px;");
+    title->setObjectName("settings_title");
     layout->addWidget(title);
     layout->addSpacing(8);
 
@@ -159,7 +159,7 @@ void SettingsDialog::init_streaming_page() {
     layout->addLayout(url_layout);
 
     auto *hint = new QLabel("请输入有效的 RTMP 推流地址");
-    hint->setStyleSheet("color: #888; font-size: 11px;");
+    hint->setObjectName("settings_hint");
     layout->addWidget(hint);
     layout->addStretch();
 

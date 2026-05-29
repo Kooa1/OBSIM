@@ -34,7 +34,7 @@ public:
         auto *title_bar = new QHBoxLayout();
         auto *icon_label = new QLabel("📋");
         auto *title_label = new QLabel(title);
-        title_label->setStyleSheet("font-weight: bold; font-size: 13px;");
+        title_label->setObjectName("block_title");
         title_bar->addWidget(icon_label);
         title_bar->addWidget(title_label);
         title_bar->addStretch();

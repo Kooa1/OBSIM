@@ -1,0 +1,454 @@
+/* ===================================================
+   OBSIM 全局样式表
+   通过 resources/resources.qrc 加载，在 main.cpp 中用 qApp->setStyleSheet() 应用
+   =================================================== */
+
+/* ---------- 通用背景 ---------- */
+QWidget {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+}
+
+/* ---------- QPushButton ---------- */
+QPushButton {
+    background-color: #3a3a3a;
+    color: #e0e0e0;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+QPushButton:hover {
+    background-color: #4a4a4a;
+    border-color: #777777;
+}
+
+QPushButton:pressed {
+    background-color: #2a2a2a;
+}
+
+QPushButton:disabled {
+    background-color: #2a2a2a;
+    color: #666666;
+    border-color: #3a3a3a;
+}
+
+/* ---------- QLabel ---------- */
+QLabel {
+    background: transparent;
+    color: #e0e0e0;
+    font-size: 12px;
+}
+
+/* ---------- QSlider 水平 ---------- */
+QSlider::groove:horizontal {
+    background: #3a3a3a;
+    height: 4px;
+    border-radius: 2px;
+}
+
+QSlider::handle:horizontal {
+    background: #888888;
+    width: 12px;
+    height: 12px;
+    margin: -4px 0;
+    border-radius: 6px;
+}
+
+QSlider::handle:horizontal:hover {
+    background: #aaaaaa;
+}
+
+QSlider::sub-page:horizontal {
+    background: #5a8aff;
+    border-radius: 2px;
+}
+
+QSlider::add-page:horizontal {
+    background: #3a3a3a;
+    border-radius: 2px;
+}
+
+/* ---------- QListWidget / QListView ---------- */
+QListWidget {
+    background-color: #252525;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+    outline: none;
+    font-size: 12px;
+}
+
+QListWidget::item {
+    padding: 3px 6px;
+    border-radius: 3px;
+}
+
+QListWidget::item:selected {
+    background-color: #3a6ea5;
+    color: #ffffff;
+}
+
+QListWidget::item:hover:!selected {
+    background-color: #2a2a2a;
+}
+
+QListWidget::item:alternate {
+    background-color: #2a2a2a;
+}
+
+/* ---------- QScrollBar 垂直 ---------- */
+QScrollBar:vertical {
+    background: #252525;
+    width: 8px;
+    border: none;
+}
+
+QScrollBar::handle:vertical {
+    background: #555555;
+    min-height: 30px;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #777777;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    background: none;
+}
+
+/* ---------- QScrollBar 水平 ---------- */
+QScrollBar:horizontal {
+    background: #252525;
+    height: 8px;
+    border: none;
+}
+
+QScrollBar::handle:horizontal {
+    background: #555555;
+    min-width: 30px;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #777777;
+}
+
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal {
+    width: 0px;
+}
+
+QScrollBar::add-page:horizontal,
+QScrollBar::sub-page:horizontal {
+    background: none;
+}
+
+/* ---------- QSplitter ---------- */
+QSplitter::handle {
+    background: #3a3a3a;
+}
+
+QSplitter::handle:horizontal {
+    width: 2px;
+}
+
+QSplitter::handle:vertical {
+    height: 2px;
+}
+
+/* ---------- QComboBox ---------- */
+QComboBox {
+    background-color: #3a3a3a;
+    color: #e0e0e0;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 12px;
+}
+
+QComboBox:hover {
+    border-color: #777777;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 20px;
+}
+
+QComboBox::down-arrow {
+    image: none;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 6px solid #888888;
+    margin-right: 4px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    border: 1px solid #555555;
+    selection-background-color: #3a6ea5;
+    selection-color: #ffffff;
+    outline: none;
+}
+
+/* ---------- QLineEdit ---------- */
+QLineEdit {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 12px;
+}
+
+QLineEdit:focus {
+    border-color: #5a8aff;
+}
+
+/* ---------- QPlainTextEdit ---------- */
+QPlainTextEdit {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+QPlainTextEdit:focus {
+    border-color: #5a8aff;
+}
+
+/* ---------- QGroupBox ---------- */
+QGroupBox {
+    font-weight: bold;
+    font-size: 12px;
+    border: 1px solid #3a3a3a;
+    border-radius: 6px;
+    margin-top: 10px;
+    padding-top: 6px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 6px;
+    color: #e0e0e0;
+}
+
+/* ---------- QSpinBox ---------- */
+QSpinBox {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 2px 4px;
+    font-size: 12px;
+}
+
+QSpinBox:focus {
+    border-color: #5a8aff;
+}
+
+QSpinBox::up-button, QSpinBox::down-button {
+    border: none;
+    background: #3a3a3a;
+    width: 16px;
+}
+
+QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+    background: #4a4a4a;
+}
+
+/* ---------- QFontComboBox ---------- */
+QFontComboBox {
+    background-color: #3a3a3a;
+    color: #e0e0e0;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 2px 4px;
+    font-size: 12px;
+}
+
+/* ---------- QDialog ---------- */
+QDialog {
+    background-color: #1e1e1e;
+}
+
+/* ---------- QDialogButtonBox ---------- */
+QDialogButtonBox QPushButton {
+    min-width: 60px;
+}
+
+/* ---------- QProgressBar ---------- */
+QProgressBar {
+    background-color: #2a2a2a;
+    border: 1px solid #3a3a3a;
+    border-radius: 3px;
+    text-align: center;
+    font-size: 10px;
+    color: transparent;
+}
+
+QProgressBar::chunk {
+    background-color: #5a8aff;
+    border-radius: 2px;
+}
+
+/* ---------- QMenu ---------- */
+QMenu {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 4px;
+}
+
+QMenu::item {
+    padding: 4px 24px 4px 8px;
+    border-radius: 3px;
+}
+
+QMenu::item:selected {
+    background-color: #3a6ea5;
+    color: #ffffff;
+}
+
+QMenu::icon {
+    padding-right: 6px;
+}
+
+/* ---------- QToolTip ---------- */
+QToolTip {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    border: 1px solid #555555;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 11px;
+}
+
+
+/* ===================================================
+   控件块标题样式
+   用于 ControlBlock 和 PreviewBaseWidget 中的标题标签
+   =================================================== */
+QLabel#block_title {
+    font-weight: bold;
+    font-size: 13px;
+    color: #e0e0e0;
+}
+
+
+/* ===================================================
+   SettingBar 样式
+   =================================================== */
+SettingBar {
+    background-color: #2a2a2a;
+    border-radius: 10px;
+}
+
+SettingBar QLabel {
+    color: #e0e0e0;
+    font-size: 14px;
+}
+
+SettingBar QPushButton {
+    color: #e0e0e0;
+    background-color: #555555;
+    border-radius: 6px;
+    font-size: 13px;
+    border: none;
+    padding: 4px 12px;
+}
+
+SettingBar QPushButton:hover {
+    background-color: #666666;
+}
+
+SettingBar QPushButton:disabled {
+    color: #999999;
+    background-color: #444444;
+}
+
+
+/* ===================================================
+   AudioMixerBlock — 混音器按钮样式
+   =================================================== */
+QPushButton#mixer_settings_btn {
+    border: none;
+    font-weight: bold;
+    color: #aaaaaa;
+    background: transparent;
+    font-size: 14px;
+}
+
+QPushButton#mixer_settings_btn:hover {
+    color: #ffffff;
+}
+
+
+/* ===================================================
+   SettingsDialog — 标题样式
+   =================================================== */
+QLabel#settings_title {
+    font-weight: bold;
+    font-size: 14px;
+    color: #e0e0e0;
+}
+
+QLabel#settings_hint {
+    color: #888888;
+    font-size: 11px;
+}
+
+
+/* ===================================================
+   PreviewBaseWidget — 右侧面板
+   =================================================== */
+QWidget#preview_right_panel {
+    background-color: #2a2a2a;
+}
+
+
+/* ===================================================
+   ControlBlock — 内容容器
+   =================================================== */
+ControlBlock {
+    background-color: #252525;
+    border: 1px solid #3a3a3a;
+    border-radius: 6px;
+}
+
+
+/* ===================================================
+   ScenePreviewWidget — 预览区域
+   =================================================== */
+ScenePreviewWidget {
+    background-color: #1a1a1a;
+}
+
+
+/* ===================================================
+   FilterPreviewWidget, SettingsPreviewWidget
+   =================================================== */
+FilterPreviewWidget, SettingsPreviewWidget {
+    background-color: #1e1e1e;
+}
+
+
+/* ===================================================
+   ControlBar, SettingBar — 父容器
+   =================================================== */
+ControlBar {
+    background-color: #1e1e1e;
+}

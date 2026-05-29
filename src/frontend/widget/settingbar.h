@@ -20,7 +20,6 @@ signals:
 
 private:
     void init_UI();
-    void init_CSS();
 
     QLabel *m_source_label = nullptr;
     QPushButton *m_filter_btn = nullptr;

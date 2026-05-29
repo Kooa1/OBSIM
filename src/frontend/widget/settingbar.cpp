@@ -26,6 +26,7 @@ void SettingBar::init_UI() {
     m_filter_btn = new QPushButton("滤镜", this);
     m_settings_btn = new QPushButton("设置", this);
 
+    this->setFixedHeight(50);
     m_filter_btn->setFixedSize(60, 30);
     m_settings_btn->setFixedSize(60, 30);
 
@@ -40,34 +41,4 @@ void SettingBar::init_UI() {
     connect(m_settings_btn, &QPushButton::clicked, this, [this]() {
         emit settings_clicked(m_current_source);
     });
-
-    init_CSS();
-}
-
-void SettingBar::init_CSS() {
-    this->setFixedHeight(50);
-    this->setStyleSheet(
-        "SettingBar {"
-        "  background: #808080;"
-        "  border-radius: 10px;"
-        "}"
-        "QLabel {"
-        "  color: white;"
-        "  font-size: 14px;"
-        "  background: transparent;"
-        "}"
-        "QPushButton {"
-        "  color: white;"
-        "  background: #555555;"
-        "  border-radius: 6px;"
-        "  font-size: 13px;"
-        "}"
-        "QPushButton:hover {"
-        "  background: #666666;"
-        "}"
-        "QPushButton:disabled {"
-        "  color: #999999;"
-        "  background: #444444;"
-        "}"
-    );
 }

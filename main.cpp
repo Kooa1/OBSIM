@@ -4,6 +4,7 @@
 
 // #include <vld.h>
 #include <QApplication>
+#include <QFile>
 
 #include "src/utils/PCH.h"
 #include "src/frontend/widget/mainwindow.h"
@@ -24,6 +25,15 @@ void init_FFMPEG() {
     av_log_set_level(AV_LOG_ERROR);
 }
 
+void load_global_stylesheet() {
+    QFile style_file(":/style.qss");
+    if (style_file.open(QFile::ReadOnly | QFile::Text)) {
+        QString style = QString::fromUtf8(style_file.readAll());
+        qApp->setStyleSheet(style);
+        style_file.close();
+    }
+}
+
 int main(int argc, char *argv[]) {
     init_QSettings();
     init_FFMPEG();
@@ -32,6 +42,7 @@ int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
 
     MainWindow main_window;
+    load_global_stylesheet();
 
     return QApplication::exec();
 
