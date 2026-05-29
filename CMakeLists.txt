@@ -16,9 +16,7 @@ if (WIN32)
     # OpenCV
     set(OpenCV_DIR "D:/develop-src/opencv/build")
     
-    # SDL2 配置
-    include_directories("D:/develop-src/SDL2-2.32.8/include")
-    link_directories("D:/develop-src/SDL2-2.32.8/lib/x64")
+
     
     # FFmpeg 配置
     include_directories("D:/develop-src/ffmpeg-7.1.1/include")
@@ -30,9 +28,7 @@ if (WIN32)
 elseif (APPLE)
     set(CMAKE_PREFIX_PATH "/Users/wuwenze/Qt/6.9.0/macos/lib/cmake/Qt6")
     
-    set(SDL_ROOT "/opt/homebrew/Cellar/sdl2/2.32.10")
-    include_directories("/opt/homebrew/Cellar/sdl2/2.32.10/include")
-    link_directories("/opt/homebrew/Cellar/sdl2/2.32.10/lib")
+
     
     set(FFMPEG_ROOT "/opt/homebrew/Cellar/ffmpeg/8.0_1")
     include_directories("/opt/homebrew/Cellar/ffmpeg/8.0_1/include")
@@ -146,13 +142,7 @@ target_link_libraries(OBSIM PRIVATE
 )
 
 if (WIN32)
-    target_link_libraries(OBSIM PRIVATE
-            SDL2main SDL2
-    )
-elseif (APPLE)
-    target_link_libraries(OBSIM PRIVATE
-            SDL2
-    )
+elseif (APPLE)    
 endif ()
 
 # MSVC 编译器选项
@@ -201,7 +191,7 @@ if (WIN32)
     set(QT_INSTALL_PATH "D:/application/Qt/6.9.0/msvc2022_64")
     set(FFMPEG_BIN_DIR "D:/develop-src/ffmpeg-7.1.1/bin")
     set(OPENCV_BIN_DIR "D:/develop-src/opencv/build/x64/vc16/bin")
-    set(SDL2_BIN_DIR "D:/develop-src/SDL2-2.32.8/lib/x64")
+
     set(VLD_BIN_DIR "D:/application/Visual Leak Detector/bin/Win64")
     
     # 调试版本后缀
@@ -303,16 +293,6 @@ if (WIN32)
             )
         endif ()
     endforeach ()
-    
-    # ========================= SDL2 DLL =========================
-    set(SDL2_DLL "${SDL2_BIN_DIR}/SDL2.dll")
-    if (EXISTS "${SDL2_DLL}")
-        add_custom_command(TARGET OBSIM POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${SDL2_DLL}" "${OUT_DIR}"
-                COMMENT "Copying SDL2.dll"
-        )
-    endif ()
     
     # ========================= Visual Leak Detector DLL (仅 Debug) =========================
     if (WIN32)
