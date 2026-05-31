@@ -115,6 +115,7 @@ private:
     static constexpr size_t MAX_FIFO_SIZE = 48000 * 10;      ///< Max FIFO capacity (10 seconds).
 
     std::atomic<bool> m_recording{false};                    ///< Whether recording is active.
+    std::atomic<bool> m_flush_done{false};                   ///< All encoding producers finished.
     std::thread m_encode_thread;                             ///< Encoding thread.
     std::thread m_write_thread;                              ///< Packet write thread.
     std::unique_ptr<DataSafeQueue<VideoFrame> > m_video_queue;  ///< Input queue for video frames.

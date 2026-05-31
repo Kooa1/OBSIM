@@ -1,5 +1,7 @@
 #include "recoder.h"
 
+#include <future>
+
 Recoder::Recoder() = default;
 
 Recoder::~Recoder() {
@@ -37,7 +39,16 @@ void Recoder::stop() {
     wake_queue(m_mic_audio_src);
 
     if (m_encode_thread.joinable()) {
-        m_encode_thread.join();
+        std::packaged_task<void()> join_task([this]() {
+            m_encode_thread.join();
+        });
+        auto future = join_task.get_future();
+        std::thread(std::move(join_task)).detach();
+
+        if (future.wait_for(std::chrono::seconds(3)) != std::future_status::ready) {
+            av_log(nullptr, AV_LOG_WARNING, "encode thread did not exit within 3s, detaching\n");
+            m_encode_thread.detach();
+        }
     }
 
     auto reset_queue = [](auto *q) {
@@ -705,6 +716,7 @@ void Recoder::reset_state() {
 
     if (m_video_queue) m_video_queue->clean_queue();
     m_packet_queue.clean_queue();
+    m_flush_done.store(false);
 }
 
 // Write thread: pull packets from queue and write to output
@@ -715,7 +727,7 @@ void Recoder::write_loop() {
             if (av_interleaved_write_frame(m_fmt_ctx.get(), pkt_opt->get()) < 0) {
                 av_log(nullptr, AV_LOG_ERROR, "av_interleaved_write_frame failed\n");
             }
-        } else if (!m_recording.load() && m_packet_queue.is_empty()) {
+        } else if (m_flush_done.load() && m_packet_queue.is_empty()) {
             break;
         }
     }
@@ -737,7 +749,14 @@ void Recoder::encoding_loop() {
     drain_audio_residual();
     flush_encoders();
 
+    m_flush_done.store(true);
+    m_packet_queue.set_pause_state(true);
+    m_packet_queue.nut_empty_wake_up();
+
     if (m_write_thread.joinable()) m_write_thread.join();
+
+    m_packet_queue.set_pause_state(false);
+    m_packet_queue.clean_queue();
 
     av_write_trailer(m_fmt_ctx.get());
     reset_state();
