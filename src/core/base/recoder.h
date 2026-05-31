@@ -101,7 +101,9 @@ private:
 
     void drain_audio_residual();
 
-    void flush_encoders_and_write_trailer();
+    void flush_encoders();
+
+    void write_loop();
 
     void reset_state();
 
@@ -114,7 +116,9 @@ private:
 
     std::atomic<bool> m_recording{false};                    ///< Whether recording is active.
     std::thread m_encode_thread;                             ///< Encoding thread.
+    std::thread m_write_thread;                              ///< Packet write thread.
     std::unique_ptr<DataSafeQueue<VideoFrame> > m_video_queue;  ///< Input queue for video frames.
+    DataSafeQueue<AVPacketPtr> m_packet_queue{300};          ///< Packet queue for async write.
 
     DataSafeQueue<AVFramePtr> *m_system_audio_src = nullptr;  ///< System audio source queue.
     DataSafeQueue<AVFramePtr> *m_mic_audio_src = nullptr;    ///< Microphone audio source queue.

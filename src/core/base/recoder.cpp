@@ -100,10 +100,10 @@ void Recoder::encode_video_frame(int64_t pts) {
     while (avcodec_receive_packet(m_video_enc_ctx.get(), m_pkt.get()) == 0) {
         av_packet_rescale_ts(m_pkt.get(), m_video_enc_ctx->time_base, m_video_stream->time_base);
         m_pkt->stream_index = m_video_stream->index;
-        if (av_interleaved_write_frame(m_fmt_ctx.get(), m_pkt.get()) < 0) {
-            av_log(nullptr, AV_LOG_ERROR, "video av_interleaved_write_frame failed\n");
-        }
+        AVPacketPtr write_pkt(av_packet_alloc(), AVPacketDeleter());
+        if (av_packet_ref(write_pkt.get(), m_pkt.get()) < 0) break;
         av_packet_unref(m_pkt.get());
+        m_packet_queue.push(std::move(write_pkt));
     }
 }
 
@@ -122,10 +122,10 @@ bool Recoder::encode_audio_frame() {
     while (avcodec_receive_packet(m_audio_enc_ctx.get(), m_pkt.get()) == 0) {
         av_packet_rescale_ts(m_pkt.get(), m_audio_enc_ctx->time_base, m_audio_stream->time_base);
         m_pkt->stream_index = m_audio_stream->index;
-        if (av_interleaved_write_frame(m_fmt_ctx.get(), m_pkt.get()) < 0) {
-            av_log(nullptr, AV_LOG_ERROR, "audio av_interleaved_write_frame failed\n");
-        }
+        AVPacketPtr write_pkt(av_packet_alloc(), AVPacketDeleter());
+        if (av_packet_ref(write_pkt.get(), m_pkt.get()) < 0) break;
         av_packet_unref(m_pkt.get());
+        m_packet_queue.push(std::move(write_pkt));
     }
     return true;
 }
@@ -645,16 +645,16 @@ void Recoder::drain_audio_residual() {
     }
 }
 
-// Flush both encoders and write the output file trailer
-void Recoder::flush_encoders_and_write_trailer() {
+// Flush both encoders (packets go to write queue)
+void Recoder::flush_encoders() {
     avcodec_send_frame(m_video_enc_ctx.get(), nullptr);
     while (avcodec_receive_packet(m_video_enc_ctx.get(), m_pkt.get()) == 0) {
         av_packet_rescale_ts(m_pkt.get(), m_video_enc_ctx->time_base, m_video_stream->time_base);
         m_pkt->stream_index = m_video_stream->index;
-        if (av_interleaved_write_frame(m_fmt_ctx.get(), m_pkt.get()) < 0) {
-            av_log(nullptr, AV_LOG_ERROR, "video flush av_interleaved_write_frame failed\n");
-        }
+        AVPacketPtr write_pkt(av_packet_alloc(), AVPacketDeleter());
+        if (av_packet_ref(write_pkt.get(), m_pkt.get()) < 0) break;
         av_packet_unref(m_pkt.get());
+        m_packet_queue.push(std::move(write_pkt));
     }
 
     if (m_has_audio && m_audio_enc_ctx) {
@@ -662,14 +662,12 @@ void Recoder::flush_encoders_and_write_trailer() {
         while (avcodec_receive_packet(m_audio_enc_ctx.get(), m_pkt.get()) == 0) {
             av_packet_rescale_ts(m_pkt.get(), m_audio_enc_ctx->time_base, m_audio_stream->time_base);
             m_pkt->stream_index = m_audio_stream->index;
-            if (av_interleaved_write_frame(m_fmt_ctx.get(), m_pkt.get()) < 0) {
-                av_log(nullptr, AV_LOG_ERROR, "audio flush av_interleaved_write_frame failed\n");
-            }
+            AVPacketPtr write_pkt(av_packet_alloc(), AVPacketDeleter());
+            if (av_packet_ref(write_pkt.get(), m_pkt.get()) < 0) break;
             av_packet_unref(m_pkt.get());
+            m_packet_queue.push(std::move(write_pkt));
         }
     }
-
-    av_write_trailer(m_fmt_ctx.get());
 }
 
 // Reset all encoding state to initial values
@@ -706,6 +704,21 @@ void Recoder::reset_state() {
     }
 
     if (m_video_queue) m_video_queue->clean_queue();
+    m_packet_queue.clean_queue();
+}
+
+// Write thread: pull packets from queue and write to output
+void Recoder::write_loop() {
+    while (true) {
+        auto pkt_opt = m_packet_queue.try_pop();
+        if (pkt_opt) {
+            if (av_interleaved_write_frame(m_fmt_ctx.get(), pkt_opt->get()) < 0) {
+                av_log(nullptr, AV_LOG_ERROR, "av_interleaved_write_frame failed\n");
+            }
+        } else if (!m_recording.load() && m_packet_queue.is_empty()) {
+            break;
+        }
+    }
 }
 
 // Top-level encoding loop: init, main loop, drain, flush, cleanup
@@ -716,11 +729,16 @@ void Recoder::encoding_loop() {
         return;
     }
 
+    m_write_thread = std::thread([this]() { write_loop(); });
+
     main_encode_loop();
 
     drain_video_frames();
     drain_audio_residual();
-    flush_encoders_and_write_trailer();
+    flush_encoders();
 
+    if (m_write_thread.joinable()) m_write_thread.join();
+
+    av_write_trailer(m_fmt_ctx.get());
     reset_state();
 }
