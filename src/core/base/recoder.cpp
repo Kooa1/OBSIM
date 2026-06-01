@@ -21,7 +21,14 @@ void Recoder::start(const std::string &output_path, int canvas_w, int canvas_h, 
     m_canvas_h = canvas_h;
     m_fps = fps;
 
-    m_video_queue = std::make_unique<DataSafeQueue<VideoFrame>>(120);
+    m_video_queue = std::make_shared<DataSafeQueue<VideoFrame>>(120);
+
+    if (!init_codecs()) {
+        av_log(nullptr, AV_LOG_ERROR, "recording: codec init failed\n");
+        m_video_queue.reset();
+        return;
+    }
+
     m_recording.store(true);
     m_encode_thread = std::thread([this]() { encoding_loop(); });
 }
@@ -62,17 +69,20 @@ void Recoder::stop() {
 }
 
 void Recoder::feed_frame(const uint8_t *data, int stride, int capture_w, int capture_h) {
-    if (!m_recording.load() || !m_video_queue) return;
+    if (!m_recording.load()) return;
+    auto q = m_video_queue;
+    if (!q) return;
     VideoFrame frame;
     frame.data.assign(data, data + stride * capture_h);
     frame.width = capture_w;
     frame.height = capture_h;
     frame.stride = stride;
-    m_video_queue->push_no_wait(std::move(frame));
+    q->push_no_wait(std::move(frame));
 }
 
 bool Recoder::init_audio_swr(SwrContextPtr &swr, const AVFrame *frame) {
     if (swr) return true;
+    if (!frame) return false;
 
     AVChannelLayout out_ch_layout;
     av_channel_layout_default(&out_ch_layout, AUDIO_CHANNELS);
@@ -125,7 +135,8 @@ void Recoder::encode_video_frame(int64_t pts) {
     if (!m_pkt) return;
     m_yuv_frame->pts = pts;
     int ret = avcodec_send_frame(m_video_enc_ctx.get(), m_yuv_frame.get());
-    while (ret == AVERROR(EAGAIN)) {
+    int max_retries = 100;
+    while (ret == AVERROR(EAGAIN) && max_retries-- > 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
         ret = avcodec_send_frame(m_video_enc_ctx.get(), m_yuv_frame.get());
     }
@@ -143,7 +154,8 @@ bool Recoder::encode_audio_frame() {
     if (!m_pkt) return false;
     m_audio_frame->pts = m_audio_pts;
     int ret = avcodec_send_frame(m_audio_enc_ctx.get(), m_audio_frame.get());
-    while (ret == AVERROR(EAGAIN)) {
+    int max_retries = 100;
+    while (ret == AVERROR(EAGAIN) && max_retries-- > 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
         ret = avcodec_send_frame(m_audio_enc_ctx.get(), m_audio_frame.get());
     }
@@ -176,6 +188,7 @@ bool Recoder::init_codecs() {
     video_ctx->bit_rate = 10'000'000;
     video_ctx->gop_size = m_fps * 2;
     video_ctx->max_b_frames = 0;
+    video_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
     {
         AVDictionary *opts = nullptr;
         av_dict_set(&opts, "preset", "veryfast", 0);
@@ -219,6 +232,7 @@ bool Recoder::init_codecs() {
             audio_ctx->sample_fmt = acodec->sample_fmts ? acodec->sample_fmts[0] : AV_SAMPLE_FMT_FLTP;
             audio_ctx->bit_rate = 128'000;
             audio_ctx->time_base = AVRational{1, AUDIO_SAMPLE_RATE};
+            audio_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
             AVDictionary *aopts = nullptr;
             av_dict_set(&aopts, "strict", "experimental", 0);
@@ -404,7 +418,8 @@ void Recoder::mix_audio_streams() {
 }
 
 void Recoder::process_video_frame() {
-    auto video_data = m_video_queue ? m_video_queue->try_pop() : std::nullopt;
+    auto q = m_video_queue;
+    auto video_data = q ? q->try_pop() : std::nullopt;
     if (!video_data) return;
 
     int cap_w = video_data->width;
@@ -485,9 +500,10 @@ void Recoder::main_encode_loop() {
         }
 
         {
-            size_t before = m_video_queue ? m_video_queue->get_queue_size() : 0;
+            auto q = m_video_queue;
+            size_t before = q ? q->get_queue_size() : 0;
             process_video_frame();
-            if (!m_video_queue || m_video_queue->get_queue_size() != before) did_work = true;
+            if (!q || q->get_queue_size() != before) did_work = true;
         }
 
         if (m_has_audio) {
@@ -511,8 +527,9 @@ void Recoder::main_encode_loop() {
 }
 
 void Recoder::drain_video_frames() {
-    while (m_video_queue && !m_video_queue->is_empty()) {
-        auto video_data = m_video_queue->try_pop();
+    auto q = m_video_queue;
+    while (q && !q->is_empty()) {
+        auto video_data = q->try_pop();
         if (!video_data) break;
 
         int cap_w = video_data->width;
@@ -677,16 +694,13 @@ void Recoder::reset_state() {
         std::deque<float>().swap(m_mic_fifo[ch]);
     }
 
-    if (m_video_queue) m_video_queue->clean_queue();
+    if (m_video_queue) {
+        m_video_queue->clean_queue();
+        m_video_queue.reset();
+    }
 }
 
 void Recoder::encoding_loop() {
-    if (!init_codecs()) {
-        av_log(nullptr, AV_LOG_ERROR, "recording failed\n");
-        reset_state();
-        return;
-    }
-
     main_encode_loop();
 
     drain_video_frames();

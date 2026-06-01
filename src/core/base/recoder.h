@@ -111,7 +111,7 @@ private:
     std::atomic<bool> m_recording{false};
     std::thread m_encode_thread;
 
-    std::unique_ptr<DataSafeQueue<VideoFrame>> m_video_queue;
+    std::shared_ptr<DataSafeQueue<VideoFrame>> m_video_queue;
     DataSafeQueue<AVFramePtr> *m_system_audio_src = nullptr;
     DataSafeQueue<AVFramePtr> *m_mic_audio_src = nullptr;
 
