@@ -6,10 +6,12 @@
 #include <memory>
 #include <vector>
 #include <deque>
+#include <mutex>
 
 #include "../../utils/ffmpegfactory.h"
 #include "../../utils/datasafequeue.h"
 #include "../../utils/av_err2str_cxx.h"
+#include "../outputchannel.h"
 
 extern "C" {
 #include <libavutil/log.h>
@@ -22,33 +24,22 @@ extern "C" {
 #include <libavutil/opt.h>
 }
 
-/// @brief Represents a raw video frame with pixel data for encoding.
 struct VideoFrame {
-    std::vector<uint8_t> data;  ///< Raw pixel data (BGRA format).
-    int width = 0;              ///< Frame width in pixels.
-    int height = 0;             ///< Frame height in pixels.
-    int stride = 0;             ///< Stride (bytes per row).
+    std::vector<uint8_t> data;
+    int width = 0;
+    int height = 0;
+    int stride = 0;
 };
 
-/// @brief Encodes video (and optional audio) into an output file.
-/// Handles FFmpeg encoding pipeline: color conversion, audio resampling,
-/// audio mixing from multiple sources, and output muxing.
 class Recoder {
 public:
     Recoder();
 
     virtual ~Recoder();
 
-    /// @brief Starts recording with the given output path and canvas dimensions.
-    /// @param output_path Path to the output file.
-    /// @param canvas_w Canvas width in pixels.
-    /// @param canvas_h Canvas height in pixels.
-    /// @param fps Target frame rate.
-    /// @param system_audio_src Optional queue for system audio frames.
-    /// @param mic_audio_src Optional queue for microphone audio frames.
-    virtual void start(const std::string &output_path, int canvas_w, int canvas_h, int fps = 30,
-                       DataSafeQueue<AVFramePtr> *system_audio_src = nullptr,
-                       DataSafeQueue<AVFramePtr> *mic_audio_src = nullptr);
+    void start(const std::string &output_path, int canvas_w, int canvas_h, int fps = 30,
+               DataSafeQueue<AVFramePtr> *system_audio_src = nullptr,
+               DataSafeQueue<AVFramePtr> *mic_audio_src = nullptr);
 
     void stop();
 
@@ -64,15 +55,17 @@ public:
     bool is_system_muted() const { return m_system_muted.load(); }
     bool is_mic_muted() const { return m_mic_muted.load(); }
 
-    /// @brief Feeds a raw BGRA video frame into the encoding queue.
     void feed_frame(const uint8_t *data, int stride, int capture_w, int capture_h);
 
-protected:
-    /// @brief Creates the FFmpeg output format context for the specific output type.
-    virtual AVFormatOutputContextPtr create_format_context() = 0;
+    void register_output(OutputChannel *channel);
+    void unregister_output(OutputChannel *channel);
+    size_t output_count() const;
 
-    /// @brief Opens the output IO context (e.g. file, network).
-    virtual bool open_io(AVFormatOutputContextPtr &fmt_ctx) = 0;
+    AVCodecParameters *video_codecpar() const;
+    AVCodecParameters *audio_codecpar() const;
+    bool has_audio() const { return m_has_audio; }
+    AVRational video_time_base() const;
+    AVRational audio_time_base() const;
 
 private:
     void encoding_loop();
@@ -83,7 +76,10 @@ private:
 
     bool encode_audio_frame();
 
-    bool init_contexts();
+    bool init_codecs();
+
+    void distribute_video_packet();
+    void distribute_audio_packet();
 
     void main_encode_loop();
 
@@ -103,64 +99,61 @@ private:
 
     void flush_encoders();
 
-    void write_loop();
-
     void reset_state();
 
 private:
-    static constexpr int AUDIO_SAMPLE_RATE = 48000;          ///< Output audio sample rate.
-    static constexpr int AUDIO_CHANNELS = 2;                 ///< Output audio channels (stereo).
-    static constexpr AVSampleFormat AUDIO_FORMAT = AV_SAMPLE_FMT_FLTP;  ///< Output audio format.
-    static constexpr int AUDIO_FRAME_SAMPLES = 1024;         ///< Samples per audio frame.
-    static constexpr size_t MAX_FIFO_SIZE = 48000 * 10;      ///< Max FIFO capacity (10 seconds).
+    static constexpr int AUDIO_SAMPLE_RATE = 48000;
+    static constexpr int AUDIO_CHANNELS = 2;
+    static constexpr AVSampleFormat AUDIO_FORMAT = AV_SAMPLE_FMT_FLTP;
+    static constexpr int AUDIO_FRAME_SAMPLES = 1024;
+    static constexpr size_t MAX_FIFO_SIZE = 48000 * 10;
 
-    std::atomic<bool> m_recording{false};                    ///< Whether recording is active.
-    std::atomic<bool> m_flush_done{false};                   ///< All encoding producers finished.
-    std::thread m_encode_thread;                             ///< Encoding thread.
-    std::thread m_write_thread;                              ///< Packet write thread.
-    std::unique_ptr<DataSafeQueue<VideoFrame> > m_video_queue;  ///< Input queue for video frames.
-    DataSafeQueue<AVPacketPtr> m_packet_queue{300};          ///< Packet queue for async write.
+    std::atomic<bool> m_recording{false};
+    std::thread m_encode_thread;
 
-    DataSafeQueue<AVFramePtr> *m_system_audio_src = nullptr;  ///< System audio source queue.
-    DataSafeQueue<AVFramePtr> *m_mic_audio_src = nullptr;    ///< Microphone audio source queue.
+    std::unique_ptr<DataSafeQueue<VideoFrame>> m_video_queue;
+    DataSafeQueue<AVFramePtr> *m_system_audio_src = nullptr;
+    DataSafeQueue<AVFramePtr> *m_mic_audio_src = nullptr;
 
-    int m_canvas_w = 0;                                      ///< Canvas width for output video.
-    int m_canvas_h = 0;                                      ///< Canvas height for output video.
-    int m_fps = 30;                                          ///< Target frame rate.
+    int m_canvas_w = 0;
+    int m_canvas_h = 0;
+    int m_fps = 30;
 
-    AVFormatOutputContextPtr m_fmt_ctx;                      ///< FFmpeg output format context.
-    AVCodecContextPtr m_video_enc_ctx;                       ///< Video encoder context.
-    AVStream *m_video_stream = nullptr;                      ///< Output video stream.
-    AVCodecContextPtr m_audio_enc_ctx;                       ///< Audio encoder context.
-    AVStream *m_audio_stream = nullptr;                      ///< Output audio stream.
-    SwsContextPtr m_sws_ctx;                                 ///< SWS context for RGB->YUV conversion.
-    SwrContextPtr m_sys_swr;                                 ///< SWR context for system audio resampling.
-    SwrContextPtr m_mic_swr;                                 ///< SWR context for mic audio resampling.
-    AVFramePtr m_yuv_frame;                                  ///< YUV frame buffer for encoding.
-    AVFramePtr m_audio_frame;                                ///< Audio frame buffer for encoding.
-    AVPacketPtr m_pkt;                                       ///< Reusable packet for encoded output.
+    AVCodecContextPtr m_video_enc_ctx;
+    AVCodecParameters *m_video_codecpar = nullptr;
+    AVCodecContextPtr m_audio_enc_ctx;
+    AVCodecParameters *m_audio_codecpar = nullptr;
+    mutable std::mutex m_channels_mutex;
+    std::vector<OutputChannel *> m_output_channels;
 
-    bool m_has_audio = false;                                ///< Whether audio streams are configured.
-    int m_audio_frame_size = AUDIO_FRAME_SAMPLES;            ///< Actual audio frame size.
-    int m_last_capture_w = 0;                                ///< Last captured frame width.
-    int m_last_capture_h = 0;                                ///< Last captured frame height.
+    SwsContextPtr m_sws_ctx;
+    SwrContextPtr m_sys_swr;
+    SwrContextPtr m_mic_swr;
+    AVFramePtr m_yuv_frame;
+    AVFramePtr m_audio_frame;
+    AVPacketPtr m_pkt;
 
-    int64_t m_audio_clock = 0;                               ///< Audio sample clock counter.
-    int64_t m_video_pts = 0;                                 ///< Video PTS counter.
-    int64_t m_audio_pts = 0;                                 ///< Audio PTS counter.
-    int64_t m_audio_frames_received = 0;                     ///< Total audio samples received.
-    int64_t m_audio_frames_encoded = 0;                      ///< Total audio samples encoded.
-    int64_t m_sys_silence_samples = 0;                       ///< Consecutive silence samples from system.
-    int64_t m_mic_silence_samples = 0;                       ///< Consecutive silence samples from mic.
+    bool m_has_audio = false;
+    int m_audio_frame_size = AUDIO_FRAME_SAMPLES;
+    int m_last_capture_w = 0;
+    int m_last_capture_h = 0;
 
-    std::deque<float> m_audio_fifo[2];                       ///< Mixed audio FIFO (L/R channels).
-    std::deque<float> m_sys_fifo[2];                         ///< System audio FIFO (L/R channels).
-    std::deque<float> m_mic_fifo[2];                         ///< Mic audio FIFO (L/R channels).
+    int64_t m_audio_clock = 0;
+    int64_t m_video_pts = 0;
+    int64_t m_audio_pts = 0;
+    int64_t m_audio_frames_received = 0;
+    int64_t m_audio_frames_encoded = 0;
+    int64_t m_sys_silence_samples = 0;
+    int64_t m_mic_silence_samples = 0;
 
-    std::atomic<float> m_system_volume{0.7f};                ///< System audio volume.
-    std::atomic<float> m_mic_volume{0.7f};                   ///< Microphone audio volume.
-    std::atomic<bool> m_system_muted{false};                  ///< System audio mute flag.
-    std::atomic<bool> m_mic_muted{false};                     ///< Microphone audio mute flag.
+    std::deque<float> m_audio_fifo[2];
+    std::deque<float> m_sys_fifo[2];
+    std::deque<float> m_mic_fifo[2];
+
+    std::atomic<float> m_system_volume{0.7f};
+    std::atomic<float> m_mic_volume{0.7f};
+    std::atomic<bool> m_system_muted{false};
+    std::atomic<bool> m_mic_muted{false};
 };
 
 #endif

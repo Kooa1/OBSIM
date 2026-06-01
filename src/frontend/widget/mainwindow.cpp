@@ -1,5 +1,7 @@
 #include "mainwindow.h"
 
+#include <QtConcurrent>
+
 MainWindow::MainWindow()
     : QWidget(nullptr) {
     setMouseTracking(true);
@@ -23,8 +25,9 @@ bool MainWindow::init_UI() {
         m_audio_manager->current_system_device_id(),
         QString::fromStdString(m_audio_manager->current_mic_device_name()));
 
-    m_recoder = std::make_unique<FileRecoder>();
-    m_stream_push = std::make_unique<StreamPush>();
+    m_recoder = std::make_unique<Recoder>();
+    m_file_output = std::make_unique<FileOutput>();
+    m_stream_output = std::make_unique<StreamOutput>();
 
     init_layout();
     connect_audio_signals();
@@ -51,10 +54,8 @@ void MainWindow::connect_audio_signals() {
             this, [this](const QString &name, float volume) {
         if (name == "桌面音频") {
             m_recoder->set_system_volume(volume);
-            m_stream_push->set_system_volume(volume);
         } else if (name == "麦克风") {
             m_recoder->set_mic_volume(volume);
-            m_stream_push->set_mic_volume(volume);
         }
         save_audio_settings();
     });
@@ -63,10 +64,8 @@ void MainWindow::connect_audio_signals() {
             this, [this](const QString &name, bool muted) {
         if (name == "桌面音频") {
             if (m_recoder) m_recoder->set_system_muted(muted);
-            if (m_stream_push) m_stream_push->set_system_muted(muted);
         } else if (name == "麦克风") {
             if (m_recoder) m_recoder->set_mic_muted(muted);
-            if (m_stream_push) m_stream_push->set_mic_muted(muted);
         }
         save_audio_settings();
     });
@@ -170,12 +169,6 @@ void MainWindow::load_audio_settings() {
             m_recoder->set_mic_volume(r.mic_vol);
             m_recoder->set_mic_muted(r.mic_muted);
         }
-        if (m_stream_push) {
-            m_stream_push->set_system_volume(r.sys_vol);
-            m_stream_push->set_system_muted(r.sys_muted);
-            m_stream_push->set_mic_volume(r.mic_vol);
-            m_stream_push->set_mic_muted(r.mic_muted);
-        }
 
         auto *mixer = control_bar->audio_mixer();
         if (mixer) {
@@ -212,12 +205,33 @@ void MainWindow::on_recording_started(const QString &output_path) {
 
     m_audio_manager->enable_recording_once();
 
-    m_recoder->start(file_path.toStdString(),
-                     static_cast<int>(ScenePreviewWidget::CANVAS_W),
-                     static_cast<int>(ScenePreviewWidget::CANVAS_H),
-                     30,
-                     m_audio_manager->system_record_queue(),
-                     m_audio_manager->mic_record_queue());
+    auto *watcher = new QFutureWatcher<void>(this);
+    QPointer<MainWindow> guard(this);
+    connect(watcher, &QFutureWatcher<void>::finished, this,
+            [this, guard, watcher]() {
+        if (!guard) { watcher->deleteLater(); return; }
+        watcher->deleteLater();
+        av_log(nullptr, AV_LOG_INFO, "recording started\n");
+    });
+
+    watcher->setFuture(QtConcurrent::run([this, file_path]() {
+        if (!m_recoder->is_recording()) {
+            m_recoder->start(file_path.toStdString(),
+                             static_cast<int>(ScenePreviewWidget::CANVAS_W),
+                             static_cast<int>(ScenePreviewWidget::CANVAS_H), 30,
+                             m_audio_manager->system_record_queue(),
+                             m_audio_manager->mic_record_queue());
+        }
+
+        if (m_recoder->is_recording() && m_file_output) {
+            m_file_output->start(file_path.toStdString(),
+                                 m_recoder->video_codecpar(),
+                                 m_recoder->audio_codecpar(),
+                                 m_recoder->video_time_base(),
+                                 m_recoder->audio_time_base());
+            m_recoder->register_output(m_file_output.get());
+        }
+    }));
 
     scene_preview_widget->set_frame_capture_callback(
         [this](const uint8_t *data, int stride, int w, int h) {
@@ -225,8 +239,6 @@ void MainWindow::on_recording_started(const QString &output_path) {
                 m_recoder->feed_frame(data, stride, w, h);
             }
         });
-
-    av_log(nullptr, AV_LOG_INFO, "recording started: %s\n", file_path.toUtf8().constData());
 }
 
 void MainWindow::on_recording_stopped() {
@@ -234,45 +246,100 @@ void MainWindow::on_recording_stopped() {
 
     scene_preview_widget->set_frame_capture_callback(nullptr);
 
-    m_recoder->stop();
+    auto *watcher = new QFutureWatcher<void>(this);
+    QPointer<MainWindow> guard(this);
+    connect(watcher, &QFutureWatcher<void>::finished, this,
+            [this, guard, watcher]() {
+        if (!guard) { watcher->deleteLater(); return; }
+        watcher->deleteLater();
 
-    m_audio_manager->disable_recording_once();
+        if (m_recoder->output_count() == 0) {
+            m_audio_manager->disable_recording_once();
+        }
+        av_log(nullptr, AV_LOG_INFO, "recording stopped\n");
+    });
 
-    av_log(nullptr, AV_LOG_INFO, "recording stopped\n");
+    watcher->setFuture(QtConcurrent::run([this]() {
+        if (m_file_output) {
+            m_recoder->unregister_output(m_file_output.get());
+            m_file_output->stop();
+        }
+
+        if (m_recoder->output_count() == 0) {
+            m_recoder->stop();
+        }
+    }));
 }
 
 void MainWindow::on_streaming_started(const QString &rtmp_url) {
-    if (!m_stream_push || !scene_preview_widget || !m_audio_manager) return;
+    if (!m_recoder || !scene_preview_widget || !m_audio_manager) return;
 
     m_audio_manager->enable_recording_once();
 
-    m_stream_push->start(rtmp_url.toStdString(),
-                         static_cast<int>(ScenePreviewWidget::CANVAS_W),
-                         static_cast<int>(ScenePreviewWidget::CANVAS_H),
-                         30,
-                         m_audio_manager->system_record_queue(),
-                         m_audio_manager->mic_record_queue());
+    auto *watcher = new QFutureWatcher<void>(this);
+    QPointer<MainWindow> guard(this);
+    connect(watcher, &QFutureWatcher<void>::finished, this,
+            [this, guard, watcher]() {
+        if (!guard) { watcher->deleteLater(); return; }
+        watcher->deleteLater();
+        av_log(nullptr, AV_LOG_INFO, "streaming started\n");
+    });
+
+    watcher->setFuture(QtConcurrent::run([this, rtmp_url]() {
+        if (!m_recoder->is_recording()) {
+            m_recoder->start(rtmp_url.toStdString(),
+                             static_cast<int>(ScenePreviewWidget::CANVAS_W),
+                             static_cast<int>(ScenePreviewWidget::CANVAS_H), 30,
+                             m_audio_manager->system_record_queue(),
+                             m_audio_manager->mic_record_queue());
+        }
+
+        if (m_recoder->is_recording() && m_stream_output) {
+            m_stream_output->start(rtmp_url.toStdString(),
+                                   m_recoder->video_codecpar(),
+                                   m_recoder->audio_codecpar(),
+                                   m_recoder->video_time_base(),
+                                   m_recoder->audio_time_base());
+            m_recoder->register_output(m_stream_output.get());
+        }
+    }));
 
     scene_preview_widget->set_frame_capture_callback(
         [this](const uint8_t *data, int stride, int w, int h) {
-            if (m_stream_push && m_stream_push->is_recording()) {
-                m_stream_push->feed_frame(data, stride, w, h);
+            if (m_recoder && m_recoder->is_recording()) {
+                m_recoder->feed_frame(data, stride, w, h);
             }
         });
-
-    av_log(nullptr, AV_LOG_INFO, "streaming started: %s\n", rtmp_url.toUtf8().constData());
 }
 
 void MainWindow::on_streaming_stopped() {
-    if (!m_stream_push || !scene_preview_widget) return;
+    if (!m_recoder || !scene_preview_widget) return;
 
     scene_preview_widget->set_frame_capture_callback(nullptr);
 
-    m_stream_push->stop();
+    auto *watcher = new QFutureWatcher<void>(this);
+    QPointer<MainWindow> guard(this);
+    connect(watcher, &QFutureWatcher<void>::finished, this,
+            [this, guard, watcher]() {
+        if (!guard) { watcher->deleteLater(); return; }
+        watcher->deleteLater();
 
-    m_audio_manager->disable_recording_once();
+        if (m_recoder->output_count() == 0) {
+            m_audio_manager->disable_recording_once();
+        }
+        av_log(nullptr, AV_LOG_INFO, "streaming stopped\n");
+    });
 
-    av_log(nullptr, AV_LOG_INFO, "streaming stopped\n");
+    watcher->setFuture(QtConcurrent::run([this]() {
+        if (m_stream_output) {
+            m_recoder->unregister_output(m_stream_output.get());
+            m_stream_output->stop();
+        }
+
+        if (m_recoder->output_count() == 0) {
+            m_recoder->stop();
+        }
+    }));
 }
 
 void MainWindow::load_settings() {

@@ -18,8 +18,9 @@
 #include "settingspreviewwidget.h"
 
 #include "../../core/audiomanager.h"
-#include "../../core/filerecoder.h"
-#include "../../core/streampush.h"
+#include "../../core/base/recoder.h"
+#include "../../core/fileoutput.h"
+#include "../../core/streamoutput.h"
 #include "../../core/base/videocaptor.h"
 #include "../../utils/configmanager.h"
 #include "../../core/screencapturesource.h"
@@ -99,8 +100,9 @@ private:
     ControlBar *control_bar = nullptr;              ///< Control bar
 
     std::unique_ptr<AudioManager> m_audio_manager;  ///< Audio manager
-    std::unique_ptr<FileRecoder> m_recoder;          ///< File recorder
-    std::unique_ptr<StreamPush> m_stream_push;       ///< Stream pusher
+    std::unique_ptr<Recoder> m_recoder;              ///< Encoder engine
+    std::unique_ptr<FileOutput> m_file_output;       ///< File output channel
+    std::unique_ptr<StreamOutput> m_stream_output;   ///< Stream output channel
 
     QPointer<FilterPreviewWidget> m_filter_window;   ///< Filter preview window
     QPointer<SettingsPreviewWidget> m_settings_window; ///< Settings preview window

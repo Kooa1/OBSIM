@@ -1,5 +1,6 @@
 #include "recoder.h"
 
+#include <algorithm>
 #include <future>
 
 Recoder::Recoder() = default;
@@ -9,8 +10,8 @@ Recoder::~Recoder() {
 }
 
 void Recoder::start(const std::string &output_path, int canvas_w, int canvas_h, int fps,
-                        DataSafeQueue<AVFramePtr> *system_audio_src,
-                        DataSafeQueue<AVFramePtr> *mic_audio_src) {
+                       DataSafeQueue<AVFramePtr> *system_audio_src,
+                       DataSafeQueue<AVFramePtr> *mic_audio_src) {
     m_system_audio_src = system_audio_src;
     m_mic_audio_src = mic_audio_src;
 
@@ -96,6 +97,30 @@ bool Recoder::init_audio_swr(SwrContextPtr &swr, const AVFrame *frame) {
     return true;
 }
 
+void Recoder::distribute_video_packet() {
+    std::lock_guard<std::mutex> lock(m_channels_mutex);
+    if (m_output_channels.empty()) return;
+    for (auto *ch : m_output_channels) {
+        AVPacketPtr clone(av_packet_alloc(), AVPacketDeleter());
+        if (av_packet_ref(clone.get(), m_pkt.get()) >= 0) {
+            clone->stream_index = 0;
+            ch->feed_packet(std::move(clone));
+        }
+    }
+}
+
+void Recoder::distribute_audio_packet() {
+    std::lock_guard<std::mutex> lock(m_channels_mutex);
+    if (m_output_channels.empty()) return;
+    for (auto *ch : m_output_channels) {
+        AVPacketPtr clone(av_packet_alloc(), AVPacketDeleter());
+        if (av_packet_ref(clone.get(), m_pkt.get()) >= 0) {
+            clone->stream_index = 1;
+            ch->feed_packet(std::move(clone));
+        }
+    }
+}
+
 void Recoder::encode_video_frame(int64_t pts) {
     if (!m_pkt) return;
     m_yuv_frame->pts = pts;
@@ -109,12 +134,8 @@ void Recoder::encode_video_frame(int64_t pts) {
         return;
     }
     while (avcodec_receive_packet(m_video_enc_ctx.get(), m_pkt.get()) == 0) {
-        av_packet_rescale_ts(m_pkt.get(), m_video_enc_ctx->time_base, m_video_stream->time_base);
-        m_pkt->stream_index = m_video_stream->index;
-        AVPacketPtr write_pkt(av_packet_alloc(), AVPacketDeleter());
-        if (av_packet_ref(write_pkt.get(), m_pkt.get()) < 0) break;
+        distribute_video_packet();
         av_packet_unref(m_pkt.get());
-        m_packet_queue.push(std::move(write_pkt));
     }
 }
 
@@ -131,24 +152,13 @@ bool Recoder::encode_audio_frame() {
         return false;
     }
     while (avcodec_receive_packet(m_audio_enc_ctx.get(), m_pkt.get()) == 0) {
-        av_packet_rescale_ts(m_pkt.get(), m_audio_enc_ctx->time_base, m_audio_stream->time_base);
-        m_pkt->stream_index = m_audio_stream->index;
-        AVPacketPtr write_pkt(av_packet_alloc(), AVPacketDeleter());
-        if (av_packet_ref(write_pkt.get(), m_pkt.get()) < 0) break;
+        distribute_audio_packet();
         av_packet_unref(m_pkt.get());
-        m_packet_queue.push(std::move(write_pkt));
     }
     return true;
 }
 
-// Initialize FFmpeg encoding contexts: video encoder, audio encoder, output format
-bool Recoder::init_contexts() {
-    m_fmt_ctx = create_format_context();
-    if (!m_fmt_ctx) {
-        av_log(nullptr, AV_LOG_ERROR, "alloc output context failed\n");
-        return false;
-    }
-
+bool Recoder::init_codecs() {
     const AVCodec *vcodec = avcodec_find_encoder_by_name("libx264");
     if (!vcodec) vcodec = avcodec_find_encoder(AV_CODEC_ID_MPEG4);
     if (!vcodec) {
@@ -166,8 +176,6 @@ bool Recoder::init_contexts() {
     video_ctx->bit_rate = 10'000'000;
     video_ctx->gop_size = m_fps * 2;
     video_ctx->max_b_frames = 0;
-    if (m_fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
-        video_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
     {
         AVDictionary *opts = nullptr;
         av_dict_set(&opts, "preset", "veryfast", 0);
@@ -181,12 +189,8 @@ bool Recoder::init_contexts() {
         }
     }
     m_video_enc_ctx = std::move(video_ctx);
-
-    m_video_stream = avformat_new_stream(m_fmt_ctx.get(), nullptr);
-    if (!m_video_stream) return false;
-    m_video_stream->time_base = m_video_enc_ctx->time_base;
-    m_video_stream->id = 0;
-    avcodec_parameters_from_context(m_video_stream->codecpar, m_video_enc_ctx.get());
+    m_video_codecpar = avcodec_parameters_alloc();
+    avcodec_parameters_from_context(m_video_codecpar, m_video_enc_ctx.get());
 
     m_has_audio = m_system_audio_src || m_mic_audio_src;
     const AVCodec *acodec = nullptr;
@@ -215,8 +219,6 @@ bool Recoder::init_contexts() {
             audio_ctx->sample_fmt = acodec->sample_fmts ? acodec->sample_fmts[0] : AV_SAMPLE_FMT_FLTP;
             audio_ctx->bit_rate = 128'000;
             audio_ctx->time_base = AVRational{1, AUDIO_SAMPLE_RATE};
-            if (m_fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
-                audio_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
             AVDictionary *aopts = nullptr;
             av_dict_set(&aopts, "strict", "experimental", 0);
@@ -227,30 +229,10 @@ bool Recoder::init_contexts() {
                 m_has_audio = false;
             } else {
                 m_audio_enc_ctx = std::move(audio_ctx);
+                m_audio_codecpar = avcodec_parameters_alloc();
+                avcodec_parameters_from_context(m_audio_codecpar, m_audio_enc_ctx.get());
             }
         }
-
-        if (m_audio_enc_ctx) {
-            m_audio_stream = avformat_new_stream(m_fmt_ctx.get(), nullptr);
-            if (!m_audio_stream) return false;
-            m_audio_stream->time_base = m_audio_enc_ctx->time_base;
-            m_audio_stream->id = 1;
-            avcodec_parameters_from_context(m_audio_stream->codecpar, m_audio_enc_ctx.get());
-            av_log(nullptr, AV_LOG_INFO,
-                   "audio encoder ready: %s, sample_fmt=%d, sample_rate=%d, channels=%d\n",
-                   acodec->name, m_audio_enc_ctx->sample_fmt,
-                   m_audio_enc_ctx->sample_rate, m_audio_enc_ctx->ch_layout.nb_channels);
-        }
-    }
-
-    if (!open_io(m_fmt_ctx)) {
-        av_log(nullptr, AV_LOG_ERROR, "open output io failed\n");
-        return false;
-    }
-
-    if (avformat_write_header(m_fmt_ctx.get(), nullptr) < 0) {
-        av_log(nullptr, AV_LOG_ERROR, "write header failed\n");
-        return false;
     }
 
     AVFramePtr yuv_frame(av_frame_alloc(), AVFrameDeleter());
@@ -299,7 +281,6 @@ bool Recoder::init_contexts() {
     return true;
 }
 
-// Process system audio: resample, apply volume, push to FIFO
 void Recoder::process_system_audio() {
     while (!m_system_audio_src->is_empty()) {
         auto frame = m_system_audio_src->try_pop();
@@ -341,7 +322,6 @@ void Recoder::process_system_audio() {
     }
 }
 
-// Process mic audio: resample, apply volume, push to FIFO
 void Recoder::process_mic_audio() {
     while (!m_mic_audio_src->is_empty()) {
         auto frame = m_mic_audio_src->try_pop();
@@ -384,7 +364,6 @@ void Recoder::process_mic_audio() {
     }
 }
 
-// Mix system and mic audio FIFOs into the main audio FIFO with soft clipping
 void Recoder::mix_audio_streams() {
     size_t mix_length = 0;
     if (!m_sys_fifo[0].empty() && !m_mic_fifo[0].empty()) {
@@ -424,7 +403,6 @@ void Recoder::mix_audio_streams() {
     m_audio_clock += mix_length;
 }
 
-// Pop and process a video frame: BGRA -> YUV conversion then encode
 void Recoder::process_video_frame() {
     auto video_data = m_video_queue ? m_video_queue->try_pop() : std::nullopt;
     if (!video_data) return;
@@ -460,7 +438,6 @@ void Recoder::process_video_frame() {
     encode_video_frame(m_video_pts);
 }
 
-// Pop samples from mixed FIFO and encode audio frames
 void Recoder::encode_audio_frames_from_fifo() {
     if (!m_audio_frame) return;
     while ((int) m_audio_fifo[0].size() >= m_audio_frame_size) {
@@ -484,7 +461,6 @@ void Recoder::encode_audio_frames_from_fifo() {
     }
 }
 
-// Main encoding loop: processes video and audio frames while recording
 void Recoder::main_encode_loop() {
     int iter_counter = 0;
     while (m_recording.load()) {
@@ -534,7 +510,6 @@ void Recoder::main_encode_loop() {
     }
 }
 
-// Drain remaining video frames from the queue
 void Recoder::drain_video_frames() {
     while (m_video_queue && !m_video_queue->is_empty()) {
         auto video_data = m_video_queue->try_pop();
@@ -569,7 +544,6 @@ void Recoder::drain_video_frames() {
     }
 }
 
-// Flush SWR contexts and encode remaining audio samples
 void Recoder::drain_audio_residual() {
     if (!m_has_audio) return;
 
@@ -656,38 +630,27 @@ void Recoder::drain_audio_residual() {
     }
 }
 
-// Flush both encoders (packets go to write queue)
 void Recoder::flush_encoders() {
     avcodec_send_frame(m_video_enc_ctx.get(), nullptr);
     while (avcodec_receive_packet(m_video_enc_ctx.get(), m_pkt.get()) == 0) {
-        av_packet_rescale_ts(m_pkt.get(), m_video_enc_ctx->time_base, m_video_stream->time_base);
-        m_pkt->stream_index = m_video_stream->index;
-        AVPacketPtr write_pkt(av_packet_alloc(), AVPacketDeleter());
-        if (av_packet_ref(write_pkt.get(), m_pkt.get()) < 0) break;
+        distribute_video_packet();
         av_packet_unref(m_pkt.get());
-        m_packet_queue.push(std::move(write_pkt));
     }
 
     if (m_has_audio && m_audio_enc_ctx) {
         avcodec_send_frame(m_audio_enc_ctx.get(), nullptr);
         while (avcodec_receive_packet(m_audio_enc_ctx.get(), m_pkt.get()) == 0) {
-            av_packet_rescale_ts(m_pkt.get(), m_audio_enc_ctx->time_base, m_audio_stream->time_base);
-            m_pkt->stream_index = m_audio_stream->index;
-            AVPacketPtr write_pkt(av_packet_alloc(), AVPacketDeleter());
-            if (av_packet_ref(write_pkt.get(), m_pkt.get()) < 0) break;
+            distribute_audio_packet();
             av_packet_unref(m_pkt.get());
-            m_packet_queue.push(std::move(write_pkt));
         }
     }
 }
 
-// Reset all encoding state to initial values
 void Recoder::reset_state() {
-    m_fmt_ctx.reset();
     m_video_enc_ctx.reset();
-    m_video_stream = nullptr;
+    avcodec_parameters_free(&m_video_codecpar);
     m_audio_enc_ctx.reset();
-    m_audio_stream = nullptr;
+    avcodec_parameters_free(&m_audio_codecpar);
     m_sws_ctx.reset();
     m_sys_swr.reset();
     m_mic_swr.reset();
@@ -715,33 +678,14 @@ void Recoder::reset_state() {
     }
 
     if (m_video_queue) m_video_queue->clean_queue();
-    m_packet_queue.clean_queue();
-    m_flush_done.store(false);
 }
 
-// Write thread: pull packets from queue and write to output
-void Recoder::write_loop() {
-    while (true) {
-        auto pkt_opt = m_packet_queue.try_pop();
-        if (pkt_opt) {
-            if (av_interleaved_write_frame(m_fmt_ctx.get(), pkt_opt->get()) < 0) {
-                av_log(nullptr, AV_LOG_ERROR, "av_interleaved_write_frame failed\n");
-            }
-        } else if (m_flush_done.load() && m_packet_queue.is_empty()) {
-            break;
-        }
-    }
-}
-
-// Top-level encoding loop: init, main loop, drain, flush, cleanup
 void Recoder::encoding_loop() {
-    if (!init_contexts()) {
+    if (!init_codecs()) {
         av_log(nullptr, AV_LOG_ERROR, "recording failed\n");
         reset_state();
         return;
     }
-
-    m_write_thread = std::thread([this]() { write_loop(); });
 
     main_encode_loop();
 
@@ -749,15 +693,43 @@ void Recoder::encoding_loop() {
     drain_audio_residual();
     flush_encoders();
 
-    m_flush_done.store(true);
-    m_packet_queue.set_pause_state(true);
-    m_packet_queue.nut_empty_wake_up();
-
-    if (m_write_thread.joinable()) m_write_thread.join();
-
-    m_packet_queue.set_pause_state(false);
-    m_packet_queue.clean_queue();
-
-    av_write_trailer(m_fmt_ctx.get());
     reset_state();
+}
+
+void Recoder::register_output(OutputChannel *channel) {
+    std::lock_guard<std::mutex> lock(m_channels_mutex);
+    if (channel && std::find(m_output_channels.begin(), m_output_channels.end(), channel) == m_output_channels.end()) {
+        m_output_channels.push_back(channel);
+    }
+}
+
+void Recoder::unregister_output(OutputChannel *channel) {
+    std::lock_guard<std::mutex> lock(m_channels_mutex);
+    auto it = std::find(m_output_channels.begin(), m_output_channels.end(), channel);
+    if (it != m_output_channels.end()) {
+        m_output_channels.erase(it);
+    }
+}
+
+size_t Recoder::output_count() const {
+    std::lock_guard<std::mutex> lock(m_channels_mutex);
+    return m_output_channels.size();
+}
+
+AVCodecParameters *Recoder::video_codecpar() const {
+    return m_video_codecpar;
+}
+
+AVCodecParameters *Recoder::audio_codecpar() const {
+    return m_audio_codecpar;
+}
+
+AVRational Recoder::video_time_base() const {
+    if (m_video_enc_ctx) return m_video_enc_ctx->time_base;
+    return AVRational{1, 30};
+}
+
+AVRational Recoder::audio_time_base() const {
+    if (m_audio_enc_ctx) return m_audio_enc_ctx->time_base;
+    return AVRational{1, 48000};
 }

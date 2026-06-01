@@ -1,28 +1,17 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include "core/base/recoder.h"
-
-class MockRecoder : public Recoder {
-public:
-    AVFormatOutputContextPtr create_format_context() override
-    {
-        return nullptr;
-    }
-    bool open_io(AVFormatOutputContextPtr &fmt_ctx) override
-    {
-        return false;
-    }
-};
+#include "core/fileoutput.h"
 
 TEST(RecoderTest, initially_not_recording)
 {
-    MockRecoder recoder;
+    Recoder recoder;
     EXPECT_FALSE(recoder.is_recording());
 }
 
 TEST(RecoderTest, start_sets_recording_state)
 {
-    MockRecoder recoder;
+    Recoder recoder;
     recoder.start("test.mp4", 1920, 1080, 30);
     EXPECT_TRUE(recoder.is_recording());
     recoder.stop();
@@ -30,7 +19,7 @@ TEST(RecoderTest, start_sets_recording_state)
 
 TEST(RecoderTest, stop_clears_recording_state)
 {
-    MockRecoder recoder;
+    Recoder recoder;
     recoder.start("test.mp4", 1920, 1080, 30);
     recoder.stop();
     EXPECT_FALSE(recoder.is_recording());
@@ -38,13 +27,21 @@ TEST(RecoderTest, stop_clears_recording_state)
 
 TEST(RecoderTest, feed_frame_nullptr_does_not_crash)
 {
-    MockRecoder recoder;
+    Recoder recoder;
     EXPECT_NO_THROW(recoder.feed_frame(nullptr, 0, 0, 0));
+}
+
+TEST(RecoderTest, feed_frame_during_recording_no_crash)
+{
+    Recoder recoder;
+    recoder.start("test.mp4", 1920, 1080, 30);
+    EXPECT_NO_THROW(recoder.feed_frame(nullptr, 0, 0, 0));
+    recoder.stop();
 }
 
 TEST(RecoderTest, volume_control)
 {
-    MockRecoder recoder;
+    Recoder recoder;
 
     EXPECT_FLOAT_EQ(recoder.get_system_volume(), 0.7f);
     EXPECT_FLOAT_EQ(recoder.get_mic_volume(), 0.7f);
@@ -70,7 +67,7 @@ TEST(RecoderTest, volume_control)
 
 TEST(RecoderTest, mute_control)
 {
-    MockRecoder recoder;
+    Recoder recoder;
 
     EXPECT_FALSE(recoder.is_system_muted());
     EXPECT_FALSE(recoder.is_mic_muted());
@@ -86,4 +83,26 @@ TEST(RecoderTest, mute_control)
 
     recoder.set_mic_muted(false);
     EXPECT_FALSE(recoder.is_mic_muted());
+}
+
+TEST(RecoderTest, output_channel_management)
+{
+    Recoder recoder;
+    EXPECT_EQ(recoder.output_count(), 0u);
+
+    FileOutput output;
+    recoder.register_output(&output);
+    EXPECT_EQ(recoder.output_count(), 1u);
+
+    recoder.unregister_output(&output);
+    EXPECT_EQ(recoder.output_count(), 0u);
+}
+
+TEST(RecoderTest, duplicate_register_no_duplicate)
+{
+    Recoder recoder;
+    FileOutput output;
+    recoder.register_output(&output);
+    recoder.register_output(&output);
+    EXPECT_EQ(recoder.output_count(), 1u);
 }
