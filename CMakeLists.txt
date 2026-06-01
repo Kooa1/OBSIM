@@ -152,39 +152,46 @@ if (MSVC)
 endif ()
 
 # ------------------------------------------------------------
-# 3) Google Test (通过 FetchContent 自动拉取)
+# 测试开关 — 设为 OFF 可跳过所有测试编译
 # ------------------------------------------------------------
-include(FetchContent)
-FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG v1.15.2
-)
-set(gtest_force_shared_crt ON CACHE BOOL "" INTERNAL)
-FetchContent_MakeAvailable(googletest)
+option(ENABLE_TESTS "Enable unit tests" ON)
 
-# ------------------------------------------------------------
-# 4) 测试基础设施
-# ------------------------------------------------------------
-enable_testing()
-include(CTest)
+if (ENABLE_TESTS)
+    # ------------------------------------------------------------
+    # 3) Google Test (通过 FetchContent 自动拉取)
+    # ------------------------------------------------------------
+    include(FetchContent)
+    FetchContent_Declare(
+            googletest
+            GIT_REPOSITORY https://github.com/google/googletest.git
+            GIT_TAG v1.15.2
+    )
+    set(gtest_force_shared_crt ON CACHE BOOL "" INTERNAL)
+    FetchContent_MakeAvailable(googletest)
 
-add_subdirectory(test)
+    # ------------------------------------------------------------
+    # 4) 测试基础设施
+    # ------------------------------------------------------------
+    enable_testing()
+    include(CTest)
 
-# Unit test for OpenCVFilter (保留旧目标兼容)
-add_executable(opencv_filter_test
-        test/test_opencv_filter.cpp
-        src/core/filter/opencvfilter.cpp
-)
-target_include_directories(opencv_filter_test PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${OpenCV_INCLUDE_DIRS}
-)
-target_link_libraries(opencv_filter_test
-        opencv_core
-        opencv_imgproc
-        opencv_imgcodecs
-)
+    add_subdirectory(test)
+
+    # Unit test for OpenCVFilter (保留旧目标兼容)
+    add_executable(opencv_filter_test
+            test/test_opencv_filter.cpp
+            src/core/filter/opencvfilter.cpp
+    )
+    target_include_directories(opencv_filter_test PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+            ${OpenCV_INCLUDE_DIRS}
+    )
+    target_link_libraries(opencv_filter_test
+            opencv_core
+            opencv_imgproc
+            opencv_imgcodecs
+    )
+endif ()
 
 # Windows 平台部署
 if (WIN32)
