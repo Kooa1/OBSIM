@@ -7,7 +7,7 @@ extern "C" {
 }
 
 StreamOutput::StreamOutput()
-    : m_packet_queue(std::make_unique<DataSafeQueue<AVPacketPtr>>(120)) {
+    : m_packet_queue(std::make_unique<DataSafeQueue<AVPacketPtr>>(1800)) {
 }
 
 StreamOutput::~StreamOutput() {
@@ -116,7 +116,7 @@ void StreamOutput::write_loop() {
                 av_packet_rescale_ts(pkt, m_audio_time_base,
                                      m_fmt_ctx->streams[m_audio_stream_index]->time_base);
             }
-            if (av_interleaved_write_frame(m_fmt_ctx.get(), pkt) < 0) {
+            if (av_write_frame(m_fmt_ctx.get(), pkt) < 0) {
                 av_log(nullptr, AV_LOG_ERROR, "streamoutput: write frame failed\n");
             }
         } else if (!m_running.load() && m_packet_queue->is_empty()) {

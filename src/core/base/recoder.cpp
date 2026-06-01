@@ -172,6 +172,7 @@ bool Recoder::encode_audio_frame() {
 
 bool Recoder::init_codecs() {
     const AVCodec *vcodec = avcodec_find_encoder_by_name("libx264");
+    bool use_libx264 = vcodec != nullptr;
     if (!vcodec) vcodec = avcodec_find_encoder(AV_CODEC_ID_MPEG4);
     if (!vcodec) {
         av_log(nullptr, AV_LOG_ERROR, "no video encoder\n");
@@ -186,14 +187,25 @@ bool Recoder::init_codecs() {
     video_ctx->framerate = AVRational{m_fps, 1};
     video_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
     video_ctx->bit_rate = 10'000'000;
+    video_ctx->rc_max_rate = 10'000'000;
+    video_ctx->rc_min_rate = 10'000'000;
+    video_ctx->rc_buffer_size = 10'000'000;
     video_ctx->gop_size = m_fps * 2;
     video_ctx->max_b_frames = 0;
     video_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+    if (use_libx264) {
+        video_ctx->slices = 4;
+        video_ctx->thread_count = 4;
+    }
     {
         AVDictionary *opts = nullptr;
         av_dict_set(&opts, "preset", "veryfast", 0);
         av_dict_set(&opts, "crf", "23", 0);
         av_dict_set(&opts, "tune", "zerolatency", 0);
+        if (use_libx264) {
+            av_dict_set(&opts, "x264-params",
+                        "nal-hrd=cbr:keyint=60:min-keyint=60:scenecut=-1", 0);
+        }
         int ret = avcodec_open2(video_ctx.get(), vcodec, &opts);
         av_dict_free(&opts);
         if (ret < 0) {
