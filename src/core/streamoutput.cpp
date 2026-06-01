@@ -22,6 +22,8 @@ bool StreamOutput::start(const std::string &rtmp_url,
     stop();
     m_rtmp_url = rtmp_url;
     m_has_audio = audio_codecpar != nullptr;
+    m_video_time_base = video_time_base;
+    m_audio_time_base = audio_time_base;
 
     AVFormatContext *ctx = nullptr;
     int ret = avformat_alloc_output_context2(&ctx, nullptr, "flv", rtmp_url.c_str());
@@ -106,7 +108,15 @@ void StreamOutput::write_loop() {
     while (true) {
         auto pkt_opt = m_packet_queue->try_pop();
         if (pkt_opt) {
-            if (av_interleaved_write_frame(m_fmt_ctx.get(), pkt_opt->get()) < 0) {
+            auto *pkt = pkt_opt->get();
+            if (pkt->stream_index == m_video_stream_index) {
+                av_packet_rescale_ts(pkt, m_video_time_base,
+                                     m_fmt_ctx->streams[m_video_stream_index]->time_base);
+            } else if (pkt->stream_index == m_audio_stream_index) {
+                av_packet_rescale_ts(pkt, m_audio_time_base,
+                                     m_fmt_ctx->streams[m_audio_stream_index]->time_base);
+            }
+            if (av_interleaved_write_frame(m_fmt_ctx.get(), pkt) < 0) {
                 av_log(nullptr, AV_LOG_ERROR, "streamoutput: write frame failed\n");
             }
         } else if (!m_running.load() && m_packet_queue->is_empty()) {

@@ -32,6 +32,9 @@ private:
     int m_audio_stream_index = -1;
     bool m_has_audio = false;
 
+    AVRational m_video_time_base{1, 30};
+    AVRational m_audio_time_base{1, 48000};
+
     std::unique_ptr<DataSafeQueue<AVPacketPtr>> m_packet_queue;
     std::atomic<bool> m_running{false};
     std::atomic<bool> m_flush_done{false};
