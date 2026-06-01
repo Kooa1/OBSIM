@@ -1,8 +1,5 @@
 #include "recoder.h"
 
-#include <algorithm>
-#include <future>
-
 Recoder::Recoder() = default;
 
 Recoder::~Recoder() {

@@ -7,11 +7,13 @@
 #include <vector>
 #include <deque>
 #include <mutex>
+#include <algorithm>
+#include <future>
 
-#include "../../utils/ffmpegfactory.h"
-#include "../../utils/datasafequeue.h"
-#include "../../utils/av_err2str_cxx.h"
-#include "../outputchannel.h"
+#include "../utils/ffmpegfactory.h"
+#include "../utils/datasafequeue.h"
+#include "../utils/av_err2str_cxx.h"
+#include "base/outputchannel.h"
 
 extern "C" {
 #include <libavutil/log.h>

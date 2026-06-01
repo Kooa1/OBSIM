@@ -18,7 +18,7 @@
 #include "settingspreviewwidget.h"
 
 #include "../../core/audiomanager.h"
-#include "../../core/base/recoder.h"
+#include "../../core/recoder.h"
 #include "../../core/fileoutput.h"
 #include "../../core/streamoutput.h"
 #include "../../core/base/videocaptor.h"

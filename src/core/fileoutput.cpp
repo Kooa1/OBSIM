@@ -1,10 +1,6 @@
 #include "fileoutput.h"
 
-#include "../utils/av_err2str_cxx.h"
 
-extern "C" {
-#include <libavutil/log.h>
-}
 
 FileOutput::FileOutput()
     : m_packet_queue(std::make_unique<DataSafeQueue<AVPacketPtr>>(300)) {

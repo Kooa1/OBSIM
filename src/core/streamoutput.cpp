@@ -1,11 +1,5 @@
 #include "streamoutput.h"
 
-#include "../utils/av_err2str_cxx.h"
-
-extern "C" {
-#include <libavutil/log.h>
-}
-
 StreamOutput::StreamOutput()
     : m_packet_queue(std::make_unique<DataSafeQueue<AVPacketPtr>>(1800)) {
 }

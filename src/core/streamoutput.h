@@ -3,8 +3,14 @@
 
 #include <atomic>
 #include <thread>
+
+#include "../utils/av_err2str_cxx.h"
 #include "../utils/datasafequeue.h"
-#include "outputchannel.h"
+#include "base/outputchannel.h"
+
+extern "C" {
+#include <libavutil/log.h>
+}
 
 class StreamOutput : public OutputChannel {
 public:

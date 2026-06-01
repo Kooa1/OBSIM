@@ -3,7 +3,7 @@
 
 #include <memory>
 #include <string>
-#include "../utils/ffmpegfactory.h"
+#include "../../utils/ffmpegfactory.h"
 
 class OutputChannel {
 public:
