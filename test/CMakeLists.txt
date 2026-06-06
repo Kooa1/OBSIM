@@ -133,3 +133,24 @@ if (WIN32)
         )
     endforeach()
 endif ()
+
+# =======================================================
+# Benchmarks
+# =======================================================
+option(ENABLE_BENCHMARKS "Build performance benchmarks" ON)
+
+if(ENABLE_BENCHMARKS)
+    function(add_bench BENCH_NAME BENCH_SOURCE)
+        add_executable(${BENCH_NAME} benchmark/${BENCH_SOURCE})
+        target_include_directories(${BENCH_NAME} PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/..
+            ${CMAKE_CURRENT_SOURCE_DIR}/../src
+        )
+        target_link_libraries(${BENCH_NAME} PRIVATE obsim_core_static)
+    endfunction()
+
+    add_bench(bench_queue   bench_queue.cpp)
+    add_bench(bench_recoder bench_recoder.cpp)
+    add_bench(bench_scene   bench_scene.cpp)
+    add_bench(bench_filter  bench_filter.cpp)
+endif()
