@@ -120,6 +120,10 @@ file(GLOB_RECURSE FRONTEND_SOURCES
         "src/frontend/*.cpp" "src/frontend/*.c" "src/frontend/*.cc" "src/frontend/*.cxx"
 )
 
+if (WIN32)
+    set(CMAKE_WIN32_EXECUTABLE ON)
+endif()
+
 add_executable(OBSIM
         src/main.cpp
         ${FRONTEND_SOURCES}

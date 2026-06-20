@@ -1,12 +1,12 @@
-#include "recoder.h"
+#include "recorder.h"
 
-Recoder::Recoder() = default;
+Recorder::Recorder() = default;
 
-Recoder::~Recoder() {
+Recorder::~Recorder() {
     stop();
 }
 
-void Recoder::start(const std::string &output_path, int canvas_w, int canvas_h, int fps,
+void Recorder::start(const std::string &output_path, int canvas_w, int canvas_h, int fps,
                        DataSafeQueue<AVFramePtr> *system_audio_src,
                        DataSafeQueue<AVFramePtr> *mic_audio_src) {
     m_system_audio_src = system_audio_src;
@@ -30,7 +30,7 @@ void Recoder::start(const std::string &output_path, int canvas_w, int canvas_h, 
     m_encode_thread = std::thread([this]() { encoding_loop(); });
 }
 
-void Recoder::stop() {
+void Recorder::stop() {
     m_recording.store(false);
 
     auto wake_queue = [](auto *q) {
@@ -65,7 +65,7 @@ void Recoder::stop() {
     m_video_queue.reset();
 }
 
-void Recoder::feed_frame(const uint8_t *data, int stride, int capture_w, int capture_h) {
+void Recorder::feed_frame(const uint8_t *data, int stride, int capture_w, int capture_h) {
     if (!m_recording.load()) return;
     auto q = m_video_queue;
     if (!q) return;
@@ -77,7 +77,7 @@ void Recoder::feed_frame(const uint8_t *data, int stride, int capture_w, int cap
     q->push_no_wait(std::move(frame));
 }
 
-bool Recoder::init_audio_swr(SwrContextPtr &swr, const AVFrame *frame) {
+bool Recorder::init_audio_swr(SwrContextPtr &swr, const AVFrame *frame) {
     if (swr) return true;
     if (!frame) return false;
 
@@ -104,7 +104,7 @@ bool Recoder::init_audio_swr(SwrContextPtr &swr, const AVFrame *frame) {
     return true;
 }
 
-void Recoder::distribute_video_packet() {
+void Recorder::distribute_video_packet() {
     std::lock_guard<std::mutex> lock(m_channels_mutex);
     if (m_output_channels.empty()) return;
     for (auto *ch : m_output_channels) {
@@ -116,7 +116,7 @@ void Recoder::distribute_video_packet() {
     }
 }
 
-void Recoder::distribute_audio_packet() {
+void Recorder::distribute_audio_packet() {
     std::lock_guard<std::mutex> lock(m_channels_mutex);
     if (m_output_channels.empty()) return;
     for (auto *ch : m_output_channels) {
@@ -128,7 +128,7 @@ void Recoder::distribute_audio_packet() {
     }
 }
 
-void Recoder::encode_video_frame(int64_t pts) {
+void Recorder::encode_video_frame(int64_t pts) {
     if (!m_pkt) return;
     m_yuv_frame->pts = pts;
     int ret = avcodec_send_frame(m_video_enc_ctx.get(), m_yuv_frame.get());
@@ -147,7 +147,7 @@ void Recoder::encode_video_frame(int64_t pts) {
     }
 }
 
-bool Recoder::encode_audio_frame() {
+bool Recorder::encode_audio_frame() {
     if (!m_pkt) return false;
     m_audio_frame->pts = m_audio_pts;
     int ret = avcodec_send_frame(m_audio_enc_ctx.get(), m_audio_frame.get());
@@ -167,7 +167,7 @@ bool Recoder::encode_audio_frame() {
     return true;
 }
 
-bool Recoder::init_codecs() {
+bool Recorder::init_codecs() {
     const AVCodec *vcodec = avcodec_find_encoder_by_name("libx264");
     bool use_libx264 = vcodec != nullptr;
     if (!vcodec) vcodec = avcodec_find_encoder(AV_CODEC_ID_MPEG4);
@@ -304,7 +304,7 @@ bool Recoder::init_codecs() {
     return true;
 }
 
-void Recoder::process_system_audio() {
+void Recorder::process_system_audio() {
     while (!m_system_audio_src->is_empty()) {
         auto frame = m_system_audio_src->try_pop();
         if (!frame || !frame.value()) break;
@@ -345,7 +345,7 @@ void Recoder::process_system_audio() {
     }
 }
 
-void Recoder::process_mic_audio() {
+void Recorder::process_mic_audio() {
     while (!m_mic_audio_src->is_empty()) {
         auto frame = m_mic_audio_src->try_pop();
         if (!frame || !frame.value()) break;
@@ -387,7 +387,7 @@ void Recoder::process_mic_audio() {
     }
 }
 
-void Recoder::mix_audio_streams() {
+void Recorder::mix_audio_streams() {
     size_t mix_length = 0;
     if (!m_sys_fifo[0].empty() && !m_mic_fifo[0].empty()) {
         mix_length = std::min(m_sys_fifo[0].size(), m_mic_fifo[0].size());
@@ -426,7 +426,7 @@ void Recoder::mix_audio_streams() {
     m_audio_clock += mix_length;
 }
 
-void Recoder::process_video_frame() {
+void Recorder::process_video_frame() {
     auto q = m_video_queue;
     auto video_data = q ? q->try_pop() : std::nullopt;
     if (!video_data) return;
@@ -462,7 +462,7 @@ void Recoder::process_video_frame() {
     encode_video_frame(m_video_pts);
 }
 
-void Recoder::encode_audio_frames_from_fifo() {
+void Recorder::encode_audio_frames_from_fifo() {
     if (!m_audio_frame) return;
     while ((int) m_audio_fifo[0].size() >= m_audio_frame_size) {
         int take = m_audio_frame_size;
@@ -485,7 +485,7 @@ void Recoder::encode_audio_frames_from_fifo() {
     }
 }
 
-void Recoder::main_encode_loop() {
+void Recorder::main_encode_loop() {
     int iter_counter = 0;
     while (m_recording.load()) {
         bool did_work = false;
@@ -535,7 +535,7 @@ void Recoder::main_encode_loop() {
     }
 }
 
-void Recoder::drain_video_frames() {
+void Recorder::drain_video_frames() {
     auto q = m_video_queue;
     while (q && !q->is_empty()) {
         auto video_data = q->try_pop();
@@ -570,7 +570,7 @@ void Recoder::drain_video_frames() {
     }
 }
 
-void Recoder::drain_audio_residual() {
+void Recorder::drain_audio_residual() {
     if (!m_has_audio) return;
 
     auto flush_swr = [&](SwrContextPtr &swr, std::deque<float> *fifo) {
@@ -656,7 +656,7 @@ void Recoder::drain_audio_residual() {
     }
 }
 
-void Recoder::flush_encoders() {
+void Recorder::flush_encoders() {
     avcodec_send_frame(m_video_enc_ctx.get(), nullptr);
     while (avcodec_receive_packet(m_video_enc_ctx.get(), m_pkt.get()) == 0) {
         distribute_video_packet();
@@ -672,7 +672,7 @@ void Recoder::flush_encoders() {
     }
 }
 
-void Recoder::reset_state() {
+void Recorder::reset_state() {
     m_video_enc_ctx.reset();
     avcodec_parameters_free(&m_video_codecpar);
     m_audio_enc_ctx.reset();
@@ -709,7 +709,7 @@ void Recoder::reset_state() {
     }
 }
 
-void Recoder::encoding_loop() {
+void Recorder::encoding_loop() {
     main_encode_loop();
 
     drain_video_frames();
@@ -719,14 +719,14 @@ void Recoder::encoding_loop() {
     reset_state();
 }
 
-void Recoder::register_output(OutputChannel *channel) {
+void Recorder::register_output(OutputChannel *channel) {
     std::lock_guard<std::mutex> lock(m_channels_mutex);
     if (channel && std::find(m_output_channels.begin(), m_output_channels.end(), channel) == m_output_channels.end()) {
         m_output_channels.push_back(channel);
     }
 }
 
-void Recoder::unregister_output(OutputChannel *channel) {
+void Recorder::unregister_output(OutputChannel *channel) {
     std::lock_guard<std::mutex> lock(m_channels_mutex);
     auto it = std::find(m_output_channels.begin(), m_output_channels.end(), channel);
     if (it != m_output_channels.end()) {
@@ -734,25 +734,25 @@ void Recoder::unregister_output(OutputChannel *channel) {
     }
 }
 
-size_t Recoder::output_count() const {
+size_t Recorder::output_count() const {
     std::lock_guard<std::mutex> lock(m_channels_mutex);
     return m_output_channels.size();
 }
 
-AVCodecParameters *Recoder::video_codecpar() const {
+AVCodecParameters *Recorder::video_codecpar() const {
     return m_video_codecpar;
 }
 
-AVCodecParameters *Recoder::audio_codecpar() const {
+AVCodecParameters *Recorder::audio_codecpar() const {
     return m_audio_codecpar;
 }
 
-AVRational Recoder::video_time_base() const {
+AVRational Recorder::video_time_base() const {
     if (m_video_enc_ctx) return m_video_enc_ctx->time_base;
     return AVRational{1, 30};
 }
 
-AVRational Recoder::audio_time_base() const {
+AVRational Recorder::audio_time_base() const {
     if (m_audio_enc_ctx) return m_audio_enc_ctx->time_base;
     return AVRational{1, 48000};
 }

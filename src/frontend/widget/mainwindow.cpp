@@ -25,7 +25,7 @@ bool MainWindow::init_UI() {
         m_audio_manager->current_system_device_id(),
         QString::fromStdString(m_audio_manager->current_mic_device_name()));
 
-    m_recoder = std::make_unique<Recoder>();
+    m_recoder = std::make_unique<Recorder>();
     m_file_output = std::make_unique<FileOutput>();
     m_stream_output = std::make_unique<StreamOutput>();
 

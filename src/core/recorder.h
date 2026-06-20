@@ -33,11 +33,11 @@ struct VideoFrame {
     int stride = 0;
 };
 
-class Recoder {
+class Recorder {
 public:
-    Recoder();
+    Recorder();
 
-    virtual ~Recoder();
+    virtual ~Recorder();
 
     void start(const std::string &output_path, int canvas_w, int canvas_h, int fps = 30,
                DataSafeQueue<AVFramePtr> *system_audio_src = nullptr,
