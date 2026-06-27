@@ -111,6 +111,8 @@ target_link_libraries(obsim_core_static PUBLIC
         avutil
         swscale
         swresample
+        d3d11
+        dxgi
 )
 
 # ------------------------------------------------------------

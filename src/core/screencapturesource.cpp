@@ -1,10 +1,11 @@
 #include "screencapturesource.h"
+#include "dxgiscreencaptor.h"
 #include "filter/filteredvideocaptor.h"
 
 ScreenCaptureSource::ScreenCaptureSource(const CaptorConfig &config)
     : VideoSource(std::make_unique<FilteredVideoCaptor>(
           [&config]() {
-              auto captor = std::make_unique<ScreenCaptor>();
+              auto captor = std::make_unique<DXGIScreenCaptor>();
               captor->apply_config(config);
               return captor;
           }())), m_config(config)
