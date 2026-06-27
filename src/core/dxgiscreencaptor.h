@@ -47,6 +47,17 @@ private:
     int m_monitor_top    = 0;
     int m_monitor_width  = 0;
     int m_monitor_height = 0;
+
+    // GDI-based cursor shape cache (replaces unreliable DXGI GetFramePointerShape)
+    HCURSOR m_gdi_last_cursor_handle = nullptr;
+    std::unique_ptr<BYTE[]> m_gdi_cursor_buf;
+    int m_gdi_cursor_w = 0;
+    int m_gdi_cursor_h = 0;
+
+    // Cursor position/visibility cache (only updated on mouse move via DXGI)
+    bool m_cursor_visible_cache = false;
+    int m_cursor_x_cache = 0;
+    int m_cursor_y_cache = 0;
 };
 
 #endif // _WIN32

@@ -188,6 +188,7 @@ SourceControlBlock::SourceControlBlock(QWidget *parent)
                     config.offset_y = displays[idx].geometry.y();
                     config.width = displays[idx].geometry.width();
                     config.height = displays[idx].geometry.height();
+                    config.capture_cursor = name_dialog.capture_cursor_enabled();
                     emit display_capture_requested(config, name);
                     m_source_list->insertItem(0, name + " (" + type + ")");
                 }
@@ -739,6 +740,10 @@ SourceNameDialog::SourceNameDialog(const QVector<DisplayInfo> &displays,
         }
         layout->addWidget(display_label);
         layout->addWidget(m_display_combo);
+
+        m_capture_cursor_check = new QCheckBox("捕获光标");
+        m_capture_cursor_check->setChecked(true);
+        layout->addWidget(m_capture_cursor_check);
     }
 
     if (is_camera_type) {
@@ -792,6 +797,13 @@ int SourceNameDialog::selected_camera_index() const {
         return m_camera_combo->currentData().toInt();
     }
     return -1;
+}
+
+bool SourceNameDialog::capture_cursor_enabled() const {
+    if (m_capture_cursor_check) {
+        return m_capture_cursor_check->isChecked();
+    }
+    return true;
 }
 
 

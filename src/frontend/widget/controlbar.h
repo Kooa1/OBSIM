@@ -337,10 +337,15 @@ public:
     /// @return Camera index
     int selected_camera_index() const;
 
+    /// @brief Get whether cursor capture is enabled
+    /// @return True if enabled
+    bool capture_cursor_enabled() const;
+
 private:
     QLineEdit *m_name_edit;          ///< Name editor
     QComboBox *m_display_combo = nullptr; ///< Display selector
     QComboBox *m_camera_combo = nullptr;  ///< Camera selector
+    QCheckBox *m_capture_cursor_check = nullptr; ///< Capture cursor checkbox
 };
 
 

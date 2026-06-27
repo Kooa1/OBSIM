@@ -27,6 +27,7 @@ struct CaptorConfig {
     int offset_y = 0;
     int width = 0;
     int height = 0;
+    bool capture_cursor = true;
 };
 
 /// @brief Base class for video capture from various input sources (e.g. screen, camera).

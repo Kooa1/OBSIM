@@ -4,6 +4,9 @@
 #include <iostream>
 #include <chrono>
 
+// Uncomment the following line to enable cursor debug logging
+// #define DEBUG_CURSOR
+
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
 
@@ -190,6 +193,8 @@ void DXGIScreenCaptor::release_dxgi() {
     m_d3d_device.Reset();
     m_output_width  = 0;
     m_output_height = 0;
+    m_gdi_cursor_buf.reset();
+    m_gdi_last_cursor_handle = nullptr;
 }
 
 void DXGIScreenCaptor::dxgi_capture_loop() {
@@ -235,6 +240,84 @@ void DXGIScreenCaptor::dxgi_capture_loop() {
         // If the frame didn't change, skip it
         // (frame_info.LastPresentTime == 0 means no update since last frame)
         // We still process it to keep the pipeline flowing
+
+        // --- GDI-based cursor shape acquisition ---
+        // DXGI GetFramePointerShape returns a black placeholder on some drivers.
+        // Use GDI to get the actual cursor shape and cache it by handle.
+        {
+            CURSORINFO ci = { sizeof(CURSORINFO) };
+            if (m_config.capture_cursor && GetCursorInfo(&ci) && (ci.flags & CURSOR_SHOWING)) {
+                if (ci.hCursor != m_gdi_last_cursor_handle) {
+                    ICONINFO ii = {};
+                    if (GetIconInfo(ci.hCursor, &ii)) {
+                        // Determine cursor dimensions
+                        int w = 32, h = 32;
+                        if (ii.hbmColor) {
+                            BITMAP bm = {};
+                            GetObject(ii.hbmColor, sizeof(bm), &bm);
+                            w = bm.bmWidth;
+                            h = bm.bmHeight;
+                        } else if (ii.hbmMask) {
+                            BITMAP bm = {};
+                            GetObject(ii.hbmMask, sizeof(bm), &bm);
+                            w = bm.bmWidth;
+                            h = bm.bmHeight / 2;
+                        }
+
+                        // Render cursor into DIB section and cache BGRA pixel data
+                        HDC screen_dc = GetDC(NULL);
+                        HDC mem_dc = CreateCompatibleDC(screen_dc);
+
+                        BITMAPINFO bmi = {};
+                        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+                        bmi.bmiHeader.biWidth = w;
+                        bmi.bmiHeader.biHeight = -h;  // top-down
+                        bmi.bmiHeader.biPlanes = 1;
+                        bmi.bmiHeader.biBitCount = 32;
+                        bmi.bmiHeader.biCompression = BI_RGB;
+
+                        BYTE* bits = nullptr;
+                        HBITMAP hbm = CreateDIBSection(mem_dc, &bmi, DIB_RGB_COLORS,
+                                                       (void**)&bits, NULL, 0);
+                        if (hbm) {
+                            SelectObject(mem_dc, hbm);
+                            DrawIconEx(mem_dc, -ii.xHotspot, -ii.yHotspot,
+                                       ci.hCursor, 0, 0, 0, NULL, DI_NORMAL);
+
+                            m_gdi_cursor_buf = std::make_unique<BYTE[]>(w * h * 4);
+                            memcpy(m_gdi_cursor_buf.get(), bits, w * h * 4);
+                            m_gdi_cursor_w = w;
+                            m_gdi_cursor_h = h;
+                            m_gdi_last_cursor_handle = ci.hCursor;
+
+                            DeleteObject(hbm);
+                        }
+
+                        DeleteDC(mem_dc);
+                        ReleaseDC(NULL, screen_dc);
+
+                        if (ii.hbmColor) DeleteObject(ii.hbmColor);
+                        if (ii.hbmMask) DeleteObject(ii.hbmMask);
+                    }
+                }
+            }
+        }
+
+        // Cache cursor position and visibility only when mouse actually updates (DXGI)
+        if (m_config.capture_cursor && frame_info.LastMouseUpdateTime.QuadPart != 0) {
+            m_cursor_visible_cache = (frame_info.PointerPosition.Visible != 0);
+            if (m_cursor_visible_cache) {
+                // PointerPosition is relative to the output, not virtual desktop
+                m_cursor_x_cache = frame_info.PointerPosition.Position.x - (m_config.offset_x - m_monitor_left);
+                m_cursor_y_cache = frame_info.PointerPosition.Position.y - (m_config.offset_y - m_monitor_top);
+            }
+        }
+
+        // Use cached position/visibility every frame
+        bool cursor_visible = m_config.capture_cursor && m_cursor_visible_cache && (m_gdi_cursor_buf != nullptr);
+        int cursor_x = m_cursor_x_cache;
+        int cursor_y = m_cursor_y_cache;
+        // --- End cursor acquisition ---
 
         // Get the D3D11 texture
         ComPtr<ID3D11Texture2D> acquired_texture;
@@ -287,6 +370,39 @@ void DXGIScreenCaptor::dxgi_capture_loop() {
         }
 
         m_d3d_context->Unmap(m_staging_texture.Get(), 0);
+
+        // --- Draw cursor onto frame buffer (using GDI-cached shape) ---
+        if (cursor_visible) {
+            int src_pitch = m_gdi_cursor_w;  // DIB 32bpp always has Width * 4 pitch
+            const auto* src = reinterpret_cast<const uint32_t*>(m_gdi_cursor_buf.get());
+            for (int y = 0; y < m_gdi_cursor_h; ++y) {
+                int dst_y = cursor_y + y;
+                if (dst_y < 0 || dst_y >= m_output_height) continue;
+                int row_offset = y * src_pitch;
+                for (int x = 0; x < m_gdi_cursor_w; ++x) {
+                    int dst_x = cursor_x + x;
+                    if (dst_x < 0 || dst_x >= m_output_width) continue;
+                    uint32_t pixel = src[row_offset + x];
+                    uint32_t alpha = (pixel >> 24) & 0xFF;
+                    if (alpha == 0) continue;
+                    auto* dst = reinterpret_cast<uint32_t*>(
+                        frame_buffer.get() + (dst_y * m_output_width + dst_x) * 4);
+                    uint32_t bg = *dst;
+                    uint32_t br = (bg >> 16) & 0xFF;
+                    uint32_t bg_g = (bg >> 8) & 0xFF;
+                    uint32_t bb = bg & 0xFF;
+                    uint32_t sr = (pixel >> 16) & 0xFF;
+                    uint32_t sg = (pixel >> 8) & 0xFF;
+                    uint32_t sb = pixel & 0xFF;
+                    uint32_t out_r = (sr * alpha + br * (255 - alpha)) / 255;
+                    uint32_t out_g = (sg * alpha + bg_g * (255 - alpha)) / 255;
+                    uint32_t out_b = (sb * alpha + bb * (255 - alpha)) / 255;
+                    *dst = 0xFF000000 | (out_r << 16) | (out_g << 8) | out_b;
+                }
+            }
+        }
+        // --- End cursor drawing ---
+
         m_desk_dup->ReleaseFrame();
 
         // Build AVFrame
