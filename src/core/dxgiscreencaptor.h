@@ -10,6 +10,24 @@
 
 using Microsoft::WRL::ComPtr;
 
+/// @brief RAII guard for HDC managed by DeleteDC (compatible DCs).
+struct DcGuard {
+    HDC dc = nullptr;
+    ~DcGuard() { if (dc) DeleteDC(dc); }
+};
+
+/// @brief RAII guard for HDC obtained via GetDC (screen DCs).
+struct ScreenDcGuard {
+    HDC dc = nullptr;
+    ~ScreenDcGuard() { if (dc) ReleaseDC(nullptr, dc); }
+};
+
+/// @brief RAII guard for GDI objects managed by DeleteObject.
+struct GdiObjectGuard {
+    HGDIOBJ obj = nullptr;
+    ~GdiObjectGuard() { if (obj) DeleteObject(obj); }
+};
+
 /// @brief Screen capture using DXGI Desktop Duplication API directly.
 /// Bypasses FFmpeg gdigrab/dxgigrab entirely to avoid cursor flickering.
 class DXGIScreenCaptor : public VideoCaptor {
@@ -20,6 +38,9 @@ public:
     void start() override;
     void stop() override;
     void apply_config(const CaptorConfig &config) override;
+
+    /// @brief Callback for frame distribution to pool consumers (set by DisplayCapturePool).
+    std::function<void(AVFramePtr)> on_frame_captured;
 
 protected:
     const char* get_input_format_name() const override { return "dxgi_direct"; }
@@ -58,6 +79,9 @@ private:
     bool m_cursor_visible_cache = false;
     int m_cursor_x_cache = 0;
     int m_cursor_y_cache = 0;
+
+    // Target frame rate for capture loop (default 60 fps)
+    int m_target_fps = 60;
 };
 
 #endif // _WIN32

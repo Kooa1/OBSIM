@@ -3,6 +3,7 @@
 #include "dxgiscreencaptor.h"
 #include <iostream>
 #include <chrono>
+#include <cassert>
 
 // Uncomment the following line to enable cursor debug logging
 // #define DEBUG_CURSOR
@@ -17,6 +18,7 @@ DXGIScreenCaptor::~DXGIScreenCaptor() {
 }
 
 void DXGIScreenCaptor::apply_config(const CaptorConfig &config) {
+    assert(!is_capturing.load() && "apply_config must be called before start()");
     VideoCaptor::apply_config(config);
 }
 
@@ -207,16 +209,30 @@ void DXGIScreenCaptor::dxgi_capture_loop() {
     const int buf_size = m_output_width * m_output_height * 4;
     auto frame_buffer = std::make_unique<uint8_t[]>(buf_size);
 
+    int64_t frame_index = 0;
+    auto last_frame_time = std::chrono::steady_clock::now();
+    int target_interval = 1000 / m_target_fps;
+
     while (is_capturing.load()) {
         if (is_paused_.load()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
             continue;
         }
 
+        // Frame rate limiting
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - last_frame_time).count();
+        if (elapsed < target_interval) {
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds(target_interval - elapsed));
+        }
+        last_frame_time = std::chrono::steady_clock::now();
+
         ComPtr<IDXGIResource> desktop_resource;
         DXGI_OUTDUPL_FRAME_INFO frame_info = {};
 
-        HRESULT hr = m_desk_dup->AcquireNextFrame(100, &frame_info, &desktop_resource);
+        HRESULT hr = m_desk_dup->AcquireNextFrame(16, &frame_info, &desktop_resource);
         if (hr == DXGI_ERROR_WAIT_TIMEOUT) {
             continue;
         }
@@ -250,6 +266,9 @@ void DXGIScreenCaptor::dxgi_capture_loop() {
                 if (ci.hCursor != m_gdi_last_cursor_handle) {
                     ICONINFO ii = {};
                     if (GetIconInfo(ci.hCursor, &ii)) {
+                        GdiObjectGuard icon_color{ii.hbmColor};
+                        GdiObjectGuard icon_mask{ii.hbmMask};
+
                         // Determine cursor dimensions
                         int w = 32, h = 32;
                         if (ii.hbmColor) {
@@ -265,8 +284,8 @@ void DXGIScreenCaptor::dxgi_capture_loop() {
                         }
 
                         // Render cursor into DIB section and cache BGRA pixel data
-                        HDC screen_dc = GetDC(NULL);
-                        HDC mem_dc = CreateCompatibleDC(screen_dc);
+                        ScreenDcGuard screen_dc{GetDC(NULL)};
+                        DcGuard mem_dc{CreateCompatibleDC(screen_dc.dc)};
 
                         BITMAPINFO bmi = {};
                         bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
@@ -277,11 +296,11 @@ void DXGIScreenCaptor::dxgi_capture_loop() {
                         bmi.bmiHeader.biCompression = BI_RGB;
 
                         BYTE* bits = nullptr;
-                        HBITMAP hbm = CreateDIBSection(mem_dc, &bmi, DIB_RGB_COLORS,
-                                                       (void**)&bits, NULL, 0);
-                        if (hbm) {
-                            SelectObject(mem_dc, hbm);
-                            DrawIconEx(mem_dc, -ii.xHotspot, -ii.yHotspot,
+                        GdiObjectGuard hbm{CreateDIBSection(mem_dc.dc, &bmi, DIB_RGB_COLORS,
+                                                            (void**)&bits, NULL, 0)};
+                        if (hbm.obj) {
+                            SelectObject(mem_dc.dc, hbm.obj);
+                            DrawIconEx(mem_dc.dc, -ii.xHotspot, -ii.yHotspot,
                                        ci.hCursor, 0, 0, 0, NULL, DI_NORMAL);
 
                             m_gdi_cursor_buf = std::make_unique<BYTE[]>(w * h * 4);
@@ -289,15 +308,8 @@ void DXGIScreenCaptor::dxgi_capture_loop() {
                             m_gdi_cursor_w = w;
                             m_gdi_cursor_h = h;
                             m_gdi_last_cursor_handle = ci.hCursor;
-
-                            DeleteObject(hbm);
                         }
 
-                        DeleteDC(mem_dc);
-                        ReleaseDC(NULL, screen_dc);
-
-                        if (ii.hbmColor) DeleteObject(ii.hbmColor);
-                        if (ii.hbmMask) DeleteObject(ii.hbmMask);
                     }
                 }
             }
@@ -373,7 +385,7 @@ void DXGIScreenCaptor::dxgi_capture_loop() {
 
         // --- Draw cursor onto frame buffer (using GDI-cached shape) ---
         if (cursor_visible) {
-            int src_pitch = m_gdi_cursor_w;  // DIB 32bpp always has Width * 4 pitch
+            int src_pitch = m_gdi_cursor_w;  // pitch in uint32_t units (= pixel count per row)
             const auto* src = reinterpret_cast<const uint32_t*>(m_gdi_cursor_buf.get());
             for (int y = 0; y < m_gdi_cursor_h; ++y) {
                 int dst_y = cursor_y + y;
@@ -405,26 +417,40 @@ void DXGIScreenCaptor::dxgi_capture_loop() {
 
         m_desk_dup->ReleaseFrame();
 
-        // Build AVFrame
-        AVFramePtr av_frame(av_frame_alloc(), AVFrameDeleter());
-        if (!av_frame) continue;
+        const size_t frame_data_size = static_cast<size_t>(m_output_width) * m_output_height * 4;
 
-        av_frame->format = AV_PIX_FMT_BGRA;
-        av_frame->width  = m_output_width;
-        av_frame->height = m_output_height;
+        if (on_frame_captured) {
+            // Pool mode: create ONE shared AVFrame and distribute to all consumers
+            // via shared_ptr for zero-copy sharing (no per-consumer memcpy).
+            AVFramePtr pool_frame(av_frame_alloc(), AVFrameDeleter());
+            if (pool_frame) {
+                pool_frame->format = AV_PIX_FMT_BGRA;
+                pool_frame->width  = m_output_width;
+                pool_frame->height = m_output_height;
+                pool_frame->pts = frame_index++;
+                if (av_frame_get_buffer(pool_frame.get(), 0) == 0) {
+                    memcpy(pool_frame->data[0], frame_buffer.get(), frame_data_size);
+                    on_frame_captured(std::move(pool_frame));
+                }
+            }
+        } else {
+            // Standalone mode: push frame to own queue for direct consumption.
+            AVFramePtr av_frame(av_frame_alloc(), AVFrameDeleter());
+            if (!av_frame) continue;
 
-        int ret = av_frame_get_buffer(av_frame.get(), 0);
-        if (ret != 0) continue;
+            av_frame->format = AV_PIX_FMT_BGRA;
+            av_frame->width  = m_output_width;
+            av_frame->height = m_output_height;
+            av_frame->pts = frame_index++;
 
-        // Copy pixel data into AVFrame's internal buffer
-        memcpy(av_frame->data[0], frame_buffer.get(),
-               static_cast<size_t>(m_output_width) * m_output_height * 4);
+            if (av_frame_get_buffer(av_frame.get(), 0) != 0) continue;
 
-        push_frame(std::move(av_frame));
-        notify_frame_ready();
+            memcpy(av_frame->data[0], frame_buffer.get(), frame_data_size);
+
+            push_frame(std::move(av_frame));
+            notify_frame_ready();
+        }
     }
-
-    release_dxgi();
 }
 
 #endif // _WIN32
