@@ -2,7 +2,7 @@
 #define OBSIM_SCREENCAPTURESOURCE_H
 
 #include "videosource.h"
-#include "screencaptor.h"
+#include "base/videocaptor.h"
 
 /// @brief Screen capture source that captures the desktop/display content
 class ScreenCaptureSource : public VideoSource {

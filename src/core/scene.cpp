@@ -325,10 +325,10 @@ void Scene::render_snap_lines() {
         glBegin(GL_LINES);
         if (line.orientation == SnapLine::Vertical) {
             glVertex2f(line.position, 0.0f);
-            glVertex2f(line.position, 1080.0f); // Canvas height
+            glVertex2f(line.position, CANVAS_H); // Canvas height
         } else {
             glVertex2f(0.0f, line.position);
-            glVertex2f(1920.0f, line.position); // Canvas width
+            glVertex2f(CANVAS_W, line.position); // Canvas width
         }
         glEnd();
     }
@@ -487,8 +487,8 @@ QPointF Scene::snap_position(const QPointF &proposed_pos,
 void Scene::snap_to_fullscreen(Source *source) {
     if (!source) return;
 
-    const float canvas_w = 1920.0f;
-    const float canvas_h = 1080.0f;
+    const float canvas_w = CANVAS_W;
+    const float canvas_h = CANVAS_H;
     const float threshold = 25.0f;
 
     QRectF bounds = source->get_bounding_rect();
@@ -524,8 +524,8 @@ void Scene::snap_to_fullscreen(Source *source) {
 void Scene::collect_snap_targets(Source *exclude_source,
                                  std::vector<SnapTarget> &out_vertical,
                                  std::vector<SnapTarget> &out_horizontal) {
-    const float canvas_w = 1920.0f;
-    const float canvas_h = 1080.0f;
+    const float canvas_w = CANVAS_W;
+    const float canvas_h = CANVAS_H;
 
     // Canvas boundaries (vertical for X-axis, horizontal for Y-axis)
     out_vertical.push_back({0.0f, SnapTarget::CanvasEdge, nullptr});

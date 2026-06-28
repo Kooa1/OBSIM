@@ -127,6 +127,9 @@ void FilteredVideoCaptor::filter_loop() {
 
         auto processed = frame.value();
         m_filtered_queue->push_no_wait(processed);
-        VideoCaptor::push_frame(processed);
+        AVFramePtr clone(av_frame_clone(processed.get()), AVFrameDeleter());
+        if (clone) {
+            VideoCaptor::push_frame(std::move(clone));
+        }
     }
 }

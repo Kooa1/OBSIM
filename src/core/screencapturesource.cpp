@@ -1,14 +1,10 @@
 #include "screencapturesource.h"
-#include "dxgiscreencaptor.h"
+#include "pooleddisplaycaptor.h"
 #include "filter/filteredvideocaptor.h"
 
 ScreenCaptureSource::ScreenCaptureSource(const CaptorConfig &config)
     : VideoSource(std::make_unique<FilteredVideoCaptor>(
-          [&config]() {
-              auto captor = std::make_unique<DXGIScreenCaptor>();
-              captor->apply_config(config);
-              return captor;
-          }())), m_config(config)
+          std::make_unique<PooledDisplayCaptor>(config))), m_config(config)
 {
     base_width  = static_cast<float>(config.width);
     base_height = static_cast<float>(config.height);

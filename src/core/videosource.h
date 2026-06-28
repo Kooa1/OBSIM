@@ -15,6 +15,8 @@ class VideoSource : public Source {
 public:
     /// @brief Constructor with a video captor
     /// @param captor Unique pointer to video captor
+    /// @note Captor is started immediately on construction. Call stop_capture() before destruction
+    ///       if the captor should not run for the full lifetime of this VideoSource.
     explicit VideoSource(std::unique_ptr<VideoCaptor> captor);
     ~VideoSource() override = default;
 

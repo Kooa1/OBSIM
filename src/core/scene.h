@@ -34,6 +34,9 @@ enum class ResizeHandle {
 /// @brief Manages scene sources, selection, hit-testing, interactive dragging/resizing, and snap alignment.
 class Scene {
 public:
+    static constexpr float CANVAS_W = 1920.0f;
+    static constexpr float CANVAS_H = 1080.0f;
+
     explicit Scene();
 
     /// @brief Returns all sources for rendering traversal (front-to-back = bottom-to-top).
