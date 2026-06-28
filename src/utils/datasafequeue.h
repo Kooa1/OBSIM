@@ -180,13 +180,7 @@ public:
         return true;
     }
 
-    /// @brief Push a default-constructed poison pill to unblock consumers
-    inline void push_poison_pill() {
-        std::unique_lock<std::mutex> lock(q_mutex);
-        data_queue.push(std::move(T()));
-        cv_not_empty.notify_one();
-    }
-
+    /// @brief Get the size of the queue
     inline size_t get_queue_size() const {
         std::lock_guard<std::mutex> lock_guard(q_mutex);
         return data_queue.size();
@@ -197,8 +191,9 @@ public:
         return max_size;
     }
 
-    inline T peek() const {
+    inline std::optional<T> peek() const {
         std::lock_guard<std::mutex> lock_guard(q_mutex);
+        if (data_queue.empty()) return std::nullopt;
         return data_queue.front();
     }
 
@@ -207,11 +202,11 @@ public:
         return data_queue.empty();
     }
 
-    inline std::atomic<bool> get_pause_state() const {
+    inline bool get_pause_state() const {
         return pause_request.load(std::memory_order_acquire);
     }
 
-    inline std::atomic<bool> get_stop_state() const {
+    inline bool get_stop_state() const {
         return stop_request.load(std::memory_order_acquire);
     }
 
